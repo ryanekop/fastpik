@@ -42,7 +42,7 @@ export function ProjectListWrapper({ initialProjects }: ProjectListWrapperProps)
 
     const onProjectCreated = (newProject: Project) => {
         setProjects(prev => [newProject, ...prev])
-        setView('list')
+        // Don't switch to list view - let the form show the success state with action buttons
         router.refresh() // Sync server
     }
 

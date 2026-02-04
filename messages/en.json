@@ -101,7 +101,8 @@
         "checkEmailForLink": "Check your email for the reset link.",
         "sendingLink": "Sending link...",
         "sendResetLink": "Send Reset Link",
-        "backToLogin": "Back to Login"
+        "backToLogin": "Back to Login",
+        "copied": "Copied!"
     },
     "Client": {
         "select": "Select",

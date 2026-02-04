@@ -101,7 +101,8 @@
         "checkEmailForLink": "Cek email Anda untuk link reset.",
         "sendingLink": "Mengirim link...",
         "sendResetLink": "Kirim Link Reset",
-        "backToLogin": "Kembali ke Login"
+        "backToLogin": "Kembali ke Login",
+        "copied": "Tersalin!"
     },
     "Client": {
         "select": "Pilih",

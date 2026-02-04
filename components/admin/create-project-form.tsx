@@ -277,19 +277,38 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
                             <CardContent className="pt-6 space-y-4">
                                 <div className="space-y-2">
                                     <h3 className="font-semibold text-center">🎉 {t('linkCreated')}</h3>
-                                    <div className="flex items-center gap-2">
-                                        <Input value={generatedLink} readOnly className="bg-background text-sm" />
-                                        <Button size="icon" variant="outline" onClick={copyToClipboard} className="cursor-pointer">{copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}</Button>
-                                    </div>
+                                    <Input value={generatedLink} readOnly className="bg-background text-sm text-center" />
                                 </div>
-                                <Button onClick={sendToClient} className="w-full bg-green-600 hover:bg-green-700 text-white gap-2 cursor-pointer"><MessageCircle className="h-4 w-4" />{t('sendToClient')}</Button>
-                                <div className="flex flex-col sm:flex-row gap-2">
-                                    <Button variant="outline" className="flex-1 cursor-pointer" onClick={() => window.open(generatedLink, '_blank')}>🔗 {t('openLink')} <ArrowRight className="ml-2 h-4 w-4" /></Button>
-                                    <Button variant="outline" className="flex-1 cursor-pointer" onClick={createNewProject}>✨ {t('createNew')}</Button>
-                                </div>
-                                {onBack && (<Button variant="outline" className="w-full cursor-pointer mt-2" onClick={onBack}><ArrowLeft className="mr-2 h-4 w-4" />{t('backToProjects')}</Button>)}
                             </CardContent>
                         </Card>
+
+                        {/* Action Buttons */}
+                        <div className="mt-4 space-y-2">
+                            {/* 1. WhatsApp to Client */}
+                            <Button onClick={sendToClient} className="w-full bg-green-600 hover:bg-green-700 text-white gap-2 cursor-pointer">
+                                <MessageCircle className="h-4 w-4" />
+                                {t('sendToClient')}
+                            </Button>
+
+                            {/* 2. Copy Link */}
+                            <Button variant="outline" className="w-full gap-2 cursor-pointer" onClick={copyToClipboard}>
+                                {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                                {copied ? t('copied') : t('copyLink')}
+                            </Button>
+
+                            {/* 3. Create New Project */}
+                            <Button variant="outline" className="w-full gap-2 cursor-pointer" onClick={createNewProject}>
+                                ✨ {t('createNew')}
+                            </Button>
+
+                            {/* 4. Back to Project List */}
+                            {onBack && (
+                                <Button variant="outline" className="w-full gap-2 cursor-pointer" onClick={onBack}>
+                                    <ArrowLeft className="h-4 w-4" />
+                                    {t('backToProjects')}
+                                </Button>
+                            )}
+                        </div>
                     </motion.div>
                 )}
             </AnimatePresence>
