@@ -8,7 +8,8 @@ export interface CachedPhoto {
     url: string
     fullUrl: string
     downloadUrl?: string
-    folderName?: string
+    folderName?: string   // Immediate parent folder name
+    folderPath?: string   // Full path for grouping (e.g., "Parent > Child")
     createdTime?: string
 }
 
@@ -72,6 +73,7 @@ export async function GET(request: NextRequest) {
         fullUrl: file.fullUrl || getDirectImageUrl(file.id),
         downloadUrl: file.webContentLink,
         folderName: file.folderName,
+        folderPath: file.folderPath,
         createdTime: file.createdTime
     }))
 

@@ -113,7 +113,7 @@ export function PhoneInput({ value = "", onChange, placeholder = "812xxxxxxxx", 
     }
 
     return (
-        <div className={cn("flex gap-0", className)} ref={dropdownRef}>
+        <div className={cn("flex gap-0 min-w-0 overflow-hidden", className)} ref={dropdownRef}>
             {/* Country Dropdown */}
             <div className="relative">
                 <button
@@ -163,7 +163,7 @@ export function PhoneInput({ value = "", onChange, placeholder = "812xxxxxxxx", 
                 onFocus={() => setIsOpen(false)}
                 placeholder={placeholder}
                 className={cn(
-                    "flex-1 h-10 px-3 border rounded-r-md bg-background",
+                    "flex-1 min-w-0 h-10 px-3 border rounded-r-md bg-background",
                     "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-0",
                     error && "border-red-500 focus:ring-red-500"
                 )}

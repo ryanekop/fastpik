@@ -1,0 +1,101 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { createClient } from "@/lib/supabase/client"
+import { Button } from "@/components/ui/button"
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu"
+import { LogOut, Settings } from "lucide-react"
+import { ThemeToggle } from "@/components/theme-toggle"
+import { LanguageToggle } from "@/components/language-toggle"
+import { useTranslations, useLocale } from "next-intl"
+import Link from "next/link"
+
+export function AdminShell({ children }: { children: React.ReactNode }) {
+    const router = useRouter()
+    const supabase = createClient()
+    const t = useTranslations('Admin')
+    const locale = useLocale()
+
+    const [loading, setLoading] = useState(false)
+    const [userEmail, setUserEmail] = useState<string | null>(null)
+    const [userName, setUserName] = useState<string>("Admin")
+
+    useEffect(() => {
+        const getUser = async () => {
+            const { data: { user } } = await supabase.auth.getUser()
+            if (user) {
+                setUserEmail(user.email || null)
+                // Extract name from email if no display name
+                const name = user.user_metadata?.full_name || user.email?.split('@')[0] || "Admin"
+                setUserName(name)
+            }
+        }
+        getUser()
+    }, [])
+
+    const handleLogout = async () => {
+        setLoading(true)
+        await supabase.auth.signOut()
+        router.refresh()
+        router.push(`/${locale}/dashboard/login`)
+    }
+
+    // Get initials from name
+    const getInitials = (name: string) => {
+        return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+    }
+
+    return (
+        <div className="flex flex-col min-h-screen">
+            <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background px-6 shadow-sm">
+                <Link href={`/${locale}`} className="flex items-center gap-2 font-bold text-lg hover:opacity-80 transition-opacity cursor-pointer">
+                    📸 Fastpik
+                </Link>
+                <div className="ml-auto flex items-center gap-4">
+                    <LanguageToggle />
+                    <ThemeToggle />
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="relative h-8 w-8 rounded-full bg-muted flex items-center justify-center cursor-pointer hover:bg-muted/80 transition-colors">
+                                <span className="text-xs font-medium">{getInitials(userName)}</span>
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent className="w-56" align="end" forceMount>
+                            <DropdownMenuLabel className="font-normal">
+                                <div className="flex flex-col space-y-1">
+                                    <p className="text-sm font-medium leading-none">{userName}</p>
+                                    <p className="text-xs leading-none text-muted-foreground">
+                                        {userEmail || "admin@example.com"}
+                                    </p>
+                                </div>
+                            </DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => router.push(`/${locale}/dashboard/settings`)} className="cursor-pointer">
+                                <Settings className="mr-2 h-4 w-4" />
+                                <span>{t('settings')}</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={handleLogout} className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950 cursor-pointer">
+                                <LogOut className="mr-2 h-4 w-4" />
+                                <span>Log out</span>
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
+            </header>
+            <main className="flex-1 p-6 md:p-8 bg-muted/20">
+                <div className="mx-auto max-w-xl">
+                    {children}
+                </div>
+            </main>
+        </div>
+    )
+}

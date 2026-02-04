@@ -1,15 +1,17 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useSelectionStore } from "@/lib/store"
+import { useSelectionStore, useStoreHydration } from "@/lib/store"
 import { PhotoGrid } from "./photo-grid"
 import { PhotoLightbox } from "./photo-lightbox"
-import { useTranslations } from "next-intl"
+import { useTranslations, useLocale } from "next-intl"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
 import { PopupDialog, Toast } from "@/components/ui/popup-dialog"
-import { Copy, Send, AlertCircle, Loader2, RefreshCw, ImageOff, Trash2, Lock, Eye, EyeOff, MessageCircle, Check } from "lucide-react"
+import { Copy, Send, AlertCircle, Loader2, RefreshCw, ImageOff, Trash2, Lock, Eye, EyeOff, MessageCircle, Check, Download, MousePointerClick, ArrowLeft } from "lucide-react"
+import JSZip from "jszip"
+import { saveAs } from "file-saver"
 import { generateMockPhotos } from "@/lib/mock-data"
 import { cn } from "@/lib/utils"
 import { LanguageToggle } from "@/components/language-toggle"
@@ -22,7 +24,8 @@ interface Photo {
     url: string
     fullUrl: string
     downloadUrl?: string
-    folderName?: string
+    folderName?: string   // Immediate parent folder name
+    folderPath?: string   // Full path for grouping
     createdTime?: string
 }
 
@@ -30,26 +33,50 @@ interface ClientViewProps {
     config: {
         clientName: string
         maxPhotos: number
-        whatsapp: string
+        adminWhatsapp: string  // Admin WhatsApp for receiving results
         gdriveLink: string
         detectSubfolders: boolean
         expiresAt?: number
         password?: string
+        lockedPhotos?: string[] // Previously selected photo filenames
     }
+    messageTemplates?: {
+        resultInitial: { id: string, en: string } | null
+        resultExtra: { id: string, en: string } | null
+    } | null
 }
 
-export function ClientView({ config }: ClientViewProps) {
+export function ClientView({ config, messageTemplates }: ClientViewProps) {
     const t = useTranslations('Client')
+    const currentLocale = useLocale()
     const { selected, toggleSelection, clearSelection, setProjectId, projectId } = useSelectionStore()
+    const isHydrated = useStoreHydration() // Use proper Zustand hydration detection
     const [photos, setPhotos] = useState<Photo[]>([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
     const [alertMax, setAlertMax] = useState(false)
     const [copied, setCopied] = useState(false)
 
+    // View mode state: 'initial' = landing choice, 'culling' = select photos, 'download' = download mode
+    const [viewMode, setViewMode] = useState<'initial' | 'culling' | 'download'>('initial')
+    // Download mode selection (separate from culling selection)
+    const [downloadSelected, setDownloadSelected] = useState<string[]>([])
+    const [isDownloading, setIsDownloading] = useState(false)
+    const [downloadProgress, setDownloadProgress] = useState(0)
+
+    // Generate a unique project identifier from config (defined early for use in state initializers)
+    const currentProjectId = `${config.clientName}-${config.gdriveLink}`.replace(/[^a-zA-Z0-9]/g, '-').substring(0, 50)
+
     // Password protection state
     const [isPasswordProtected] = useState(!!config.password)
-    const [isAuthenticated, setIsAuthenticated] = useState(!config.password)
+    const [isAuthenticated, setIsAuthenticated] = useState(() => {
+        // Check sessionStorage for existing auth (client-side only)
+        if (typeof window !== 'undefined' && config.password) {
+            const authKey = `fastpik-auth-${config.clientName}-${config.gdriveLink}`.replace(/[^a-zA-Z0-9-]/g, '-').substring(0, 60)
+            return sessionStorage.getItem(authKey) === 'true'
+        }
+        return !config.password
+    })
     const [passwordInput, setPasswordInput] = useState("")
     const [passwordError, setPasswordError] = useState(false)
     const [showPassword, setShowPassword] = useState(false)
@@ -65,6 +92,7 @@ export function ClientView({ config }: ClientViewProps) {
     const [showRestoreDialog, setShowRestoreDialog] = useState(false)
     const [hasPendingSelection, setHasPendingSelection] = useState(false)
 
+    // Track if project check has already been done this session
     // Check if project is expired (client-side only to avoid hydration mismatch)
     const [isExpired, setIsExpired] = useState(false)
 
@@ -72,20 +100,39 @@ export function ClientView({ config }: ClientViewProps) {
         setIsExpired(config.expiresAt ? Date.now() > config.expiresAt : false)
     }, [config.expiresAt])
 
-    // Generate a unique project identifier from config
-    const currentProjectId = `${config.clientName}-${config.gdriveLink}`.replace(/[^a-zA-Z0-9]/g, '-').substring(0, 50)
+    // Generate auth storage key (must match the one used in state initializer)
+    const authStorageKey = `fastpik-auth-${config.clientName}-${config.gdriveLink}`.replace(/[^a-zA-Z0-9-]/g, '-').substring(0, 60)
 
-    // Check for existing session on mount
+    // Session key for tracking if we've already checked this project in this browser session
+    const sessionCheckKey = `fastpik-session-${currentProjectId}`
+
+    // Check for existing session on mount (only after hydration and only once per browser session)
     useEffect(() => {
+        if (!isHydrated) return
+
+        // Check if we've already done the session check in this browser tab
+        const alreadyChecked = sessionStorage.getItem(sessionCheckKey)
+        if (alreadyChecked) {
+            // Already checked this session - just ensure project ID is set correctly
+            if (projectId !== currentProjectId) {
+                setProjectId(currentProjectId)
+            }
+            return
+        }
+
+        // Mark as checked for this browser session
+        sessionStorage.setItem(sessionCheckKey, 'true')
+
         if (projectId === currentProjectId && selected.length > 0) {
             // Same project, has previous selection - ask to restore
             setHasPendingSelection(true)
             setShowRestoreDialog(true)
-        } else {
-            // Different project or no selection - set project and clear
+        } else if (projectId !== currentProjectId) {
+            // Different project - set project and clear
             setProjectId(currentProjectId)
         }
-    }, [])
+        // If same project but no selection, do nothing (keep existing state)
+    }, [isHydrated])
 
     // Beforeunload warning when there are unsaved selections
     useEffect(() => {
@@ -128,6 +175,8 @@ export function ClientView({ config }: ClientViewProps) {
         if (passwordInput === config.password) {
             setIsAuthenticated(true)
             setPasswordError(false)
+            // Save auth state to sessionStorage
+            sessionStorage.setItem(authStorageKey, 'true')
         } else {
             setPasswordError(true)
         }
@@ -183,9 +232,19 @@ export function ClientView({ config }: ClientViewProps) {
                     fullUrl: photo.fullUrl,
                     downloadUrl: photo.downloadUrl,
                     folderName: photo.folderName,
+                    folderPath: photo.folderPath,
                     createdTime: photo.createdTime
                 }))
                 setPhotos(drivePhotos)
+
+                // Debug: Log unique folders
+                const uniqueFolders = [...new Set(drivePhotos.map(p => p.folderName).filter(Boolean))]
+                console.log('📁 Unique folders found:', uniqueFolders)
+                console.log('📊 Photos per folder:', drivePhotos.reduce((acc, p) => {
+                    const folder = p.folderName || 'undefined'
+                    acc[folder] = (acc[folder] || 0) + 1
+                    return acc
+                }, {} as Record<string, number>))
 
                 // Log cache status
                 if (result.cached) {
@@ -246,8 +305,9 @@ export function ClientView({ config }: ClientViewProps) {
                                 {t('unlock') || 'Unlock'} 🔓
                             </Button>
                         </form>
-                        <div className="flex justify-center">
+                        <div className="flex justify-center gap-2">
                             <LanguageToggle />
+                            <ThemeToggle />
                         </div>
                     </CardContent>
                 </Card>
@@ -272,7 +332,81 @@ export function ClientView({ config }: ClientViewProps) {
         )
     }
 
+    // Landing choice screen - shown after password verification but before main content
+    if (viewMode === 'initial') {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/30 p-4">
+                <Card className="w-full max-w-lg shadow-2xl border-0 bg-card/80 backdrop-blur-xl">
+                    <CardContent className="pt-8 pb-10 space-y-8">
+                        <div className="text-center space-y-3">
+                            <div className="text-5xl mb-2">📸</div>
+                            <h1 className="text-2xl font-bold tracking-tight">{config.clientName}</h1>
+                            <p className="text-muted-foreground">{t('chooseAction')}</p>
+                        </div>
+
+                        <div className="grid gap-4">
+                            {/* Select Photos Option */}
+                            <button
+                                onClick={() => setViewMode('culling')}
+                                className="group relative flex items-center gap-4 p-5 rounded-xl border-2 border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-950/30 hover:border-green-400 dark:hover:border-green-600 hover:bg-green-100/80 dark:hover:bg-green-900/40 transition-all duration-300 cursor-pointer"
+                            >
+                                <div className="flex-shrink-0 w-14 h-14 rounded-full bg-green-500 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                                    <MousePointerClick className="w-7 h-7 text-white" />
+                                </div>
+                                <div className="text-left flex-1">
+                                    <h3 className="font-semibold text-lg text-green-700 dark:text-green-300">{t('selectPhotos')}</h3>
+                                    <p className="text-sm text-muted-foreground">{t('selectPhotosDesc')}</p>
+                                </div>
+                            </button>
+
+                            {/* Download Photos Option */}
+                            <button
+                                onClick={() => setViewMode('download')}
+                                className="group relative flex items-center gap-4 p-5 rounded-xl border-2 border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/30 hover:border-blue-400 dark:hover:border-blue-600 hover:bg-blue-100/80 dark:hover:bg-blue-900/40 transition-all duration-300 cursor-pointer"
+                            >
+                                <div className="flex-shrink-0 w-14 h-14 rounded-full bg-blue-500 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                                    <Download className="w-7 h-7 text-white" />
+                                </div>
+                                <div className="text-left flex-1">
+                                    <h3 className="font-semibold text-lg text-blue-700 dark:text-blue-300">{t('downloadPhotos')}</h3>
+                                    <p className="text-sm text-muted-foreground">{t('downloadPhotosDesc')}</p>
+                                </div>
+                            </button>
+                        </div>
+
+                        <div className="flex justify-center gap-2 pt-2">
+                            <LanguageToggle />
+                            <ThemeToggle />
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+        )
+    }
+
+    // Helper to get name without extension (must be defined before usage)
+    const getNameWithoutExt = (name: string | undefined) => {
+        if (!name) return ''
+        return name.replace(/\.[^/.]+$/, '')
+    }
+
+    // Get list of locked photo names (without extension for comparison)
+    const lockedPhotoNames = config.lockedPhotos?.map(name => getNameWithoutExt(name)) || []
+
+    // Helper to check if a photo is locked
+    const isPhotoLocked = (photo: Photo) => {
+        const photoNameWithoutExt = getNameWithoutExt(photo.name)
+        return lockedPhotoNames.includes(photoNameWithoutExt)
+    }
+
     const handleToggle = (id: string) => {
+        const photo = photos.find(p => p.id === id)
+
+        // Prevent unlocking locked photos
+        if (photo && isPhotoLocked(photo)) {
+            return
+        }
+
         if (!selected.includes(id) && selected.length >= config.maxPhotos) {
             setAlertMax(true)
             setTimeout(() => setAlertMax(false), 1000)
@@ -287,14 +421,22 @@ export function ClientView({ config }: ClientViewProps) {
         setLightboxOpen(true)
     }
 
-    // Helper to get name without extension
-    const getNameWithoutExt = (name: string | undefined) => {
-        if (!name) return ''
-        return name.replace(/\.[^/.]+$/, '')
-    }
-
     const copyList = () => {
-        const listText = selected.map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name)).join('\n')
+        let listText: string
+
+        if (lockedPhotoNames.length > 0) {
+            // Format with separators for extra photos project
+            const lockedList = lockedPhotoNames.join('\n')
+            const newPhotos = selected
+                .map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name))
+                .filter(name => !lockedPhotoNames.includes(name || ''))
+            const newList = newPhotos.join('\n')
+
+            listText = `=== ${t('previousPhotos')} (${lockedPhotoNames.length}) ===\n${lockedList}\n\n=== ${t('additionalPhotos')} (${newPhotos.length}) ===\n${newList}`
+        } else {
+            // Plain list for normal project
+            listText = selected.map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name)).join('\n')
+        }
 
         if (navigator.clipboard && window.isSecureContext) {
             navigator.clipboard.writeText(listText)
@@ -320,10 +462,53 @@ export function ClientView({ config }: ClientViewProps) {
         }
     }
 
+    const compileMessage = (template: { id: string, en: string } | null, variables: Record<string, string>, defaultMsg: string) => {
+        const lang = currentLocale as 'id' | 'en'
+        const tmplText = template?.[lang] || ""
+
+        if (tmplText.trim()) {
+            let msg = tmplText
+            Object.entries(variables).forEach(([key, val]) => {
+                msg = msg.replace(new RegExp(`{{${key}}}`, 'g'), val)
+            })
+            return msg
+        }
+        return defaultMsg
+    }
+
     const sendWhatsapp = () => {
-        const listText = selected.map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name)).join('\n')
-        const message = `${t('waMessageIntro')}\n\n${t('waMessageBody')} (${selected.length} ${t('waMessagePhotos')}):\n\n${listText}\n\n${t('waMessageThanks')}`
-        window.open(`https://wa.me/${config.whatsapp}?text=${encodeURIComponent(message)}`, '_blank')
+        let listText: string
+        let totalCount: number
+
+        if (lockedPhotoNames.length > 0) {
+            // Format with separators for extra photos project
+            const lockedList = lockedPhotoNames.join('\n')
+            const newPhotos = selected
+                .map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name))
+                .filter(name => !lockedPhotoNames.includes(name || ''))
+            const newList = newPhotos.join('\n')
+
+            listText = `=== ${t('previousPhotos')} (${lockedPhotoNames.length}) ===\n${lockedList}\n\n=== ${t('additionalPhotos')} (${newPhotos.length}) ===\n${newList}`
+            totalCount = lockedPhotoNames.length + newPhotos.length
+        } else {
+            // Plain list for normal project
+            listText = selected.map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name)).join('\n')
+            totalCount = selected.length
+        }
+
+        const variables = {
+            client_name: config.clientName,
+            count: totalCount.toString(),
+            list: listText,
+            link: config.gdriveLink || ''
+        }
+
+        const template = (lockedPhotoNames.length > 0) ? messageTemplates?.resultExtra : messageTemplates?.resultInitial
+        const defaultMsg = `${t('waMessageIntro')}\n\n${t('waMessageBody')} (${totalCount} ${t('waMessagePhotos')}):\n\n${listText}\n\n${t('waMessageThanks')}`
+
+        const message = compileMessage(template || null, variables, defaultMsg)
+
+        window.open(`https://wa.me/${config.adminWhatsapp}?text=${encodeURIComponent(message)}`, '_blank')
     }
 
     const handleClearSelection = () => {
@@ -331,6 +516,59 @@ export function ClientView({ config }: ClientViewProps) {
         setShowClearDialog(false)
         setToastMessage(t('selectionCleared'))
         setShowToast(true)
+    }
+
+    // Download mode toggle handler
+    const handleDownloadToggle = (id: string) => {
+        setDownloadSelected(prev =>
+            prev.includes(id)
+                ? prev.filter(x => x !== id)
+                : [...prev, id]
+        )
+    }
+
+    // Download photos function
+    const handleDownloadPhotos = async (photoIds: string[]) => {
+        if (photoIds.length === 0) return
+
+        setIsDownloading(true)
+        setDownloadProgress(0)
+
+        try {
+            const zip = new JSZip()
+            const photosToDownload = photos.filter(p => photoIds.includes(p.id))
+
+            for (let i = 0; i < photosToDownload.length; i++) {
+                const photo = photosToDownload[i]
+                const downloadUrl = photo.downloadUrl || photo.fullUrl || photo.url
+
+                try {
+                    // Fetch image through our API proxy to avoid CORS
+                    const response = await fetch(`/api/photos/download?url=${encodeURIComponent(downloadUrl)}`)
+                    if (!response.ok) throw new Error('Failed to fetch image')
+
+                    const blob = await response.blob()
+                    zip.file(photo.name, blob)
+                } catch (err) {
+                    console.error(`Failed to download ${photo.name}:`, err)
+                }
+
+                setDownloadProgress(Math.round(((i + 1) / photosToDownload.length) * 100))
+            }
+
+            const content = await zip.generateAsync({ type: 'blob' })
+            saveAs(content, `${config.clientName}-photos.zip`)
+
+            setToastMessage(t('downloadComplete'))
+            setShowToast(true)
+        } catch (err) {
+            console.error('Download failed:', err)
+            setToastMessage(t('downloadFailed'))
+            setShowToast(true)
+        } finally {
+            setIsDownloading(false)
+            setDownloadProgress(0)
+        }
     }
 
     // Get selected photo names for display
@@ -346,29 +584,93 @@ export function ClientView({ config }: ClientViewProps) {
 
     return (
         <div className="min-h-screen bg-background pb-36">
-            {/* Header */}
+            {/* Header - Conditional based on viewMode */}
             <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b p-4 flex justify-between items-center transition-all">
-                <div>
-                    <h1 className="font-bold text-lg">{config.clientName}</h1>
-                    <p className={cn(
-                        "text-xs transition-colors",
-                        alertMax ? "text-red-500 font-semibold" : "text-muted-foreground"
-                    )}>
-                        {selected.length} / {config.maxPhotos} {t('selected')}
-                        {alertMax && ` ⚠️ ${t('maxLimit')}`}
-                    </p>
-                </div>
-                <div className="flex items-center gap-3">
-                    <Progress
-                        value={(selected.length / config.maxPhotos) * 100}
-                        className={cn(
-                            "w-24 transition-colors",
-                            alertMax && "bg-red-200"
-                        )}
-                    />
-                    <ThemeToggle />
-                    <LanguageToggle />
-                </div>
+                {viewMode === 'download' ? (
+                    <>
+                        {/* Download Mode Header */}
+                        <div className="flex items-center gap-3">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setViewMode('initial')}
+                                className="cursor-pointer"
+                            >
+                                <ArrowLeft className="h-5 w-5" />
+                            </Button>
+                            <div>
+                                <h1 className="font-bold text-lg">{config.clientName}</h1>
+                                <p className="text-xs text-muted-foreground">
+                                    {downloadSelected.length > 0
+                                        ? `${downloadSelected.length} ${t('photosToDownload')}`
+                                        : t('selectToDownload')}
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Button
+                                onClick={() => handleDownloadPhotos(photos.map(p => p.id))}
+                                disabled={isDownloading || photos.length === 0}
+                                size="icon"
+                                className="bg-blue-600 hover:bg-blue-700 text-white cursor-pointer sm:px-4 sm:w-auto"
+                            >
+                                {isDownloading ? (
+                                    <>
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                        <span className="hidden sm:inline ml-2">{downloadProgress}%</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Download className="h-4 w-4" />
+                                        <span className="hidden sm:inline ml-2">{t('downloadAll')}</span>
+                                    </>
+                                )}
+                            </Button>
+                            <ThemeToggle />
+                            <LanguageToggle />
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        {/* Culling Mode Header */}
+                        <div className="flex items-center gap-3">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setViewMode('initial')}
+                                className="cursor-pointer"
+                            >
+                                <ArrowLeft className="h-5 w-5" />
+                            </Button>
+                            <div>
+                                <h1 className="font-bold text-lg">{config.clientName}</h1>
+                                <p className={cn(
+                                    "text-xs transition-colors",
+                                    alertMax ? "text-red-500 font-semibold" : "text-muted-foreground"
+                                )}>
+                                    {selected.length} / {config.maxPhotos} {t('selected')}
+                                    {lockedPhotoNames.length > 0 && (
+                                        <span className="ml-2 text-amber-600 dark:text-amber-400">
+                                            🔒 {lockedPhotoNames.length} {t('lockedPhotosCount')}
+                                        </span>
+                                    )}
+                                    {alertMax && ` ⚠️ ${t('maxLimit')}`}
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <Progress
+                                value={(selected.length / config.maxPhotos) * 100}
+                                className={cn(
+                                    "w-24 transition-colors",
+                                    alertMax && "bg-red-200"
+                                )}
+                            />
+                            <ThemeToggle />
+                            <LanguageToggle />
+                        </div>
+                    </>
+                )}
             </div>
 
             {/* Error Banner */}
@@ -398,6 +700,15 @@ export function ClientView({ config }: ClientViewProps) {
                         <RefreshCw className="h-4 w-4 mr-2" /> {t('reload')}
                     </Button>
                 </div>
+            ) : viewMode === 'download' ? (
+                <PhotoGrid
+                    photos={photos}
+                    selected={downloadSelected}
+                    onToggle={handleDownloadToggle}
+                    onZoom={handleZoom}
+                    detectSubfolders={config.detectSubfolders}
+                    lockedPhotoNames={[]}
+                />
             ) : (
                 <PhotoGrid
                     photos={photos}
@@ -405,67 +716,109 @@ export function ClientView({ config }: ClientViewProps) {
                     onToggle={handleToggle}
                     onZoom={handleZoom}
                     detectSubfolders={config.detectSubfolders}
+                    lockedPhotoNames={lockedPhotoNames}
                 />
             )}
 
-            {/* Photo Lightbox */}
+            {/* Photo Lightbox - Conditional based on viewMode */}
             <PhotoLightbox
                 photos={lightboxPhotos}
                 initialIndex={lightboxIndex}
                 isOpen={lightboxOpen}
                 onClose={() => setLightboxOpen(false)}
-                selectedIds={selected}
-                onToggleSelect={handleToggle}
-                maxPhotos={config.maxPhotos}
+                selectedIds={viewMode === 'download' ? downloadSelected : selected}
+                onToggleSelect={viewMode === 'download' ? handleDownloadToggle : handleToggle}
+                maxPhotos={viewMode === 'download' ? Infinity : config.maxPhotos}
             />
 
-            {/* Bottom Bar - Fixed on mobile, lower z-index than lightbox */}
+            {/* Bottom Bar - Conditional based on viewMode */}
             <div className="fixed bottom-0 left-0 right-0 z-40 p-4 bg-background/95 backdrop-blur-md border-t shadow-[0_-5px_20px_rgba(0,0,0,0.1)]">
-                {/* Selected photos display */}
-                {selected.length > 0 && (
-                    <div className="mb-2 text-xs text-muted-foreground text-center px-4 truncate">
-                        {t('chosenPhotos')}: {selectedPhotoNames.join(', ')}{selected.length > 5 && ` +${selected.length - 5} ${t('more')}`}
+                {viewMode === 'download' ? (
+                    // Download Mode Bottom Bar
+                    <div className="flex flex-col gap-2 w-full max-w-xl mx-auto">
+                        {downloadSelected.length > 0 && (
+                            <div className="text-xs text-muted-foreground text-center">
+                                {downloadSelected.length} {t('photosToDownload')}
+                            </div>
+                        )}
+                        <div className="flex gap-2">
+                            <Button
+                                variant="outline"
+                                onClick={() => setDownloadSelected([])}
+                                disabled={downloadSelected.length === 0}
+                                className="shrink-0 cursor-pointer text-red-500 border-red-200 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                            >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                {t('clearSelection')}
+                            </Button>
+                            <Button
+                                onClick={() => handleDownloadPhotos(downloadSelected)}
+                                disabled={downloadSelected.length === 0 || isDownloading}
+                                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white cursor-pointer"
+                            >
+                                {isDownloading ? (
+                                    <>
+                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                        {downloadProgress}%
+                                    </>
+                                ) : (
+                                    <>
+                                        <Download className="h-4 w-4 mr-2" />
+                                        {t('downloadSelected')} ({downloadSelected.length})
+                                    </>
+                                )}
+                            </Button>
+                        </div>
                     </div>
+                ) : (
+                    // Culling Mode Bottom Bar (original)
+                    <>
+                        {selected.length > 0 && (
+                            <div className="mb-2 text-xs text-muted-foreground text-center px-4 truncate">
+                                {t('chosenPhotos')}: {selectedPhotoNames.join(', ')}{selected.length > 5 && ` +${selected.length - 5} ${t('more')}`}
+                            </div>
+                        )}
+                        <div className="flex flex-col md:flex-row gap-2 md:gap-3 w-full max-w-xl mx-auto md:max-w-none md:justify-center">
+                            <div className="flex gap-2 w-full md:w-auto md:contents">
+                                {/* Clear Selection Button */}
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={() => setShowClearDialog(true)}
+                                    disabled={selected.length === 0}
+                                    className="shrink-0 cursor-pointer text-red-500 border-red-200 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 md:order-1 md:w-auto md:px-4 md:aspect-auto"
+                                >
+                                    <Trash2 className="h-4 w-4 md:mr-2" />
+                                    <span className="hidden md:inline">{t('clearSelection')}</span>
+                                </Button>
+
+                                {/* Copy List Button */}
+                                <Button
+                                    variant="outline"
+                                    onClick={copyList}
+                                    disabled={selected.length === 0}
+                                    className={cn(
+                                        "flex-1 md:flex-none gap-2 cursor-pointer md:order-2",
+                                        copied && "bg-green-100 text-green-700 border-green-200"
+                                    )}
+                                >
+                                    {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                                    {copied ? t('copied') : t('copyList')}
+                                </Button>
+                            </div>
+
+                            {/* WhatsApp Button */}
+                            <Button
+                                onClick={sendWhatsapp}
+                                disabled={selected.length === 0}
+                                className="w-full md:w-auto bg-green-600 hover:bg-green-700 text-white gap-2 cursor-pointer shadow-sm md:order-3"
+                            >
+                                <MessageCircle className="h-4 w-4" />
+                                {t('sendToClient')}
+                            </Button>
+                        </div>
+                    </>
                 )}
-                <div className="flex flex-col md:flex-row gap-2 md:gap-3 w-full max-w-xl mx-auto md:max-w-none md:justify-center">
-                    <div className="flex gap-2 w-full md:w-auto md:contents">
-                        {/* Clear Selection Button */}
-                        <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => setShowClearDialog(true)}
-                            disabled={selected.length === 0}
-                            className="shrink-0 cursor-pointer text-red-500 border-red-200 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 md:order-1 md:w-auto md:px-4 md:aspect-auto"
-                        >
-                            <Trash2 className="h-4 w-4 md:mr-2" />
-                            <span className="hidden md:inline">{t('clearSelection')}</span>
-                        </Button>
-
-                        {/* Copy List Button */}
-                        <Button
-                            variant="outline"
-                            onClick={copyList}
-                            disabled={selected.length === 0}
-                            className={cn(
-                                "flex-1 md:flex-none gap-2 cursor-pointer md:order-2",
-                                copied && "bg-green-100 text-green-700 border-green-200"
-                            )}
-                        >
-                            {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                            {copied ? t('copied') : t('copyList')}
-                        </Button>
-                    </div>
-
-                    {/* WhatsApp Button */}
-                    <Button
-                        onClick={sendWhatsapp}
-                        disabled={selected.length === 0}
-                        className="w-full md:w-auto bg-green-600 hover:bg-green-700 text-white gap-2 cursor-pointer shadow-sm md:order-3"
-                    >
-                        <MessageCircle className="h-4 w-4" />
-                        {t('sendToClient')}
-                    </Button>
-                </div>
             </div>
 
             {/* Clear Selection Confirmation Dialog */}

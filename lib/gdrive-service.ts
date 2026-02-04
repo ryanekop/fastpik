@@ -18,7 +18,8 @@ export interface DrivePhoto {
     webViewLink: string
     size?: string
     fullUrl?: string
-    folderName?: string
+    folderName?: string   // Immediate parent folder name only
+    folderPath?: string   // Full path for unique identification (e.g., "Parent > Child")
     createdTime?: string
 }
 
@@ -161,61 +162,94 @@ export async function fetchDrivePhotos(
         } while (pageToken)
 
 
-        // 2. If subfolders enabled, fetch folders
+        // 2. If subfolders enabled, fetch folders recursively
         if (detectSubfolders) {
-            const folderQuery = `'${folderId}' in parents and mimeType = 'application/vnd.google-apps.folder'`
-            const folderUrl = `https://www.googleapis.com/drive/v3/files?` +
-                `q=${encodeURIComponent(folderQuery)}&` +
-                `fields=files(id,name)&` +
-                `key=${key}&` +
-                `pageSize=100` // Limit subfolders to 100 for now to avoid explosion
+            // Recursive function to fetch all subfolders and their photos
+            const fetchFolderRecursive = async (
+                parentFolderId: string,
+                parentPath: string = '',
+                depth: number = 0
+            ): Promise<any[]> => {
+                // Limit recursion depth to prevent infinite loops
+                if (depth > 5) {
+                    console.log(`[Subfolder Detection] Max depth reached at: ${parentPath}`)
+                    return []
+                }
 
-            const folderRes = await fetchWithRetry(folderUrl, 1, 1000)
-            if (folderRes.ok) {
-                const folderData = await folderRes.json()
-                const subfolders = folderData.files || []
+                const folderQuery = `'${parentFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder'`
+                const folderUrl = `https://www.googleapis.com/drive/v3/files?` +
+                    `q=${encodeURIComponent(folderQuery)}&` +
+                    `fields=files(id,name)&` +
+                    `key=${key}&` +
+                    `pageSize=100`
 
-                // Parallel fetch for each subfolder
-                const folderPromises = subfolders.map(async (folder: any) => {
-                    let subFiles: any[] = []
-                    let subPageToken: string | null = null
+                let collectedFiles: any[] = []
 
-                    const subQuery = `'${folder.id}' in parents and (mimeType contains 'image/')`
+                try {
+                    const folderRes = await fetchWithRetry(folderUrl, 1, 1000)
+                    if (!folderRes.ok) return []
 
-                    do {
-                        const subBaseUrl = `https://www.googleapis.com/drive/v3/files?` +
-                            `q=${encodeURIComponent(subQuery)}&` +
-                            `fields=${encodeURIComponent(fields)}&` +
-                            `key=${key}&` +
-                            `pageSize=1000&` +
-                            `orderBy=name`
+                    const folderData = await folderRes.json()
+                    const subfolders = folderData.files || []
 
-                        const subUrl = subPageToken ? `${subBaseUrl}&pageToken=${subPageToken}` : subBaseUrl
+                    if (depth === 0) {
+                        console.log(`[Subfolder Detection] Found ${subfolders.length} subfolders at root:`, subfolders.map((f: any) => f.name))
+                    }
 
-                        try {
-                            const subRes = await fetchWithRetry(subUrl, 1, 1000)
-                            if (subRes.ok) {
-                                const subData = await subRes.json()
-                                const files = (subData.files || []).map((f: any) => ({ ...f, folderName: folder.name }))
-                                subFiles = [...subFiles, ...files]
-                                subPageToken = subData.nextPageToken || null
-                            } else {
+                    // Process each subfolder
+                    for (const folder of subfolders) {
+                        const currentPath = parentPath ? `${parentPath} > ${folder.name}` : folder.name
+
+                        // Fetch photos in this folder
+                        let subPageToken: string | null = null
+                        const subQuery = `'${folder.id}' in parents and (mimeType contains 'image/')`
+
+                        do {
+                            const subBaseUrl = `https://www.googleapis.com/drive/v3/files?` +
+                                `q=${encodeURIComponent(subQuery)}&` +
+                                `fields=${encodeURIComponent(fields)}&` +
+                                `key=${key}&` +
+                                `pageSize=1000&` +
+                                `orderBy=name`
+
+                            const subUrl = subPageToken ? `${subBaseUrl}&pageToken=${subPageToken}` : subBaseUrl
+
+                            try {
+                                const subRes = await fetchWithRetry(subUrl, 1, 1000)
+                                if (subRes.ok) {
+                                    const subData = await subRes.json()
+                                    const files = (subData.files || []).map((f: any) => ({
+                                        ...f,
+                                        folderName: folder.name,  // Just the immediate folder name
+                                        folderPath: currentPath   // Full path for grouping
+                                    }))
+                                    collectedFiles = [...collectedFiles, ...files]
+                                    subPageToken = subData.nextPageToken || null
+                                } else {
+                                    subPageToken = null
+                                }
+                            } catch (e) {
+                                console.error(`Failed to fetch photos from ${currentPath}`, e)
                                 subPageToken = null
                             }
-                        } catch (e) {
-                            console.error(`Failed to fetch subfolder page ${folder.name}`, e)
-                            subPageToken = null
-                        }
-                    } while (subPageToken)
+                        } while (subPageToken)
 
-                    return subFiles
-                })
+                        // Recursively fetch nested subfolders
+                        const nestedFiles = await fetchFolderRecursive(folder.id, currentPath, depth + 1)
+                        collectedFiles = [...collectedFiles, ...nestedFiles]
+                    }
+                } catch (e) {
+                    console.error(`Failed to fetch subfolders at depth ${depth}`, e)
+                }
 
-                const subfolderResults = await Promise.all(folderPromises)
-                subfolderResults.forEach(files => {
-                    allFiles = [...allFiles, ...files]
-                })
+                return collectedFiles
             }
+
+            // Start recursive fetch from root
+            const recursiveFiles = await fetchFolderRecursive(folderId)
+            allFiles = [...allFiles, ...recursiveFiles]
+
+            console.log(`[Subfolder Detection] Total photos from subfolders: ${recursiveFiles.length}`)
         }
 
         // Transform all files

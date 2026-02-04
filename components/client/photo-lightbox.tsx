@@ -515,7 +515,9 @@ export function PhotoLightbox({
                                 )}
                             </Button>
                             <span className="text-white/70 text-sm">
-                                {selectedIds.length} / {maxPhotos} {t('selectedOf')}
+                                {maxPhotos === Infinity
+                                    ? `${selectedIds.length} ${t('selectedOf')}`
+                                    : `${selectedIds.length} / ${maxPhotos} ${t('selectedOf')}`}
                             </span>
                         </div>
                         <span className="text-white/40 text-xs hidden md:block">{t('pressSpaceHint')}</span>

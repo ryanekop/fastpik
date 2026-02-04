@@ -14,6 +14,7 @@ export interface Project {
     expiresAt?: number // Unix timestamp, undefined = never expires
     createdAt: number
     link: string
+    lockedPhotos?: string[] // List of previously selected photo filenames
     // Legacy support for old projects
     whatsapp?: string
 }
