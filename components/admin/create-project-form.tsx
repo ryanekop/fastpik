@@ -6,7 +6,7 @@ import { z } from "zod"
 import { useTranslations } from "next-intl"
 import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Copy, ArrowRight, Check, ArrowLeft, MessageCircle, Eye, EyeOff, Loader2 } from "lucide-react"
+import { Copy, ArrowRight, Check, ArrowLeft, MessageCircle, Eye, EyeOff, Loader2, ExternalLink } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
@@ -290,10 +290,9 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
                                 {t('sendToClient')}
                             </Button>
 
-                            {/* 2. Copy Link */}
-                            <Button variant="outline" className="w-full gap-2 cursor-pointer" onClick={copyToClipboard}>
-                                {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
-                                {copied ? t('copied') : t('copyLink')}
+                            {/* 2. Open Link */}
+                            <Button variant="outline" className="w-full gap-2 cursor-pointer" onClick={() => window.open(generatedLink, '_blank')}>
+                                <ExternalLink className="h-4 w-4" /> {t('openLink')}
                             </Button>
 
                             {/* 3. Create New Project */}
