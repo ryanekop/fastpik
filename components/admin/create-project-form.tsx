@@ -284,29 +284,35 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
 
                         {/* Action Buttons */}
                         <div className="mt-4 space-y-2">
-                            {/* 1. WhatsApp to Client */}
+                            {/* 1. WhatsApp to Client - Always full width */}
                             <Button onClick={sendToClient} className="w-full bg-green-600 hover:bg-green-700 text-white gap-2 cursor-pointer">
                                 <MessageCircle className="h-4 w-4" />
                                 {t('sendToClient')}
                             </Button>
 
-                            {/* 2. Open Link */}
-                            <Button variant="outline" className="w-full gap-2 cursor-pointer" onClick={() => window.open(generatedLink, '_blank')}>
-                                <ExternalLink className="h-4 w-4" /> {t('openLink')}
-                            </Button>
-
-                            {/* 3. Create New Project */}
-                            <Button variant="outline" className="w-full gap-2 cursor-pointer" onClick={createNewProject}>
-                                ✨ {t('createNew')}
-                            </Button>
-
-                            {/* 4. Back to Project List */}
-                            {onBack && (
-                                <Button variant="outline" className="w-full gap-2 cursor-pointer" onClick={onBack}>
-                                    <ArrowLeft className="h-4 w-4" />
-                                    {t('backToProjects')}
+                            {/* 2. Open Link & Copy Link - Side by side on desktop, stacked on mobile */}
+                            <div className="flex flex-col sm:flex-row gap-2">
+                                <Button variant="outline" className="flex-1 gap-2 cursor-pointer" onClick={() => window.open(generatedLink, '_blank')}>
+                                    <ExternalLink className="h-4 w-4" /> {t('openLink')}
                                 </Button>
-                            )}
+                                <Button variant="outline" className="flex-1 gap-2 cursor-pointer" onClick={copyToClipboard}>
+                                    {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                                    {copied ? t('copied') : t('copyLink')}
+                                </Button>
+                            </div>
+
+                            {/* 3. Create New & Back to List - Side by side on desktop, stacked on mobile */}
+                            <div className="flex flex-col sm:flex-row gap-2">
+                                <Button variant="outline" className="flex-1 gap-2 cursor-pointer" onClick={createNewProject}>
+                                    ✨ {t('createNew')}
+                                </Button>
+                                {onBack && (
+                                    <Button variant="outline" className="flex-1 gap-2 cursor-pointer" onClick={onBack}>
+                                        <ArrowLeft className="h-4 w-4" />
+                                        {t('backToProjects')}
+                                    </Button>
+                                )}
+                            </div>
                         </div>
                     </motion.div>
                 )}

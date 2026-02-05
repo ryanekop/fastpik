@@ -43,6 +43,12 @@ export async function updateSession(request: NextRequest, response: NextResponse
 
     const pathname = request.nextUrl.pathname
 
+    // Client routes are always public - no auth required
+    const isClientRoute = pathname.includes('/client')
+    if (isClientRoute) {
+        return supabaseResponse
+    }
+
     // Protected Routes Logic - now uses /dashboard instead of /admin
     const isDashboardRoute = pathname.includes('/dashboard')
 

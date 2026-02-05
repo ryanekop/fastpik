@@ -1,5 +1,6 @@
 
 import { createClient } from './server'
+import { createServiceClient } from './service'
 import type { Project } from '@/lib/project-store'
 
 export async function getProjects() {
@@ -20,17 +21,20 @@ export async function getProjects() {
     return data.map(transformProjectFromDB)
 }
 
+// Public access function - uses service role to bypass RLS for client view
 export async function getProjectById(id: string) {
-    const supabase = await createClient()
+    const supabase = createServiceClient()
 
-    // Public, anyone can view by ID (for client view)
     const { data, error } = await supabase
         .from('projects')
         .select('*')
         .eq('id', id)
         .single()
 
-    if (error || !data) return null
+    if (error || !data) {
+        console.error('[getProjectById] Failed to fetch project:', { id, error, data })
+        return null
+    }
     return transformProjectFromDB(data)
 }
 

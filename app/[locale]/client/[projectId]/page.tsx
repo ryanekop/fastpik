@@ -1,6 +1,5 @@
 import { ClientView } from "@/components/client/client-view";
 import { getProjectById } from "@/lib/supabase/projects";
-import { createClient } from "@/lib/supabase/server";
 
 // Allow caching for a short period or revalidate on demand?
 // For now, let's keep it dynamic as admin might lock photos
@@ -55,7 +54,8 @@ export default async function ClientPage({ params }: { params: Promise<{ project
     let templates = null;
     if (!isLegacy && config && config.id) {
         try {
-            const supabase = await createClient();
+            const { createServiceClient } = await import("@/lib/supabase/service");
+            const supabase = createServiceClient();
             // Need owner's user_id to get settings
             const { data: project } = await supabase
                 .from('projects')
