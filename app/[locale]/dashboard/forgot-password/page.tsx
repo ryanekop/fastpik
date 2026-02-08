@@ -64,6 +64,9 @@ export default function ForgotPasswordPage() {
                             <p className="text-sm text-muted-foreground">
                                 {t('checkEmailForLink')}
                             </p>
+                            <p className="text-xs text-amber-600 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-400 p-2 rounded-md">
+                                {t('resetLinkNote')}
+                            </p>
                             <Button variant="outline" className="w-full cursor-pointer" asChild>
                                 <Link href={`/${locale}/dashboard/login`}>⬅️ {t('backToLogin')}</Link>
                             </Button>

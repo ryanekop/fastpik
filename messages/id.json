@@ -102,6 +102,7 @@
         "resetPasswordTitle": "Reset Password",
         "resetPasswordDesc": "Masukkan email Anda untuk menerima link reset",
         "checkEmailForLink": "Cek email Anda untuk link reset.",
+        "resetLinkNote": "⚠️ Buka link dari browser/device yang sama untuk menghindari error.",
         "sendingLink": "Mengirim link...",
         "sendResetLink": "Kirim Link Reset",
         "backToLogin": "Kembali ke Login",

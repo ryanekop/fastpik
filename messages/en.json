@@ -102,6 +102,7 @@
         "resetPasswordTitle": "Reset Password",
         "resetPasswordDesc": "Enter your email to receive a reset link",
         "checkEmailForLink": "Check your email for the reset link.",
+        "resetLinkNote": "⚠️ Open the link from the same browser/device to avoid errors.",
         "sendingLink": "Sending link...",
         "sendResetLink": "Send Reset Link",
         "backToLogin": "Back to Login",
