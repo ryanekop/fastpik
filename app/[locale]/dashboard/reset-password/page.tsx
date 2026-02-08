@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
-import { useLocale } from "next-intl"
+import { useLocale, useTranslations } from "next-intl"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -16,6 +16,7 @@ export default function ResetPasswordPage() {
     const router = useRouter()
     const supabase = createClient()
     const locale = useLocale()
+    const t = useTranslations('ResetPassword')
 
     const [password, setPassword] = useState("")
     const [confirmPassword, setConfirmPassword] = useState("")
@@ -26,7 +27,7 @@ export default function ResetPasswordPage() {
         e.preventDefault()
 
         if (password !== confirmPassword) {
-            setError("Passwords do not match")
+            setError(t('passwordMismatch'))
             return
         }
 
@@ -46,7 +47,7 @@ export default function ResetPasswordPage() {
                 router.push(`/${locale}/dashboard`)
             }
         } catch (err) {
-            setError("An unexpected error occurred")
+            setError(t('unexpectedError'))
             setLoading(false)
         }
     }
@@ -55,15 +56,15 @@ export default function ResetPasswordPage() {
         <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
             <Card className="w-full max-w-sm shadow-lg">
                 <CardHeader className="space-y-1">
-                    <CardTitle className="text-2xl font-bold text-center">🔐 Set New Password</CardTitle>
+                    <CardTitle className="text-2xl font-bold text-center">🔐 {t('title')}</CardTitle>
                     <CardDescription className="text-center">
-                        Create a new secure password
+                        {t('description')}
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handleUpdate} className="space-y-4">
                         <div className="space-y-2">
-                            <Label htmlFor="password">🔑 New Password</Label>
+                            <Label htmlFor="password">🔑 {t('newPassword')}</Label>
                             <Input
                                 id="password"
                                 type="password"
@@ -73,7 +74,7 @@ export default function ResetPasswordPage() {
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="confirmPassword">🔑 Confirm Password</Label>
+                            <Label htmlFor="confirmPassword">🔑 {t('confirmPassword')}</Label>
                             <Input
                                 id="confirmPassword"
                                 type="password"
@@ -93,10 +94,10 @@ export default function ResetPasswordPage() {
                             {loading ? (
                                 <>
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    Updating...
+                                    {t('updating')}
                                 </>
                             ) : (
-                                <>✅ Update Password</>
+                                <>✅ {t('updateButton')}</>
                             )}
                         </Button>
                     </form>

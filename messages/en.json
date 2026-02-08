@@ -184,5 +184,15 @@
         "loading": "Loading...",
         "error": "An error occurred",
         "success": "Success"
+    },
+    "ResetPassword": {
+        "title": "Set New Password",
+        "description": "Create a new secure password",
+        "newPassword": "New Password",
+        "confirmPassword": "Confirm Password",
+        "updateButton": "Update Password",
+        "updating": "Updating...",
+        "passwordMismatch": "Passwords do not match",
+        "unexpectedError": "An unexpected error occurred"
     }
 }

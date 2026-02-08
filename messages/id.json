@@ -184,5 +184,15 @@
         "loading": "Memuat...",
         "error": "Terjadi kesalahan",
         "success": "Berhasil"
+    },
+    "ResetPassword": {
+        "title": "Buat Password Baru",
+        "description": "Buat password baru yang aman",
+        "newPassword": "Password Baru",
+        "confirmPassword": "Konfirmasi Password",
+        "updateButton": "Update Password",
+        "updating": "Memperbarui...",
+        "passwordMismatch": "Password tidak sama",
+        "unexpectedError": "Terjadi kesalahan yang tidak terduga"
     }
 }
