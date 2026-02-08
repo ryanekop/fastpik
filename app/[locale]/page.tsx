@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslations, useLocale } from 'next-intl'
 import { ThemeToggle } from "@/components/theme-toggle"
 import { LanguageToggle } from "@/components/language-toggle"
@@ -9,12 +9,14 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { motion } from "framer-motion"
 import { createClient } from "@/lib/supabase/client"
+import { Loader2 } from "lucide-react"
 
 export default function Home() {
   const t = useTranslations('Index')
   const locale = useLocale()
   const router = useRouter()
   const supabase = createClient()
+  const [isAuthenticating, setIsAuthenticating] = useState(false)
 
   // Check for auth tokens in URL hash (from invite, recovery, magiclink)
   // If found, redirect to auth/callback to process them
@@ -24,10 +26,10 @@ export default function Home() {
       if (typeof window !== 'undefined' && window.location.hash) {
         const hashParams = new URLSearchParams(window.location.hash.substring(1))
         const accessToken = hashParams.get('access_token')
-        const type = hashParams.get('type')
 
-        // If there's an access token, redirect to auth/callback with the hash
+        // If there's an access token, show loading and redirect to auth/callback
         if (accessToken) {
+          setIsAuthenticating(true)
           router.push(`/${locale}/auth/callback${window.location.hash}`)
           return
         }
@@ -41,6 +43,18 @@ export default function Home() {
     }
     handleAuthRedirect()
   }, [locale])
+
+  // Show loading screen when processing auth tokens
+  if (isAuthenticating) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-muted/40">
+        <div className="text-center space-y-4">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+          <p className="text-muted-foreground">Authenticating...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col min-h-screen font-[family-name:var(--font-geist-sans)]">

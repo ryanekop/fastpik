@@ -7,8 +7,10 @@ import { useLocale } from "next-intl"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Loader2 } from "lucide-react"
+import { ThemeToggle } from "@/components/theme-toggle"
+import { LanguageToggle } from "@/components/language-toggle"
 
 export default function ResetPasswordPage() {
     const router = useRouter()
@@ -53,7 +55,7 @@ export default function ResetPasswordPage() {
         <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
             <Card className="w-full max-w-sm shadow-lg">
                 <CardHeader className="space-y-1">
-                    <CardTitle className="text-2xl font-bold text-center">Set New Password</CardTitle>
+                    <CardTitle className="text-2xl font-bold text-center">🔐 Set New Password</CardTitle>
                     <CardDescription className="text-center">
                         Create a new secure password
                     </CardDescription>
@@ -61,7 +63,7 @@ export default function ResetPasswordPage() {
                 <CardContent>
                     <form onSubmit={handleUpdate} className="space-y-4">
                         <div className="space-y-2">
-                            <Label htmlFor="password">New Password</Label>
+                            <Label htmlFor="password">🔑 New Password</Label>
                             <Input
                                 id="password"
                                 type="password"
@@ -71,7 +73,7 @@ export default function ResetPasswordPage() {
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="confirmPassword">Confirm Password</Label>
+                            <Label htmlFor="confirmPassword">🔑 Confirm Password</Label>
                             <Input
                                 id="confirmPassword"
                                 type="password"
@@ -94,11 +96,15 @@ export default function ResetPasswordPage() {
                                     Updating...
                                 </>
                             ) : (
-                                "Update Password"
+                                <>✅ Update Password</>
                             )}
                         </Button>
                     </form>
                 </CardContent>
+                <CardFooter className="flex justify-center gap-2 pt-0">
+                    <LanguageToggle />
+                    <ThemeToggle />
+                </CardFooter>
             </Card>
         </div>
     )
