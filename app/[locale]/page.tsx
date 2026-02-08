@@ -9,7 +9,16 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { motion } from "framer-motion"
 import { createClient } from "@/lib/supabase/client"
-import { Loader2 } from "lucide-react"
+import { Loader2, LogOut, Settings, LayoutDashboard } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu"
+import { User } from "@supabase/supabase-js"
 
 export default function Home() {
   const t = useTranslations('Index')
@@ -17,6 +26,9 @@ export default function Home() {
   const router = useRouter()
   const supabase = createClient()
   const [isAuthenticating, setIsAuthenticating] = useState(false)
+  const [user, setUser] = useState<User | null>(null)
+  const [userName, setUserName] = useState<string>("Admin")
+  const [loading, setLoading] = useState(false)
 
   // Check for auth tokens in URL hash (from invite, recovery, magiclink)
   // If found, redirect to auth/callback to process them
@@ -35,14 +47,29 @@ export default function Home() {
         }
       }
 
-      // Otherwise, check if user is already logged in and redirect to dashboard
+      // Check if user is logged in (but don't redirect, just update state)
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
-        router.push(`/${locale}/dashboard`)
+        setUser(user)
+        const name = user.user_metadata?.full_name || user.email?.split('@')[0] || "Admin"
+        setUserName(name)
       }
     }
     handleAuthRedirect()
   }, [locale])
+
+  // Get initials from name
+  const getInitials = (name: string) => {
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+  }
+
+  const handleLogout = async () => {
+    setLoading(true)
+    await supabase.auth.signOut()
+    setUser(null)
+    router.refresh()
+    setLoading(false)
+  }
 
   // Show loading screen when processing auth tokens
   if (isAuthenticating) {
@@ -65,9 +92,46 @@ export default function Home() {
         <div className="flex items-center gap-2">
           <LanguageToggle />
           <ThemeToggle />
-          <Button variant="outline" asChild>
-            <Link href={`/${locale}/dashboard/login`}>{t('loginAdmin')}</Link>
-          </Button>
+
+          {user ? (
+            // Show profile dropdown when logged in
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="relative h-8 w-8 rounded-full bg-muted flex items-center justify-center cursor-pointer hover:bg-muted/80 transition-colors">
+                  <span className="text-xs font-medium">{getInitials(userName)}</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56" align="end" forceMount>
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none">{userName}</p>
+                    <p className="text-xs leading-none text-muted-foreground">
+                      {user.email || "admin@example.com"}
+                    </p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => router.push(`/${locale}/dashboard`)} className="cursor-pointer">
+                  <LayoutDashboard className="mr-2 h-4 w-4" />
+                  <span>{t('dashboard')}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push(`/${locale}/dashboard/settings`)} className="cursor-pointer">
+                  <Settings className="mr-2 h-4 w-4" />
+                  <span>{t('settings')}</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout} disabled={loading} className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950 cursor-pointer">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>{loading ? 'Logging out...' : 'Log out'}</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            // Show login button when not logged in
+            <Button variant="outline" asChild>
+              <Link href={`/${locale}/dashboard/login`}>{t('loginAdmin')}</Link>
+            </Button>
+          )}
         </div>
       </header>
 
@@ -84,11 +148,19 @@ export default function Home() {
             {t('description')}
           </p>
           <div className="pt-4">
-            <Button size="lg" asChild className="gap-2 cursor-pointer hover:opacity-90 transition-opacity">
-              <Link href={`/${locale}/dashboard/login`}>
-                {t('startManaging')} 🚀
-              </Link>
-            </Button>
+            {user ? (
+              <Button size="lg" asChild className="gap-2 cursor-pointer hover:opacity-90 transition-opacity">
+                <Link href={`/${locale}/dashboard`}>
+                  {t('goToDashboard')} 🚀
+                </Link>
+              </Button>
+            ) : (
+              <Button size="lg" asChild className="gap-2 cursor-pointer hover:opacity-90 transition-opacity">
+                <Link href={`/${locale}/dashboard/login`}>
+                  {t('startManaging')} 🚀
+                </Link>
+              </Button>
+            )}
           </div>
         </motion.div>
       </main>

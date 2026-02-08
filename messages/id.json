@@ -3,7 +3,10 @@
         "title": "Fastpik",
         "description": "Pilih foto Anda dengan cepat dan mudah.",
         "startManaging": "Mulai Kelola Project",
-        "loginAdmin": "Login Admin"
+        "loginAdmin": "Login Admin",
+        "dashboard": "Dashboard",
+        "settings": "Pengaturan",
+        "goToDashboard": "Buka Dashboard"
     },
     "Admin": {
         "dashboardTitle": "Dashboard",

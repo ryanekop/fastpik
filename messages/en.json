@@ -3,7 +3,10 @@
         "title": "Fastpik",
         "description": "Select your photos quickly and easily.",
         "startManaging": "Start Managing Projects",
-        "loginAdmin": "Login Admin"
+        "loginAdmin": "Login Admin",
+        "dashboard": "Dashboard",
+        "settings": "Settings",
+        "goToDashboard": "Go to Dashboard"
     },
     "Admin": {
         "dashboardTitle": "Dashboard",
