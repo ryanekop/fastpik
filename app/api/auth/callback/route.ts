@@ -4,27 +4,39 @@ import { createClient } from '@/lib/supabase/server'
 export async function GET(request: Request) {
     const { searchParams, origin } = new URL(request.url)
     const code = searchParams.get('code')
-    // if "next" is in param, use it as the redirect URL
-    const next = searchParams.get('next') ?? '/admin'
+    const type = searchParams.get('type') // 'recovery', 'invite', etc.
+    const next = searchParams.get('next')
+
+    // Determine locale from various sources
+    const locale = searchParams.get('locale') || 'id'
 
     if (code) {
         const supabase = await createClient()
         const { error } = await supabase.auth.exchangeCodeForSession(code)
+
         if (!error) {
-            const forwardedHost = request.headers.get('x-forwarded-host') // original origin before load balancer
+            const forwardedHost = request.headers.get('x-forwarded-host')
             const isLocalEnv = process.env.NODE_ENV === 'development'
-            if (isLocalEnv) {
-                // we can be sure that there is no load balancer in between, so no need to watch for X-Forwarded-Host
-                return NextResponse.redirect(`${origin}${next}`)
-            } else if (forwardedHost) {
-                return NextResponse.redirect(`https://${forwardedHost}${next}`)
-            } else {
-                return NextResponse.redirect(`${origin}${next}`)
+
+            // Determine redirect path based on type
+            let redirectPath = next || `/${locale}/dashboard`
+            if (type === 'recovery' || type === 'invite') {
+                redirectPath = `/${locale}/dashboard/reset-password`
             }
+
+            if (isLocalEnv) {
+                return NextResponse.redirect(`${origin}${redirectPath}`)
+            } else if (forwardedHost) {
+                return NextResponse.redirect(`https://${forwardedHost}${redirectPath}`)
+            } else {
+                return NextResponse.redirect(`${origin}${redirectPath}`)
+            }
+        } else {
+            console.error('Auth callback error:', error.message)
         }
     }
 
-    // return the user to an error page with instructions
-    // For now just redirect to login with error
-    return NextResponse.redirect(`${origin}/admin/login?error=auth_code_error`)
+    // Return the user to login with error
+    return NextResponse.redirect(`${origin}/${locale}/dashboard/login?error=auth_code_error`)
 }
+
