@@ -18,7 +18,7 @@ export async function POST(request: Request) {
 
         // Invite user using admin API
         const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-            redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/admin/reset-password`
+            redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/id/auth/callback`
         })
 
         if (error) {
