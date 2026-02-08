@@ -12,30 +12,57 @@ export default function AuthCallbackPage() {
     const supabase = createClient()
     const searchParams = useSearchParams()
     const [error, setError] = useState<string | null>(null)
+    const [debugInfo, setDebugInfo] = useState<string>('')
 
     useEffect(() => {
         const handleAuthCallback = async () => {
-            // Get the hash fragment from the URL
-            const hashParams = new URLSearchParams(
-                window.location.hash.substring(1) // Remove the '#' character
-            )
+            try {
+                // Check for PKCE code in URL query params (newer Supabase flow)
+                const code = searchParams.get('code')
+                const type = searchParams.get('type') || ''
 
-            const accessToken = hashParams.get('access_token')
-            const refreshToken = hashParams.get('refresh_token')
-            const type = hashParams.get('type') // 'invite', 'recovery', 'magiclink', etc.
+                // Also check hash for legacy/implicit flow
+                const hashParams = new URLSearchParams(
+                    window.location.hash.substring(1)
+                )
+                const accessToken = hashParams.get('access_token')
+                const refreshToken = hashParams.get('refresh_token')
+                const hashType = hashParams.get('type')
+                const hashError = hashParams.get('error')
+                const errorDescription = hashParams.get('error_description')
 
-            // Also check for error in hash
-            const hashError = hashParams.get('error')
-            const errorDescription = hashParams.get('error_description')
+                // Combine type from query or hash
+                const authType = type || hashType || ''
 
-            if (hashError) {
-                setError(errorDescription || hashError)
-                return
-            }
+                setDebugInfo(`Code: ${code ? 'yes' : 'no'}, Hash tokens: ${accessToken ? 'yes' : 'no'}, Type: ${authType}`)
 
-            if (accessToken && refreshToken) {
-                try {
-                    // Set the session using the tokens from the URL
+                // Check for error in hash
+                if (hashError) {
+                    setError(errorDescription || hashError)
+                    return
+                }
+
+                // Handle PKCE flow (code in query params)
+                if (code) {
+                    const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
+
+                    if (exchangeError) {
+                        setError(exchangeError.message)
+                        return
+                    }
+
+                    // Successfully exchanged code for session
+                    // Redirect based on type
+                    if (authType === 'recovery' || authType === 'invite') {
+                        window.location.href = `/${locale}/dashboard/reset-password`
+                    } else {
+                        window.location.href = `/${locale}/dashboard`
+                    }
+                    return
+                }
+
+                // Handle implicit flow (tokens in hash)
+                if (accessToken && refreshToken) {
                     const { error: sessionError } = await supabase.auth.setSession({
                         access_token: accessToken,
                         refresh_token: refreshToken
@@ -46,31 +73,33 @@ export default function AuthCallbackPage() {
                         return
                     }
 
-                    // Handle redirect based on the type of auth
-                    // Use window.location for full page navigation to ensure cookies are set
-                    if (type === 'invite' || type === 'recovery') {
-                        // For invite or password recovery, redirect to reset password page
+                    if (authType === 'invite' || authType === 'recovery') {
                         window.location.href = `/${locale}/dashboard/reset-password`
                     } else {
-                        // For magic link or other types, redirect to dashboard
                         window.location.href = `/${locale}/dashboard`
                     }
-                } catch (err) {
-                    setError('Failed to authenticate. Please try again.')
+                    return
                 }
-            } else {
-                // No tokens in URL, check if already authenticated
+
+                // No code or tokens, check if already authenticated
                 const { data: { user } } = await supabase.auth.getUser()
                 if (user) {
-                    router.push(`/${locale}/dashboard`)
+                    // If type suggests recovery, go to reset password
+                    if (authType === 'recovery' || authType === 'invite') {
+                        window.location.href = `/${locale}/dashboard/reset-password`
+                    } else {
+                        window.location.href = `/${locale}/dashboard`
+                    }
                 } else {
-                    setError('No authentication tokens found.')
+                    setError('No authentication tokens found. Please try the link again or request a new one.')
                 }
+            } catch (err) {
+                setError('Failed to authenticate. Please try again.')
             }
         }
 
         handleAuthCallback()
-    }, [locale, router, supabase.auth])
+    }, [locale, searchParams, supabase.auth])
 
     if (error) {
         return (
@@ -79,9 +108,10 @@ export default function AuthCallbackPage() {
                     <div className="p-4 bg-destructive/15 text-destructive rounded-md">
                         <p className="font-medium">Authentication Error</p>
                         <p className="text-sm mt-1">{error}</p>
+                        {debugInfo && <p className="text-xs mt-2 opacity-60">{debugInfo}</p>}
                     </div>
                     <button
-                        onClick={() => router.push(`/${locale}/dashboard/login`)}
+                        onClick={() => window.location.href = `/${locale}/dashboard/login`}
                         className="text-primary hover:underline text-sm"
                     >
                         Back to Login
@@ -100,3 +130,4 @@ export default function AuthCallbackPage() {
         </div>
     )
 }
+
