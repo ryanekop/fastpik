@@ -16,15 +16,30 @@ export default function Home() {
   const router = useRouter()
   const supabase = createClient()
 
-  // Check if user is logged in and redirect to dashboard
+  // Check for auth tokens in URL hash (from invite, recovery, magiclink)
+  // If found, redirect to auth/callback to process them
   useEffect(() => {
-    const checkAuth = async () => {
+    const handleAuthRedirect = async () => {
+      // Check if there are auth tokens in the URL hash
+      if (typeof window !== 'undefined' && window.location.hash) {
+        const hashParams = new URLSearchParams(window.location.hash.substring(1))
+        const accessToken = hashParams.get('access_token')
+        const type = hashParams.get('type')
+
+        // If there's an access token, redirect to auth/callback with the hash
+        if (accessToken) {
+          router.push(`/${locale}/auth/callback${window.location.hash}`)
+          return
+        }
+      }
+
+      // Otherwise, check if user is already logged in and redirect to dashboard
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
         router.push(`/${locale}/dashboard`)
       }
     }
-    checkAuth()
+    handleAuthRedirect()
   }, [locale])
 
   return (
