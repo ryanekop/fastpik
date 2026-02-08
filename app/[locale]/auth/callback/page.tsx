@@ -47,12 +47,13 @@ export default function AuthCallbackPage() {
                     }
 
                     // Handle redirect based on the type of auth
+                    // Use window.location for full page navigation to ensure cookies are set
                     if (type === 'invite' || type === 'recovery') {
                         // For invite or password recovery, redirect to reset password page
-                        router.push(`/${locale}/dashboard/reset-password`)
+                        window.location.href = `/${locale}/dashboard/reset-password`
                     } else {
                         // For magic link or other types, redirect to dashboard
-                        router.push(`/${locale}/dashboard`)
+                        window.location.href = `/${locale}/dashboard`
                     }
                 } catch (err) {
                     setError('Failed to authenticate. Please try again.')
