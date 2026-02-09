@@ -22,7 +22,7 @@ const PLANS = [
 ]
 
 // Secret key for webhook tester access (same as admin-secret)
-const SECRET_KEY = "fastpik-admin-2024"
+const SECRET_KEY = "fastpik-ryan-2024-secret"
 
 export default function WebhookTesterPage() {
     const locale = useLocale()

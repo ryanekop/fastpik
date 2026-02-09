@@ -9,7 +9,7 @@ const supabaseAdmin = createClient(
 )
 
 // Secret key for admin access
-const ADMIN_SECRET = process.env.ADMIN_SECRET_KEY || 'fastpik-admin-2024'
+const ADMIN_SECRET = process.env.ADMIN_SECRET_KEY || 'fastpik-ryan-2024-secret'
 
 export async function GET(req: NextRequest) {
     const secretKey = req.headers.get('x-admin-secret')
