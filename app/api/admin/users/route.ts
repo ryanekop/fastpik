@@ -1,0 +1,186 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+
+// Create Supabase admin client
+const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+)
+
+// Secret key for admin access
+const ADMIN_SECRET = process.env.ADMIN_SECRET_KEY || 'fastpik-admin-2024'
+
+export async function GET(req: NextRequest) {
+    const secretKey = req.headers.get('x-admin-secret')
+
+    if (secretKey !== ADMIN_SECRET) {
+        return NextResponse.json(
+            { success: false, message: 'Unauthorized' },
+            { status: 401 }
+        )
+    }
+
+    try {
+        // Get all users with their subscriptions
+        const { data: users, error } = await supabaseAdmin
+            .from('profiles')
+            .select(`
+                id,
+                email,
+                full_name,
+                created_at,
+                subscriptions (
+                    tier,
+                    status,
+                    expires_at
+                )
+            `)
+            .order('created_at', { ascending: false })
+
+        if (error) throw error
+
+        // Format the data
+        const formattedUsers = users?.map(user => {
+            const subscription = user.subscriptions?.[0] || null
+            return {
+                id: user.id,
+                email: user.email,
+                name: user.full_name || 'No Name',
+                createdAt: user.created_at,
+                tier: subscription?.tier || 'none',
+                status: subscription?.status || 'inactive',
+                expiresAt: subscription?.expires_at || null
+            }
+        }) || []
+
+        return NextResponse.json({
+            success: true,
+            users: formattedUsers
+        })
+
+    } catch (error: any) {
+        console.error('Error fetching users:', error)
+        return NextResponse.json(
+            { success: false, message: error.message },
+            { status: 500 }
+        )
+    }
+}
+
+export async function DELETE(req: NextRequest) {
+    const secretKey = req.headers.get('x-admin-secret')
+
+    if (secretKey !== ADMIN_SECRET) {
+        return NextResponse.json(
+            { success: false, message: 'Unauthorized' },
+            { status: 401 }
+        )
+    }
+
+    try {
+        const { userId } = await req.json()
+
+        if (!userId) {
+            return NextResponse.json(
+                { success: false, message: 'User ID is required' },
+                { status: 400 }
+            )
+        }
+
+        // Delete user using admin API
+        const { error } = await supabaseAdmin.auth.admin.deleteUser(userId)
+
+        if (error) throw error
+
+        return NextResponse.json({
+            success: true,
+            message: 'User deleted successfully'
+        })
+
+    } catch (error: any) {
+        console.error('Error deleting user:', error)
+        return NextResponse.json(
+            { success: false, message: error.message },
+            { status: 500 }
+        )
+    }
+}
+
+export async function PATCH(req: NextRequest) {
+    const secretKey = req.headers.get('x-admin-secret')
+
+    if (secretKey !== ADMIN_SECRET) {
+        return NextResponse.json(
+            { success: false, message: 'Unauthorized' },
+            { status: 401 }
+        )
+    }
+
+    try {
+        const { userId, action, days, tier } = await req.json()
+
+        if (!userId) {
+            return NextResponse.json(
+                { success: false, message: 'User ID is required' },
+                { status: 400 }
+            )
+        }
+
+        if (action === 'extend_trial') {
+            // Extend trial by X days
+            const newExpiry = new Date()
+            newExpiry.setDate(newExpiry.getDate() + (days || 15))
+
+            const { error } = await supabaseAdmin
+                .from('subscriptions')
+                .upsert({
+                    user_id: userId,
+                    tier: 'trial',
+                    status: 'active',
+                    expires_at: newExpiry.toISOString()
+                }, { onConflict: 'user_id' })
+
+            if (error) throw error
+
+            return NextResponse.json({
+                success: true,
+                message: `Trial extended by ${days} days`
+            })
+
+        } else if (action === 'change_tier') {
+            // Change subscription tier
+            const expiresAt = tier === 'lifetime'
+                ? null
+                : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days default
+
+            const { error } = await supabaseAdmin
+                .from('subscriptions')
+                .upsert({
+                    user_id: userId,
+                    tier: tier,
+                    status: 'active',
+                    expires_at: expiresAt
+                }, { onConflict: 'user_id' })
+
+            if (error) throw error
+
+            return NextResponse.json({
+                success: true,
+                message: `Tier changed to ${tier}`
+            })
+        }
+
+        return NextResponse.json(
+            { success: false, message: 'Invalid action' },
+            { status: 400 }
+        )
+
+    } catch (error: any) {
+        console.error('Error updating user:', error)
+        return NextResponse.json(
+            { success: false, message: error.message },
+            { status: 500 }
+        )
+    }
+}
