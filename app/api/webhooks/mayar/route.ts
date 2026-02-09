@@ -143,23 +143,19 @@ export async function POST(request: NextRequest) {
             userId = newUser.user.id
             console.log(`[Mayar Webhook] Created new user: ${userId}`)
 
-            // Send Reset Password Link
-            const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-                type: 'recovery',
-                email: email
-            })
-
-            if (!linkError && linkData?.properties?.action_link) {
-                // TODO: Send this link via Email Service (Resend / NodeMailer)
-                // Since user didn't specify Email Service, we'll Log it for now or hopefully Supabase sent the invite email if config'd
-                // But generateLink implies WE send it.
-                // If we want Supabase to send it:
-                // await supabaseAdmin.auth.resetPasswordForEmail(email)
-
-                await supabaseAdmin.auth.resetPasswordForEmail(email, {
-                    redirectTo: `${process.env.NEXT_PUBLIC_BASE_URL || 'https://fastpik.ryanekoapp.web.id'}/id/dashboard/reset-password`
+            // Send Reset Password Link directly via Supabase
+            try {
+                const { error: resetError } = await supabaseAdmin.auth.resetPasswordForEmail(email, {
+                    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://fastpik.ryanekoapp.web.id'}/id/dashboard/reset-password`
                 })
-                console.log('[Mayar Webhook] Reset password email sent via Supabase.')
+
+                if (resetError) {
+                    console.error('[Mayar Webhook] Failed to send reset password email:', resetError.message)
+                } else {
+                    console.log(`[Mayar Webhook] Reset password email sent to: ${email}`)
+                }
+            } catch (emailError: any) {
+                console.error('[Mayar Webhook] Exception sending email:', emailError.message)
             }
         }
 
