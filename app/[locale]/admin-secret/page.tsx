@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Loader2, CheckCircle, XCircle, User, Mail, Lock, Key, Eye, EyeOff, Trash2, RefreshCw, Plus, Users, Calendar, Crown } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { useTranslations } from 'next-intl'
 import {
     Table,
     TableBody,
@@ -44,6 +45,8 @@ interface UserData {
 }
 
 export default function SecretAdminPage() {
+    const t = useTranslations('AdminSecret')
+
     const [isAuthenticated, setIsAuthenticated] = useState(false)
     const [secretKey, setSecretKey] = useState('')
     const [authError, setAuthError] = useState('')
@@ -53,6 +56,7 @@ export default function SecretAdminPage() {
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [showPassword, setShowPassword] = useState(false)
+    const [trialDays, setTrialDays] = useState('3')
 
     // Status states
     const [loading, setLoading] = useState(false)
@@ -111,7 +115,7 @@ export default function SecretAdminPage() {
             const res = await fetch('/api/admin/create-trial-user', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, email, password, secretKey })
+                body: JSON.stringify({ name, email, password, secretKey, trialDays: parseInt(trialDays) })
             })
 
             const data = await res.json()
@@ -264,36 +268,34 @@ export default function SecretAdminPage() {
                     <ThemeToggle />
                 </div>
                 <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="w-full max-w-sm"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="w-full max-w-md"
                 >
                     <Card>
                         <CardHeader className="text-center">
-                            <div className="mx-auto mb-4 w-12 h-12 rounded-full bg-amber-500/20 flex items-center justify-center">
-                                <Key className="h-6 w-6 text-amber-500" />
+                            <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+                                <Key className="h-6 w-6 text-primary" />
                             </div>
-                            <CardTitle>Admin Access</CardTitle>
-                            <CardDescription>
-                                Enter secret key to continue
-                            </CardDescription>
+                            <CardTitle>{t('enterSecretKey')}</CardTitle>
+                            <CardDescription>{t('enterKeyDesc')}</CardDescription>
                         </CardHeader>
                         <CardContent>
                             <form onSubmit={handleAuth} className="space-y-4">
                                 <div className="space-y-2">
                                     <Input
                                         type="password"
-                                        placeholder="Secret Key"
+                                        placeholder={t('secretKeyPlaceholder')}
                                         value={secretKey}
                                         onChange={(e) => setSecretKey(e.target.value)}
                                     />
                                     {authError && (
-                                        <p className="text-xs text-destructive">{authError}</p>
+                                        <p className="text-xs text-destructive">{t('invalidKey')}</p>
                                     )}
                                 </div>
                                 <Button type="submit" className="w-full cursor-pointer">
                                     <Lock className="h-4 w-4 mr-2" />
-                                    Unlock
+                                    {t('unlock')}
                                 </Button>
                             </form>
                         </CardContent>
@@ -316,18 +318,17 @@ export default function SecretAdminPage() {
                     <div>
                         <h1 className="text-2xl font-bold flex items-center gap-2">
                             <Users className="h-6 w-6" />
-                            User Management
+                            {t('userManagement')}
                         </h1>
-                        <p className="text-muted-foreground">Manage trial accounts and subscriptions</p>
                     </div>
                     <div className="flex gap-2">
                         <Button variant="outline" onClick={fetchUsers} disabled={loadingUsers} className="cursor-pointer">
                             <RefreshCw className={`h-4 w-4 mr-2 ${loadingUsers ? 'animate-spin' : ''}`} />
-                            Refresh
+                            {t('refresh')}
                         </Button>
                         <Button onClick={() => setShowCreateForm(!showCreateForm)} className="cursor-pointer">
                             <Plus className="h-4 w-4 mr-2" />
-                            New User
+                            {t('newUser')}
                         </Button>
                     </div>
                 </div>
@@ -342,13 +343,12 @@ export default function SecretAdminPage() {
                         >
                             <Card>
                                 <CardHeader>
-                                    <CardTitle className="text-lg">Create Trial User</CardTitle>
-                                    <CardDescription>New account will have 15 days trial</CardDescription>
+                                    <CardTitle className="text-lg">{t('createTrialAccount')}</CardTitle>
                                 </CardHeader>
                                 <CardContent>
-                                    <form onSubmit={handleCreateUser} className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                    <form onSubmit={handleCreateUser} className="grid grid-cols-1 md:grid-cols-5 gap-4">
                                         <div className="space-y-2">
-                                            <Label>Full Name</Label>
+                                            <Label>{t('name')}</Label>
                                             <Input
                                                 placeholder="John Doe"
                                                 value={name}
@@ -357,7 +357,7 @@ export default function SecretAdminPage() {
                                             />
                                         </div>
                                         <div className="space-y-2">
-                                            <Label>Email</Label>
+                                            <Label>{t('email')}</Label>
                                             <Input
                                                 type="email"
                                                 placeholder="user@example.com"
@@ -367,7 +367,7 @@ export default function SecretAdminPage() {
                                             />
                                         </div>
                                         <div className="space-y-2">
-                                            <Label>Password</Label>
+                                            <Label>{t('password')}</Label>
                                             <div className="relative">
                                                 <Input
                                                     type={showPassword ? 'text' : 'password'}
@@ -386,9 +386,24 @@ export default function SecretAdminPage() {
                                                 </button>
                                             </div>
                                         </div>
+                                        <div className="space-y-2">
+                                            <Label>{t('trialDuration')}</Label>
+                                            <Select value={trialDays} onValueChange={setTrialDays}>
+                                                <SelectTrigger>
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="1">1 {t('day')}</SelectItem>
+                                                    <SelectItem value="2">2 {t('days')}</SelectItem>
+                                                    <SelectItem value="3">3 {t('days')}</SelectItem>
+                                                    <SelectItem value="5">5 {t('days')}</SelectItem>
+                                                    <SelectItem value="7">7 {t('days')}</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
                                         <div className="flex items-end">
                                             <Button type="submit" className="w-full cursor-pointer" disabled={loading}>
-                                                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Create'}
+                                                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : t('create')}
                                             </Button>
                                         </div>
                                     </form>
@@ -409,7 +424,7 @@ export default function SecretAdminPage() {
                     <CardHeader>
                         <CardTitle className="text-lg flex items-center gap-2">
                             <Crown className="h-5 w-5" />
-                            All Users ({users.length})
+                            {t('usersList')} ({users.length})
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -419,19 +434,19 @@ export default function SecretAdminPage() {
                             </div>
                         ) : users.length === 0 ? (
                             <div className="text-center py-8 text-muted-foreground">
-                                No users found
+                                {t('noUsers')}
                             </div>
                         ) : (
                             <div className="overflow-x-auto">
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
-                                            <TableHead>Name</TableHead>
-                                            <TableHead>Email</TableHead>
-                                            <TableHead>Plan</TableHead>
-                                            <TableHead>Expires</TableHead>
-                                            <TableHead>Registered</TableHead>
-                                            <TableHead className="text-right">Actions</TableHead>
+                                            <TableHead>{t('name')}</TableHead>
+                                            <TableHead>{t('email')}</TableHead>
+                                            <TableHead>{t('plan')}</TableHead>
+                                            <TableHead>{t('expires')}</TableHead>
+                                            <TableHead>{t('registered')}</TableHead>
+                                            <TableHead className="text-right">{t('actions')}</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -442,11 +457,10 @@ export default function SecretAdminPage() {
                                                 <TableCell>{getTierBadge(user.tier)}</TableCell>
                                                 <TableCell>
                                                     {user.tier === 'lifetime' ? (
-                                                        <span className="text-amber-500">∞ Forever</span>
+                                                        <span className="text-amber-500">∞ {t('never')}</span>
                                                     ) : (
                                                         <span className={isExpired(user.expiresAt) ? 'text-red-500' : ''}>
                                                             {formatDate(user.expiresAt)}
-                                                            {isExpired(user.expiresAt) && ' (Expired)'}
                                                         </span>
                                                     )}
                                                 </TableCell>

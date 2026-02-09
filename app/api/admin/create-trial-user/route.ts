@@ -14,7 +14,7 @@ const ADMIN_SECRET = process.env.ADMIN_SECRET_KEY || 'fastpik-admin-2024'
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json()
-        const { name, email, password, secretKey } = body
+        const { name, email, password, secretKey, trialDays = 3 } = body
 
         // Validate secret key
         if (secretKey !== ADMIN_SECRET) {
@@ -78,17 +78,18 @@ export async function POST(req: NextRequest) {
             // Continue anyway, profile can be created on first login
         }
 
-        // Create trial subscription (15 days)
+        // Create trial subscription with configurable days
         const trialEndDate = new Date()
-        trialEndDate.setDate(trialEndDate.getDate() + 15)
+        trialEndDate.setDate(trialEndDate.getDate() + parseInt(trialDays))
 
         const { error: subError } = await supabaseAdmin
             .from('subscriptions')
             .insert({
                 user_id: authData.user.id,
-                tier: 'trial',
-                status: 'active',
-                expires_at: trialEndDate.toISOString()
+                tier: 'free',
+                status: 'trial',
+                start_date: new Date().toISOString(),
+                trial_end_date: trialEndDate.toISOString()
             })
 
         if (subError) {
