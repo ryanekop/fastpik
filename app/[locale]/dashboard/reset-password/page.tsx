@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { useLocale, useTranslations } from "next-intl"
@@ -21,13 +21,64 @@ export default function ResetPasswordPage() {
     const [password, setPassword] = useState("")
     const [confirmPassword, setConfirmPassword] = useState("")
     const [loading, setLoading] = useState(false)
+    const [initializing, setInitializing] = useState(true)
     const [error, setError] = useState<string | null>(null)
+    const [sessionReady, setSessionReady] = useState(false)
+
+    useEffect(() => {
+        const initSession = async () => {
+            try {
+                // Check for tokens in URL hash (from email link)
+                const hashParams = new URLSearchParams(window.location.hash.substring(1))
+                const accessToken = hashParams.get('access_token')
+                const refreshToken = hashParams.get('refresh_token')
+                const type = hashParams.get('type')
+
+                if (accessToken && refreshToken) {
+                    // Set session from URL tokens
+                    const { error: sessionError } = await supabase.auth.setSession({
+                        access_token: accessToken,
+                        refresh_token: refreshToken
+                    })
+
+                    if (sessionError) {
+                        setError(`Session error: ${sessionError.message}`)
+                        setInitializing(false)
+                        return
+                    }
+
+                    // Clear hash from URL for cleaner look
+                    window.history.replaceState(null, '', window.location.pathname)
+                    setSessionReady(true)
+                } else {
+                    // No tokens in hash, check if already authenticated
+                    const { data: { user } } = await supabase.auth.getUser()
+                    if (user) {
+                        setSessionReady(true)
+                    } else {
+                        setError("Auth session missing!")
+                    }
+                }
+            } catch (err) {
+                setError("Failed to initialize session")
+            } finally {
+                setInitializing(false)
+            }
+        }
+
+        initSession()
+    }, [supabase.auth])
 
     const handleUpdate = async (e: React.FormEvent) => {
         e.preventDefault()
 
         if (password !== confirmPassword) {
             setError(t('passwordMismatch'))
+            return
+        }
+
+        if (password.length < 6) {
+            setError("Password must be at least 6 characters")
             return
         }
 
@@ -52,6 +103,17 @@ export default function ResetPasswordPage() {
         }
     }
 
+    if (initializing) {
+        return (
+            <div className="flex min-h-screen items-center justify-center bg-muted/40">
+                <div className="text-center space-y-4">
+                    <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+                    <p className="text-muted-foreground">Loading...</p>
+                </div>
+            </div>
+        )
+    }
+
     return (
         <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
             <Card className="w-full max-w-sm shadow-lg">
@@ -71,6 +133,7 @@ export default function ResetPasswordPage() {
                                 required
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
+                                disabled={!sessionReady}
                             />
                         </div>
                         <div className="space-y-2">
@@ -81,6 +144,7 @@ export default function ResetPasswordPage() {
                                 required
                                 value={confirmPassword}
                                 onChange={(e) => setConfirmPassword(e.target.value)}
+                                disabled={!sessionReady}
                             />
                         </div>
 
@@ -90,7 +154,7 @@ export default function ResetPasswordPage() {
                             </div>
                         )}
 
-                        <Button type="submit" className="w-full cursor-pointer" disabled={loading}>
+                        <Button type="submit" className="w-full cursor-pointer" disabled={loading || !sessionReady}>
                             {loading ? (
                                 <>
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -110,3 +174,4 @@ export default function ResetPasswordPage() {
         </div>
     )
 }
+
