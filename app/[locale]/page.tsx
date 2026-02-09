@@ -297,10 +297,6 @@ export default function Home() {
                   </div>
                   <h3 className="font-semibold text-lg mb-2">{t(step.titleKey)}</h3>
                   <p className="text-muted-foreground text-sm">{t(step.descKey)}</p>
-
-                  {index < steps.length - 1 && (
-                    <ArrowRight className="hidden md:block h-6 w-6 text-muted-foreground absolute right-0 top-1/2 -translate-y-1/2" />
-                  )}
                 </motion.div>
               )
             })}
