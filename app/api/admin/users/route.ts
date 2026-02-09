@@ -22,37 +22,48 @@ export async function GET(req: NextRequest) {
     }
 
     try {
-        // Get all users with their subscriptions
-        const { data: users, error } = await supabaseAdmin
-            .from('profiles')
-            .select(`
-                id,
-                email,
-                full_name,
-                created_at,
-                subscriptions (
-                    tier,
-                    status,
-                    expires_at
-                )
-            `)
-            .order('created_at', { ascending: false })
+        // Get all users from auth using admin API
+        const { data: authData, error: authError } = await supabaseAdmin.auth.admin.listUsers()
 
-        if (error) throw error
+        if (authError) throw authError
+
+        const authUsers = authData?.users || []
+
+        // Get all subscriptions
+        const { data: subscriptions, error: subError } = await supabaseAdmin
+            .from('subscriptions')
+            .select('user_id, tier, status, expires_at')
+
+        if (subError) console.error('Subscription error:', subError)
+
+        // Get all profiles
+        const { data: profiles, error: profError } = await supabaseAdmin
+            .from('profiles')
+            .select('id, full_name')
+
+        if (profError) console.error('Profile error:', profError)
+
+        // Create maps for quick lookup
+        const subMap = new Map(subscriptions?.map(s => [s.user_id, s]) || [])
+        const profileMap = new Map(profiles?.map(p => [p.id, p]) || [])
 
         // Format the data
-        const formattedUsers = users?.map(user => {
-            const subscription = user.subscriptions?.[0] || null
+        const formattedUsers = authUsers.map(user => {
+            const subscription = subMap.get(user.id)
+            const profile = profileMap.get(user.id)
             return {
                 id: user.id,
-                email: user.email,
-                name: user.full_name || 'No Name',
+                email: user.email || 'No Email',
+                name: profile?.full_name || user.user_metadata?.full_name || 'No Name',
                 createdAt: user.created_at,
                 tier: subscription?.tier || 'none',
                 status: subscription?.status || 'inactive',
                 expiresAt: subscription?.expires_at || null
             }
-        }) || []
+        })
+
+        // Sort by created_at descending
+        formattedUsers.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 
         return NextResponse.json({
             success: true,
