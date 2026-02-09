@@ -133,6 +133,25 @@ export async function POST(request: NextRequest) {
             const found = allUsers.find(u => u.email?.toLowerCase() === email.toLowerCase())
             if (found) {
                 userId = found.id
+
+                // Send confirmation email for existing user via Magic Link
+                // This doubles as a "Your subscription is active" notification
+                try {
+                    const { error: magicLinkError } = await supabaseAdmin.auth.signInWithOtp({
+                        email: email,
+                        options: {
+                            emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://fastpik.ryanekoapp.web.id'}/id/dashboard?subscription_activated=true`
+                        }
+                    })
+
+                    if (magicLinkError) {
+                        console.error('[Mayar Webhook] Failed to send magic link to existing user:', magicLinkError.message)
+                    } else {
+                        console.log(`[Mayar Webhook] Magic link (login + confirmation) sent to existing user: ${email}`)
+                    }
+                } catch (emailError: any) {
+                    console.error('[Mayar Webhook] Exception sending magic link:', emailError.message)
+                }
             } else {
                 console.error('[Mayar Webhook] Could not find user ID even though creation failed.')
                 return NextResponse.json({ message: 'Error finding user' }, { status: 500 })
@@ -143,7 +162,7 @@ export async function POST(request: NextRequest) {
             userId = newUser.user.id
             console.log(`[Mayar Webhook] Created new user: ${userId}`)
 
-            // Send Reset Password Link directly via Supabase
+            // Send Reset Password Link directly via Supabase for new users
             try {
                 const { error: resetError } = await supabaseAdmin.auth.resetPasswordForEmail(email, {
                     redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://fastpik.ryanekoapp.web.id'}/id/dashboard/reset-password`
@@ -152,7 +171,7 @@ export async function POST(request: NextRequest) {
                 if (resetError) {
                     console.error('[Mayar Webhook] Failed to send reset password email:', resetError.message)
                 } else {
-                    console.log(`[Mayar Webhook] Reset password email sent to: ${email}`)
+                    console.log(`[Mayar Webhook] Reset password email sent to new user: ${email}`)
                 }
             } catch (emailError: any) {
                 console.error('[Mayar Webhook] Exception sending email:', emailError.message)
