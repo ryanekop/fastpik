@@ -314,21 +314,19 @@ export default function SecretAdminPage() {
 
             <div className="max-w-6xl mx-auto pt-8 space-y-6">
                 {/* Header */}
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-2xl font-bold flex items-center gap-2">
-                            <Users className="h-6 w-6" />
-                            {t('userManagement')}
-                        </h1>
-                    </div>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
+                        <Users className="h-5 w-5 sm:h-6 sm:w-6" />
+                        {t('userManagement')}
+                    </h1>
                     <div className="flex gap-2">
-                        <Button variant="outline" onClick={fetchUsers} disabled={loadingUsers} className="cursor-pointer">
-                            <RefreshCw className={`h-4 w-4 mr-2 ${loadingUsers ? 'animate-spin' : ''}`} />
-                            {t('refresh')}
+                        <Button variant="outline" size="sm" onClick={fetchUsers} disabled={loadingUsers} className="cursor-pointer">
+                            <RefreshCw className={`h-4 w-4 sm:mr-2 ${loadingUsers ? 'animate-spin' : ''}`} />
+                            <span className="hidden sm:inline">{t('refresh')}</span>
                         </Button>
-                        <Button onClick={() => setShowCreateForm(!showCreateForm)} className="cursor-pointer">
-                            <Plus className="h-4 w-4 mr-2" />
-                            {t('newUser')}
+                        <Button size="sm" onClick={() => setShowCreateForm(!showCreateForm)} className="cursor-pointer">
+                            <Plus className="h-4 w-4 sm:mr-2" />
+                            <span className="hidden sm:inline">{t('newUser')}</span>
                         </Button>
                     </div>
                 </div>
