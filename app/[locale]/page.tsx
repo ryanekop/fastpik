@@ -9,7 +9,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { motion } from "framer-motion"
 import { createClient } from "@/lib/supabase/client"
-import { Loader2, LogOut, Settings, LayoutDashboard } from "lucide-react"
+import { Loader2, LogOut, Settings, LayoutDashboard, User } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,7 +18,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
-import { User } from "@supabase/supabase-js"
+import { User as SupabaseUser } from "@supabase/supabase-js"
 
 export default function Home() {
   const t = useTranslations('Index')
@@ -26,8 +26,9 @@ export default function Home() {
   const router = useRouter()
   const supabase = createClient()
   const [isAuthenticating, setIsAuthenticating] = useState(false)
-  const [user, setUser] = useState<User | null>(null)
+  const [user, setUser] = useState<SupabaseUser | null>(null)
   const [userName, setUserName] = useState<string>("Admin")
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
   // Check for auth tokens in URL hash (from invite, recovery, magiclink)
@@ -53,10 +54,22 @@ export default function Home() {
         setUser(user)
         const name = user.user_metadata?.full_name || user.email?.split('@')[0] || "Admin"
         setUserName(name)
+
+        // Get profile for avatar
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('avatar_url, full_name')
+          .eq('id', user.id)
+          .single()
+
+        if (profile) {
+          setAvatarUrl(profile.avatar_url)
+          if (profile.full_name) setUserName(profile.full_name)
+        }
       }
     }
     handleAuthRedirect()
-  }, [locale])
+  }, [locale, supabase, router])
 
   // Get initials from name
   const getInitials = (name: string) => {
@@ -67,6 +80,7 @@ export default function Home() {
     setLoading(true)
     await supabase.auth.signOut()
     setUser(null)
+    setAvatarUrl(null)
     router.refresh()
     setLoading(false)
   }
@@ -97,8 +111,12 @@ export default function Home() {
             // Show profile dropdown when logged in
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-8 w-8 rounded-full bg-muted flex items-center justify-center cursor-pointer hover:bg-muted/80 transition-colors">
-                  <span className="text-xs font-medium">{getInitials(userName)}</span>
+                <Button variant="ghost" className="relative h-9 w-9 rounded-full bg-muted flex items-center justify-center cursor-pointer hover:bg-muted/80 transition-colors overflow-hidden">
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-xs font-medium">{getInitials(userName)}</span>
+                  )}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-56" align="end" forceMount>
@@ -111,6 +129,10 @@ export default function Home() {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => router.push(`/${locale}/dashboard/profile`)} className="cursor-pointer">
+                  <User className="mr-2 h-4 w-4" />
+                  <span>Profil</span>
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => router.push(`/${locale}/dashboard`)} className="cursor-pointer">
                   <LayoutDashboard className="mr-2 h-4 w-4" />
                   <span>{t('dashboard')}</span>

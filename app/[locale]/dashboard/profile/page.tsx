@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Loader2, Save, KeyRound, Crown, ArrowLeft } from 'lucide-react'
+import { Loader2, Save, KeyRound, Crown, ArrowLeft, RefreshCw } from 'lucide-react'
 import Link from 'next/link'
 
 interface Profile {
@@ -30,6 +30,7 @@ export default function ProfilePage() {
     const supabase = createClient()
     const locale = useLocale()
     const t = useTranslations('Profile')
+    const tAdmin = useTranslations('Admin')
 
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
@@ -119,7 +120,7 @@ export default function ProfilePage() {
         }
     }
 
-    const handleAvatarUpload = async (dataUrl: string) => {
+    const handleAvatarUpload = async (dataUrl: string | null) => {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return
 
@@ -189,6 +190,8 @@ export default function ProfilePage() {
         })
     }
 
+    const isLifetime = subscription?.tier === 'lifetime'
+
     if (loading) {
         return (
             <AdminShell>
@@ -201,122 +204,137 @@ export default function ProfilePage() {
 
     return (
         <AdminShell>
-            <div className="space-y-6">
-                <div className="flex items-center gap-4">
-                    <Button variant="ghost" size="sm" asChild>
-                        <Link href={`/${locale}/dashboard`}>
-                            <ArrowLeft className="h-4 w-4 mr-2" />
-                            Kembali
-                        </Link>
-                    </Button>
+            <div className="max-w-4xl mx-auto pb-10">
+                <div className="mb-6 flex items-center justify-between">
+                    <Link href={`/${locale}/dashboard`} className="inline-flex items-center text-sm text-muted-foreground hover:text-primary">
+                        <ArrowLeft className="mr-2 h-4 w-4" />
+                        {tAdmin('backToList')}
+                    </Link>
                 </div>
 
-                <Card>
-                    <CardHeader className="text-center">
-                        <CardTitle className="text-2xl">👤 Profil Saya</CardTitle>
-                        <CardDescription>Kelola informasi akun Anda</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                        {/* Avatar */}
-                        <AvatarUpload
-                            currentAvatar={avatarUrl}
-                            name={name}
-                            onUpload={handleAvatarUpload}
-                        />
+                <div className="flex items-center justify-between mb-6">
+                    <div>
+                        <h1 className="text-2xl font-bold flex items-center gap-2">
+                            👤 {t('title')}
+                        </h1>
+                        <p className="text-muted-foreground">{t('description')}</p>
+                    </div>
+                </div>
 
-                        {/* Name */}
-                        <div className="space-y-2">
-                            <Label htmlFor="name">Nama</Label>
-                            <Input
-                                id="name"
-                                value={name}
-                                onChange={(e) => setName(e.target.value)}
-                                placeholder="Nama Anda"
+                <div className="space-y-6">
+                    <Card>
+                        <CardContent className="pt-6 space-y-6">
+                            {/* Avatar */}
+                            <AvatarUpload
+                                currentAvatar={avatarUrl}
+                                name={name}
+                                onUpload={handleAvatarUpload}
                             />
-                        </div>
 
-                        {/* Email */}
-                        <div className="space-y-2">
-                            <Label htmlFor="email">Email</Label>
-                            <Input
-                                id="email"
-                                value={email}
-                                disabled
-                                className="bg-muted"
-                            />
-                            <p className="text-xs text-muted-foreground">
-                                Email tidak dapat diubah
-                            </p>
-                        </div>
+                            {/* Name */}
+                            <div className="space-y-2">
+                                <Label htmlFor="name">Nama</Label>
+                                <Input
+                                    id="name"
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
+                                    placeholder="Nama Anda"
+                                />
+                            </div>
 
-                        {/* Membership Status */}
-                        <div className="space-y-2">
-                            <Label>Status Membership</Label>
-                            <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50 border">
-                                <div className="space-y-1">
-                                    <div className="flex items-center gap-2">
-                                        {getStatusBadge()}
-                                        <span className="font-medium">
-                                            {subscription ? getTierDisplay(subscription.tier) : 'Free Trial'}
-                                        </span>
+                            {/* Email */}
+                            <div className="space-y-2">
+                                <Label htmlFor="email">Email</Label>
+                                <Input
+                                    id="email"
+                                    value={email}
+                                    disabled
+                                    className="bg-muted"
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                    Email tidak dapat diubah
+                                </p>
+                            </div>
+
+                            {/* Membership Status */}
+                            <div className="space-y-2">
+                                <Label>Status Membership</Label>
+                                <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50 border">
+                                    <div className="space-y-1">
+                                        <div className="flex items-center gap-2">
+                                            {getStatusBadge()}
+                                            <span className="font-medium">
+                                                {subscription ? getTierDisplay(subscription.tier) : 'Free Trial'}
+                                            </span>
+                                        </div>
+                                        {subscription && subscription.end_date && (
+                                            <p className="text-xs text-muted-foreground">
+                                                Berlaku sampai: {formatDate(subscription.end_date)}
+                                            </p>
+                                        )}
+                                        {isLifetime && (
+                                            <p className="text-xs text-muted-foreground">
+                                                Akses selamanya ✨
+                                            </p>
+                                        )}
                                     </div>
-                                    {subscription && subscription.end_date && (
-                                        <p className="text-xs text-muted-foreground">
-                                            Berlaku sampai: {formatDate(subscription.end_date)}
-                                        </p>
-                                    )}
-                                    {subscription?.tier === 'lifetime' && (
-                                        <p className="text-xs text-muted-foreground">
-                                            Akses selamanya ✨
-                                        </p>
+                                    {!isLifetime && (
+                                        <Button size="sm" asChild>
+                                            <Link href={`/${locale}/pricing`}>
+                                                {subscription ? (
+                                                    <>
+                                                        <RefreshCw className="h-4 w-4 mr-2" />
+                                                        Ganti Paket
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Crown className="h-4 w-4 mr-2" />
+                                                        Upgrade
+                                                    </>
+                                                )}
+                                            </Link>
+                                        </Button>
                                     )}
                                 </div>
-                                {(!subscription || subscription.tier === 'free') && (
-                                    <Button size="sm" asChild>
-                                        <Link href={`/${locale}/pricing`}>
-                                            <Crown className="h-4 w-4 mr-2" />
-                                            Upgrade
-                                        </Link>
-                                    </Button>
-                                )}
                             </div>
-                        </div>
 
-                        {/* Messages */}
-                        {error && (
-                            <div className="p-3 bg-destructive/15 text-destructive text-sm rounded-md">
-                                {error}
-                            </div>
-                        )}
-                        {success && (
-                            <div className="p-3 bg-green-500/15 text-green-600 dark:text-green-400 text-sm rounded-md">
-                                {success}
-                            </div>
-                        )}
+                            {/* Messages */}
+                            {error && (
+                                <div className="p-3 bg-destructive/15 text-destructive text-sm rounded-md">
+                                    {error}
+                                </div>
+                            )}
+                            {success && (
+                                <div className="p-3 bg-green-500/15 text-green-600 dark:text-green-400 text-sm rounded-md">
+                                    {success}
+                                </div>
+                            )}
 
-                        {/* Actions */}
-                        <div className="flex flex-col gap-3">
-                            <Button onClick={handleSave} disabled={saving}>
-                                {saving ? (
-                                    <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        Menyimpan...
-                                    </>
-                                ) : (
-                                    <>
-                                        <Save className="mr-2 h-4 w-4" />
-                                        Simpan Perubahan
-                                    </>
-                                )}
-                            </Button>
-                            <Button variant="outline" onClick={handleResetPassword}>
-                                <KeyRound className="mr-2 h-4 w-4" />
-                                Reset Password
-                            </Button>
-                        </div>
-                    </CardContent>
-                </Card>
+                            {/* Actions */}
+                            <div className="flex flex-col gap-3">
+                                <Button onClick={handleSave} disabled={saving}>
+                                    {saving ? (
+                                        <>
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            Menyimpan...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Save className="mr-2 h-4 w-4" />
+                                            Simpan Perubahan
+                                        </>
+                                    )}
+                                </Button>
+                                <Button variant="outline" onClick={handleResetPassword}>
+                                    <KeyRound className="mr-2 h-4 w-4" />
+                                    Reset Password
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
             </div>
         </AdminShell>
     )
 }
+

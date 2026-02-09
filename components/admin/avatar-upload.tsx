@@ -1,17 +1,19 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { Loader2, Camera } from 'lucide-react'
+import { Loader2, Camera, Trash2 } from 'lucide-react'
 import { compressImage } from '@/lib/image-compressor'
+import { Button } from '@/components/ui/button'
 
 interface AvatarUploadProps {
     currentAvatar?: string | null
     name: string
-    onUpload: (dataUrl: string) => Promise<void>
+    onUpload: (dataUrl: string | null) => Promise<void>
 }
 
 export function AvatarUpload({ currentAvatar, name, onUpload }: AvatarUploadProps) {
     const [uploading, setUploading] = useState(false)
+    const [deleting, setDeleting] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [preview, setPreview] = useState<string | null>(currentAvatar || null)
     const inputRef = useRef<HTMLInputElement>(null)
@@ -50,6 +52,22 @@ export function AvatarUpload({ currentAvatar, name, onUpload }: AvatarUploadProp
         }
     }
 
+    const handleDelete = async () => {
+        if (!preview) return
+
+        setDeleting(true)
+        setError(null)
+
+        try {
+            await onUpload(null)
+            setPreview(null)
+        } catch (err: any) {
+            setError(err.message || 'Gagal menghapus foto')
+        } finally {
+            setDeleting(false)
+        }
+    }
+
     return (
         <div className="flex flex-col items-center gap-3">
             <div
@@ -81,11 +99,32 @@ export function AvatarUpload({ currentAvatar, name, onUpload }: AvatarUploadProp
                 accept="image/*"
                 className="hidden"
                 onChange={handleFileChange}
-                disabled={uploading}
+                disabled={uploading || deleting}
             />
-            <p className="text-xs text-muted-foreground">
-                Klik untuk upload foto (maks 5MB)
-            </p>
+            <div className="flex items-center gap-2">
+                <p className="text-xs text-muted-foreground">
+                    Klik untuk upload foto (maks 5MB)
+                </p>
+                {preview && (
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive h-6 px-2"
+                        onClick={(e) => {
+                            e.stopPropagation()
+                            handleDelete()
+                        }}
+                        disabled={deleting}
+                    >
+                        {deleting ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                            <Trash2 className="w-3 h-3" />
+                        )}
+                        <span className="ml-1 text-xs">Hapus</span>
+                    </Button>
+                )}
+            </div>
             {error && (
                 <p className="text-xs text-destructive">{error}</p>
             )}
