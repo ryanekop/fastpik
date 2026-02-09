@@ -14,7 +14,7 @@ const ADMIN_SECRET = process.env.ADMIN_SECRET_KEY || 'fastpik-ryan-2024-secret'
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json()
-        const { name, email, password, secretKey, trialDays = 3 } = body
+        const { name, email, secretKey, trialDays = 3 } = body
 
         // Validate secret key
         if (secretKey !== ADMIN_SECRET) {
@@ -25,28 +25,19 @@ export async function POST(req: NextRequest) {
         }
 
         // Validate required fields
-        if (!name || !email || !password) {
+        if (!name || !email) {
             return NextResponse.json(
-                { success: false, message: 'Name, email, and password are required' },
+                { success: false, message: 'Name and email are required' },
                 { status: 400 }
             )
         }
 
-        if (password.length < 6) {
-            return NextResponse.json(
-                { success: false, message: 'Password must be at least 6 characters' },
-                { status: 400 }
-            )
-        }
-
-        // Create user using admin API
-        const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-            email,
-            password,
-            email_confirm: true, // Auto confirm email
-            user_metadata: {
+        // Invite user by email - mereka akan set password sendiri
+        const { data: authData, error: authError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+            data: {
                 full_name: name
-            }
+            },
+            redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`
         })
 
         if (authError) {
@@ -98,7 +89,7 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json({
             success: true,
-            message: 'User created successfully',
+            message: 'Invitation sent! User will receive email to set their password.',
             user: {
                 id: authData.user.id,
                 email: authData.user.email,

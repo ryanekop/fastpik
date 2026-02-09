@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Loader2, CheckCircle, XCircle, User, Mail, Lock, Key, Eye, EyeOff, Trash2, RefreshCw, Plus, Users, Calendar, Crown } from 'lucide-react'
+import { Loader2, CheckCircle, XCircle, User, Mail, Lock, Key, Trash2, RefreshCw, Plus, Users, Calendar, Crown, Send } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { LanguageToggle } from '@/components/language-toggle'
@@ -55,8 +55,6 @@ export default function SecretAdminPage() {
     // Form states
     const [name, setName] = useState('')
     const [email, setEmail] = useState('')
-    const [password, setPassword] = useState('')
-    const [showPassword, setShowPassword] = useState(false)
     const [trialDays, setTrialDays] = useState('3')
 
     // Status states
@@ -116,7 +114,7 @@ export default function SecretAdminPage() {
             const res = await fetch('/api/admin/create-trial-user', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, email, password, secretKey, trialDays: parseInt(trialDays) })
+                body: JSON.stringify({ name, email, secretKey, trialDays: parseInt(trialDays) })
             })
 
             const data = await res.json()
@@ -125,7 +123,6 @@ export default function SecretAdminPage() {
             if (data.success) {
                 setName('')
                 setEmail('')
-                setPassword('')
                 setShowCreateForm(false)
                 fetchUsers()
             }
@@ -347,10 +344,16 @@ export default function SecretAdminPage() {
                         >
                             <Card className="overflow-visible">
                                 <CardHeader>
-                                    <CardTitle className="text-lg">{t('createTrialAccount')}</CardTitle>
+                                    <CardTitle className="text-lg flex items-center gap-2">
+                                        <Send className="h-5 w-5" />
+                                        {t('inviteTrialUser')}
+                                    </CardTitle>
+                                    <CardDescription>
+                                        {t('inviteTrialUserDesc')}
+                                    </CardDescription>
                                 </CardHeader>
                                 <CardContent>
-                                    <form onSubmit={handleCreateUser} className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                                    <form onSubmit={handleCreateUser} className="grid grid-cols-1 md:grid-cols-4 gap-4">
                                         <div className="space-y-2">
                                             <Label>{t('name')}</Label>
                                             <Input
@@ -371,26 +374,6 @@ export default function SecretAdminPage() {
                                             />
                                         </div>
                                         <div className="space-y-2">
-                                            <Label>{t('password')}</Label>
-                                            <div className="relative">
-                                                <Input
-                                                    type={showPassword ? 'text' : 'password'}
-                                                    placeholder="Min 6 chars"
-                                                    value={password}
-                                                    onChange={(e) => setPassword(e.target.value)}
-                                                    required
-                                                    minLength={6}
-                                                />
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setShowPassword(!showPassword)}
-                                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                                                >
-                                                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                                                </button>
-                                            </div>
-                                        </div>
-                                        <div className="space-y-2">
                                             <Label>{t('trialDuration')}</Label>
                                             <Select value={trialDays} onValueChange={setTrialDays}>
                                                 <SelectTrigger>
@@ -408,7 +391,12 @@ export default function SecretAdminPage() {
                                         <div className="space-y-2">
                                             <Label className="opacity-0">.</Label>
                                             <Button type="submit" className="w-full cursor-pointer" disabled={loading}>
-                                                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : t('create')}
+                                                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : (
+                                                    <>
+                                                        <Send className="h-4 w-4 mr-2" />
+                                                        {t('sendInvite')}
+                                                    </>
+                                                )}
                                             </Button>
                                         </div>
                                     </form>
