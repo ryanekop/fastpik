@@ -29,10 +29,10 @@ export async function GET(req: NextRequest) {
 
         const authUsers = authData?.users || []
 
-        // Get all subscriptions
+        // Get all subscriptions - using correct column names
         const { data: subscriptions, error: subError } = await supabaseAdmin
             .from('subscriptions')
-            .select('user_id, tier, status, expires_at')
+            .select('user_id, tier, status, end_date, trial_end_date')
 
         if (subError) console.error('Subscription error:', subError)
 
@@ -58,7 +58,8 @@ export async function GET(req: NextRequest) {
                 createdAt: user.created_at,
                 tier: subscription?.tier || 'none',
                 status: subscription?.status || 'inactive',
-                expiresAt: subscription?.expires_at || null
+                expiresAt: subscription?.end_date || subscription?.trial_end_date || null,
+                trialEndDate: subscription?.trial_end_date || null
             }
         })
 
@@ -148,8 +149,9 @@ export async function PATCH(req: NextRequest) {
                 .upsert({
                     user_id: userId,
                     tier: 'trial',
-                    status: 'active',
-                    expires_at: newExpiry.toISOString()
+                    status: 'trial',
+                    trial_end_date: newExpiry.toISOString(),
+                    start_date: new Date().toISOString()
                 }, { onConflict: 'user_id' })
 
             if (error) throw error
@@ -161,9 +163,20 @@ export async function PATCH(req: NextRequest) {
 
         } else if (action === 'change_tier') {
             // Change subscription tier
-            const expiresAt = tier === 'lifetime'
-                ? null
-                : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days default
+            let endDate = null
+            if (tier !== 'lifetime') {
+                const expiry = new Date()
+                if (tier === 'pro_monthly') {
+                    expiry.setMonth(expiry.getMonth() + 1)
+                } else if (tier === 'pro_quarterly') {
+                    expiry.setMonth(expiry.getMonth() + 3)
+                } else if (tier === 'pro_yearly') {
+                    expiry.setFullYear(expiry.getFullYear() + 1)
+                } else {
+                    expiry.setDate(expiry.getDate() + 30) // Default 30 days
+                }
+                endDate = expiry.toISOString()
+            }
 
             const { error } = await supabaseAdmin
                 .from('subscriptions')
@@ -171,7 +184,8 @@ export async function PATCH(req: NextRequest) {
                     user_id: userId,
                     tier: tier,
                     status: 'active',
-                    expires_at: expiresAt
+                    start_date: new Date().toISOString(),
+                    end_date: endDate
                 }, { onConflict: 'user_id' })
 
             if (error) throw error
