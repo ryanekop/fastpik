@@ -1,0 +1,115 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+
+// Create Supabase admin client
+const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+)
+
+// Secret key for admin access
+const ADMIN_SECRET = process.env.ADMIN_SECRET_KEY || 'fastpik-admin-2024'
+
+export async function POST(req: NextRequest) {
+    try {
+        const body = await req.json()
+        const { name, email, password, secretKey } = body
+
+        // Validate secret key
+        if (secretKey !== ADMIN_SECRET) {
+            return NextResponse.json(
+                { success: false, message: 'Unauthorized' },
+                { status: 401 }
+            )
+        }
+
+        // Validate required fields
+        if (!name || !email || !password) {
+            return NextResponse.json(
+                { success: false, message: 'Name, email, and password are required' },
+                { status: 400 }
+            )
+        }
+
+        if (password.length < 6) {
+            return NextResponse.json(
+                { success: false, message: 'Password must be at least 6 characters' },
+                { status: 400 }
+            )
+        }
+
+        // Create user using admin API
+        const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+            email,
+            password,
+            email_confirm: true, // Auto confirm email
+            user_metadata: {
+                full_name: name
+            }
+        })
+
+        if (authError) {
+            console.error('Auth error:', authError)
+            return NextResponse.json(
+                { success: false, message: authError.message },
+                { status: 400 }
+            )
+        }
+
+        if (!authData.user) {
+            return NextResponse.json(
+                { success: false, message: 'Failed to create user' },
+                { status: 500 }
+            )
+        }
+
+        // Create profile
+        const { error: profileError } = await supabaseAdmin
+            .from('profiles')
+            .insert({
+                id: authData.user.id,
+                email: email,
+                full_name: name
+            })
+
+        if (profileError) {
+            console.error('Profile error:', profileError)
+            // Continue anyway, profile can be created on first login
+        }
+
+        // Create trial subscription (15 days)
+        const trialEndDate = new Date()
+        trialEndDate.setDate(trialEndDate.getDate() + 15)
+
+        const { error: subError } = await supabaseAdmin
+            .from('subscriptions')
+            .insert({
+                user_id: authData.user.id,
+                tier: 'trial',
+                status: 'active',
+                expires_at: trialEndDate.toISOString()
+            })
+
+        if (subError) {
+            console.error('Subscription error:', subError)
+        }
+
+        return NextResponse.json({
+            success: true,
+            message: 'User created successfully',
+            user: {
+                id: authData.user.id,
+                email: authData.user.email,
+                name: name
+            }
+        })
+
+    } catch (error: any) {
+        console.error('Error creating user:', error)
+        return NextResponse.json(
+            { success: false, message: error.message || 'Internal server error' },
+            { status: 500 }
+        )
+    }
+}
