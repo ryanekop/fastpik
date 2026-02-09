@@ -17,49 +17,52 @@ export async function POST(request: NextRequest) {
     try {
         const payload = await request.json()
 
-        console.log('[Mayar Webhook] Received payload:', JSON.stringify(payload, null, 2))
+        console.log('[Mayar Webhook] FULL PAYLOAD:', JSON.stringify(payload, null, 2))
 
         // Mayar sends data in an object named 'data'
-        let data = payload.data || payload
+        const data = payload.data || payload
 
-        // Extract key fields with various fallbacks based on actual Mayar payload
-        const rawStatus = data.status
-        const customer = data.customer || data.customerDetail || {}
+        // Extract key fields with various fallbacks
+        const rawStatus = data.status || payload.status
+        const customer = data.customer || data.customerDetail || payload.customer || {}
 
-        // Support: data.customerEmail or customer.email or data.email
-        const email = data.customerEmail || customer.email || data.email
+        // Support all possible email field names
+        const email = data.customerEmail ||
+            payload.customerEmail ||
+            customer.email ||
+            data.email ||
+            payload.email
 
-        // Support: data.customerName or customer.name or customer.fullName or data.name
-        const name = data.customerName || customer.name || customer.fullName || data.name || 'User'
+        // Support all possible name field names
+        const name = data.customerName ||
+            payload.customerName ||
+            customer.name ||
+            customer.fullName ||
+            data.name ||
+            payload.name ||
+            'User'
 
-        const amount = data.amount || data.totalAmount || data.gross_amount || 0
+        const amount = data.amount || data.totalAmount || data.gross_amount || payload.amount || 0
         const transactionId = data.id || data.transactionId || payload.id || `TRX-${Date.now()}`
 
-        console.log(`[Mayar Webhook] Processing - Email: ${email}, Name: ${name}, Amount: ${amount}, Raw Status: ${rawStatus}`)
+        console.log(`[Mayar Webhook] EXTRACTED -> Email: ${email}, Name: ${name}, Status: ${rawStatus}`)
 
-        // Validate email
         if (!email) {
-            console.error('[Mayar Webhook] No email provided in payload')
+            console.error('[Mayar Webhook] Failed to find email in:', JSON.stringify(data))
             return NextResponse.json({ success: false, message: 'No email provided' }, { status: 400 })
         }
 
-        // Filter for successful transactions only
-        // Handle: boolean true, strings "success", "SUCCESS", "settlement", "paid"
         const statusStr = rawStatus?.toString().toLowerCase()
         const isSuccess = rawStatus === true ||
             ['success', 'settlement', 'paid', 'successful'].includes(statusStr)
 
         if (!isSuccess) {
-            console.log(`[Mayar Webhook] Ignored: Status is ${rawStatus}`)
-            return NextResponse.json({ success: true, message: `Ignored: Status is ${rawStatus}` }, { status: 200 })
+            return NextResponse.json({ success: true, message: `Ignored status: ${rawStatus}` }, { status: 200 })
         }
 
-        // Determine Plan based on Amount
-        // 15rb -> 1 Bulan, 39rb -> 3 Bulan, 129rb -> 1 Tahun, 349rb -> Lifetime
         let planDurationDays = 0
         let planTier = 'free'
         let isLifetime = false
-
         const amountNum = Number(amount)
 
         if (amountNum >= 14000 && amountNum <= 16000) {
@@ -75,17 +78,11 @@ export async function POST(request: NextRequest) {
             planTier = 'lifetime'
             isLifetime = true
         } else {
-            console.warn(`[Mayar Webhook] Unknown amount: ${amountNum}`)
-            return NextResponse.json({ success: true, message: `Ignored: Unknown amount ${amountNum}` }, { status: 200 })
+            return NextResponse.json({ success: true, message: `Unknown amount: ${amountNum}` }, { status: 200 })
         }
-
-        console.log(`[Mayar Webhook] Plan detected: ${planTier}`)
 
         // Find or Create User
         let userId: string | undefined
-        let isNewUser = false
-
-        // Try to create user first
         const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
             email: email,
             email_confirm: true,
@@ -93,15 +90,10 @@ export async function POST(request: NextRequest) {
         })
 
         if (createError) {
-            // Find existing user if creation failed (likely already exists)
             const { data: { users: allUsers } } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 })
             const found = allUsers?.find(u => u.email?.toLowerCase() === email.toLowerCase())
-
             if (found) {
                 userId = found.id
-                console.log(`[Mayar Webhook] Found existing user: ${userId}`)
-
-                // Send login link to existing user
                 try {
                     await supabaseAdmin.auth.signInWithOtp({
                         email: email,
@@ -110,16 +102,9 @@ export async function POST(request: NextRequest) {
                         }
                     })
                 } catch (e) { }
-            } else {
-                console.error('[Mayar Webhook] User creation failed and user not found')
-                return NextResponse.json({ success: false, message: 'Error finding/creating user' }, { status: 500 })
             }
         } else {
-            isNewUser = true
             userId = newUser.user.id
-            console.log(`[Mayar Webhook] Created new user: ${userId}`)
-
-            // Send password setup link to new user
             try {
                 await supabaseAdmin.auth.resetPasswordForEmail(email, {
                     redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/id/dashboard/reset-password`
@@ -128,10 +113,9 @@ export async function POST(request: NextRequest) {
         }
 
         if (!userId) {
-            return NextResponse.json({ success: false, message: 'User ID undefined' }, { status: 500 })
+            return NextResponse.json({ success: false, message: 'User ID error' }, { status: 500 })
         }
 
-        // Calculate Dates
         const startDate = new Date()
         let endDate = null
         if (!isLifetime) {
@@ -140,7 +124,6 @@ export async function POST(request: NextRequest) {
             endDate = end.toISOString()
         }
 
-        // Update Subscription
         const { error: upsertError } = await supabaseAdmin
             .from('subscriptions')
             .upsert({
@@ -153,19 +136,12 @@ export async function POST(request: NextRequest) {
                 updated_at: new Date().toISOString()
             }, { onConflict: 'user_id' })
 
-        if (upsertError) {
-            console.error('[Mayar Webhook] DB Error:', upsertError)
-            return NextResponse.json({ success: false, message: 'Error updating subscription' }, { status: 500 })
-        }
+        if (upsertError) throw upsertError
 
-        return NextResponse.json({
-            success: true,
-            message: 'Processed',
-            data: { email, tier: planTier, isNewUser }
-        }, { status: 200 })
+        return NextResponse.json({ success: true, message: 'Processed' }, { status: 200 })
 
     } catch (err: any) {
-        console.error('[Mayar Webhook] Global error:', err)
+        console.error('[Mayar Webhook] Error:', err)
         return NextResponse.json({ success: false, message: err.message }, { status: 500 })
     }
 }
