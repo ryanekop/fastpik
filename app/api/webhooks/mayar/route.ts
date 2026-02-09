@@ -16,23 +16,6 @@ const supabaseAdmin = createClient(
 
 const MAYAR_SECRET = process.env.MAYAR_WEBHOOK_SECRET
 
-// CORS headers for testing
-const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-}
-
-// Handle preflight requests
-export async function OPTIONS() {
-    return jsonWithCors({}, { headers: corsHeaders })
-}
-
-// Helper to add CORS headers to all responses
-function jsonWithCors(data: any, init?: { status?: number }) {
-    return jsonWithCors(data, { ...init, headers: corsHeaders })
-}
-
 export async function POST(request: NextRequest) {
     try {
         const payload = await request.json()
@@ -51,7 +34,7 @@ export async function POST(request: NextRequest) {
         // 2. Filter for SUCCESS transactions only
         if (payload.status !== 'success' && payload.transaction_status !== 'settlement' && payload.status !== 'settlement') {
             // "settlement" or "success" usually indicates paid
-            return jsonWithCors({ message: 'Ignored: Status not success' }, { status: 200 })
+            return NextResponse.json({ message: 'Ignored: Status not success' }, { status: 200 })
         }
 
         const customer = payload.customer
@@ -61,7 +44,7 @@ export async function POST(request: NextRequest) {
         const transactionId = payload.id || payload.transaction_id
 
         if (!email) {
-            return jsonWithCors({ message: 'Error: No email provided' }, { status: 400 })
+            return NextResponse.json({ message: 'Error: No email provided' }, { status: 400 })
         }
 
         console.log(`[Mayar Webhook] Processing payment for: ${email}, Amount: ${amount}`)
@@ -94,7 +77,7 @@ export async function POST(request: NextRequest) {
             // Fallback or error? Let's process it as 1 month if undefined to be safe or just log
             // For now, return success but don't update if amount mismatch to avoid fraud?
             // actually, let's treat it as pro_monthly fallback if needed or return
-            return jsonWithCors({ message: 'Ignored: Unknown amount' }, { status: 200 })
+            return NextResponse.json({ message: 'Ignored: Unknown amount' }, { status: 200 })
         }
 
         // 4. Check if User exists in Supabase
@@ -172,7 +155,7 @@ export async function POST(request: NextRequest) {
                 }
             } else {
                 console.error('[Mayar Webhook] Could not find user ID even though creation failed.')
-                return jsonWithCors({ message: 'Error finding user' }, { status: 500 })
+                return NextResponse.json({ message: 'Error finding user' }, { status: 500 })
             }
 
         } else {
@@ -197,7 +180,7 @@ export async function POST(request: NextRequest) {
         }
 
         if (!userId) {
-            return jsonWithCors({ message: 'Error: User ID undefined' }, { status: 500 })
+            return NextResponse.json({ message: 'Error: User ID undefined' }, { status: 500 })
         }
 
         // 5. Calculate Dates
@@ -224,13 +207,13 @@ export async function POST(request: NextRequest) {
 
         if (upsertError) {
             console.error('[Mayar Webhook] Subscription update failed:', upsertError)
-            return jsonWithCors({ message: 'Error updating subscription' }, { status: 500 })
+            return NextResponse.json({ message: 'Error updating subscription' }, { status: 500 })
         }
 
-        return jsonWithCors({ message: 'Subscription processed successfully' }, { status: 200 })
+        return NextResponse.json({ message: 'Subscription processed successfully' }, { status: 200 })
 
     } catch (err: any) {
         console.error('[Mayar Webhook] Exception:', err)
-        return jsonWithCors({ message: `Server Error: ${err.message}` }, { status: 500 })
+        return NextResponse.json({ message: `Server Error: ${err.message}` }, { status: 500 })
     }
 }
