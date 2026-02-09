@@ -458,7 +458,7 @@ export default function SecretAdminPage() {
                                             <TableRow key={user.id}>
                                                 <TableCell className="font-medium">{user.name}</TableCell>
                                                 <TableCell>{user.email}</TableCell>
-                                                <TableCell>{getTierBadge(user.tier)}</TableCell>
+                                                <TableCell>{getTierBadge(user.tier, user.status)}</TableCell>
                                                 <TableCell>
                                                     {user.tier === 'lifetime' ? (
                                                         <span className="text-amber-500">∞ {t('never')}</span>

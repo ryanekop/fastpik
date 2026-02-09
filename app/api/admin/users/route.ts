@@ -130,7 +130,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     try {
-        const { userId, action, days, tier } = await req.json()
+        const { userId, action, days, tier, expiryDate } = await req.json()
 
         if (!userId) {
             return NextResponse.json(
@@ -141,7 +141,6 @@ export async function PATCH(req: NextRequest) {
 
         if (action === 'set_expiry') {
             // Set specific expiry date for subscription
-            const { expiryDate } = await req.json().catch(() => ({}))
 
             // Update end_date or trial_end_date based on current tier
             const { data: currentSub } = await supabaseAdmin
