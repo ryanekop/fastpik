@@ -343,8 +343,9 @@ export default function SecretAdminPage() {
                             initial={{ opacity: 0, height: 0 }}
                             animate={{ opacity: 1, height: 'auto' }}
                             exit={{ opacity: 0, height: 0 }}
+                            className="overflow-visible"
                         >
-                            <Card>
+                            <Card className="overflow-visible">
                                 <CardHeader>
                                     <CardTitle className="text-lg">{t('createTrialAccount')}</CardTitle>
                                 </CardHeader>
