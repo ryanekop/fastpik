@@ -64,6 +64,7 @@ export default function SecretAdminPage() {
     // Users list
     const [users, setUsers] = useState<UserData[]>([])
     const [loadingUsers, setLoadingUsers] = useState(false)
+    const [fetchError, setFetchError] = useState<string | null>(null)
     const [showCreateForm, setShowCreateForm] = useState(false)
 
     // Dialog states
@@ -74,20 +75,28 @@ export default function SecretAdminPage() {
 
     const fetchUsers = useCallback(async () => {
         setLoadingUsers(true)
+        setFetchError(null)
         try {
             const res = await fetch('/api/admin/users', {
                 headers: { 'x-admin-secret': secretKey }
             })
             const data = await res.json()
-            if (data.success) {
+            if (res.status === 401) {
+                setFetchError(t('invalidKey'))
+                setIsAuthenticated(false)
+                setUsers([])
+            } else if (data.success) {
                 setUsers(data.users)
+            } else {
+                setFetchError(data.message || 'Failed to fetch users')
             }
         } catch (error) {
             console.error('Failed to fetch users:', error)
+            setFetchError('Failed to fetch users')
         } finally {
             setLoadingUsers(false)
         }
-    }, [secretKey])
+    }, [secretKey, t])
 
     useEffect(() => {
         if (isAuthenticated) {
@@ -422,6 +431,13 @@ export default function SecretAdminPage() {
                         {loadingUsers ? (
                             <div className="flex items-center justify-center py-8">
                                 <Loader2 className="h-6 w-6 animate-spin" />
+                            </div>
+                        ) : fetchError ? (
+                            <div className="text-center py-8">
+                                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-red-500/10 text-red-500">
+                                    <XCircle className="h-5 w-5" />
+                                    {fetchError}
+                                </div>
                             </div>
                         ) : users.length === 0 ? (
                             <div className="text-center py-8 text-muted-foreground">
