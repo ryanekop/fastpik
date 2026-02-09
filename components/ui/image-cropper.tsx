@@ -123,7 +123,7 @@ export function ImageCropper({
                         min={1}
                         max={3}
                         step={0.1}
-                        onValueChange={([value]) => setZoom(value)}
+                        onValueChange={([value]: number[]) => setZoom(value)}
                         className="flex-1"
                     />
                     <ZoomIn className="h-4 w-4 text-muted-foreground" />
