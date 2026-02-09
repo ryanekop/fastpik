@@ -19,36 +19,39 @@ export async function POST(request: NextRequest) {
 
         console.log('[Mayar Webhook] Received payload:', JSON.stringify(payload, null, 2))
 
-        // Mayar sends data in different formats depending on event type
-        // Format 1 (legacy/test): { status, customer, amount, ... }
-        // Format 2 (Mayar actual): { event, data: { id, status, customer, ... } }
+        // Mayar sends data in an object named 'data'
+        let data = payload.data || payload
 
-        let eventType = payload.event || 'payment.received'
-        let data = payload.data || payload // Fallback to root if no data wrapper
-
-        // Extract key fields - handle both formats
-        const status = data.status
+        // Extract key fields with various fallbacks based on actual Mayar payload
+        const rawStatus = data.status
         const customer = data.customer || data.customerDetail || {}
-        const email = customer.email || data.email
-        const name = customer.name || customer.fullName || data.name || 'User'
+
+        // Support: data.customerEmail or customer.email or data.email
+        const email = data.customerEmail || customer.email || data.email
+
+        // Support: data.customerName or customer.name or customer.fullName or data.name
+        const name = data.customerName || customer.name || customer.fullName || data.name || 'User'
+
         const amount = data.amount || data.totalAmount || data.gross_amount || 0
         const transactionId = data.id || data.transactionId || payload.id || `TRX-${Date.now()}`
 
-        console.log(`[Mayar Webhook] Event: ${eventType}, Email: ${email}, Amount: ${amount}, Status: ${status}`)
+        console.log(`[Mayar Webhook] Processing - Email: ${email}, Name: ${name}, Amount: ${amount}, Raw Status: ${rawStatus}`)
 
         // Validate email
         if (!email) {
-            console.error('[Mayar Webhook] No email provided')
+            console.error('[Mayar Webhook] No email provided in payload')
             return NextResponse.json({ success: false, message: 'No email provided' }, { status: 400 })
         }
 
         // Filter for successful transactions only
-        // Mayar status can be boolean (true) or string ('success', 'settlement')
-        const isSuccess = status === true || status === 'success' || status === 'settlement' || status === 'paid'
+        // Handle: boolean true, strings "success", "SUCCESS", "settlement", "paid"
+        const statusStr = rawStatus?.toString().toLowerCase()
+        const isSuccess = rawStatus === true ||
+            ['success', 'settlement', 'paid', 'successful'].includes(statusStr)
 
         if (!isSuccess) {
-            console.log(`[Mayar Webhook] Ignored: Status is ${status}`)
-            return NextResponse.json({ success: true, message: `Ignored: Status is ${status}` }, { status: 200 })
+            console.log(`[Mayar Webhook] Ignored: Status is ${rawStatus}`)
+            return NextResponse.json({ success: true, message: `Ignored: Status is ${rawStatus}` }, { status: 200 })
         }
 
         // Determine Plan based on Amount
@@ -76,7 +79,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ success: true, message: `Ignored: Unknown amount ${amountNum}` }, { status: 200 })
         }
 
-        console.log(`[Mayar Webhook] Plan: ${planTier}, Duration: ${planDurationDays} days`)
+        console.log(`[Mayar Webhook] Plan detected: ${planTier}`)
 
         // Find or Create User
         let userId: string | undefined
@@ -90,9 +93,7 @@ export async function POST(request: NextRequest) {
         })
 
         if (createError) {
-            console.log(`[Mayar Webhook] User exists or creation failed: ${createError.message}`)
-
-            // Find existing user
+            // Find existing user if creation failed (likely already exists)
             const { data: { users: allUsers } } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 })
             const found = allUsers?.find(u => u.email?.toLowerCase() === email.toLowerCase())
 
@@ -100,36 +101,30 @@ export async function POST(request: NextRequest) {
                 userId = found.id
                 console.log(`[Mayar Webhook] Found existing user: ${userId}`)
 
-                // Send magic link to existing user
+                // Send login link to existing user
                 try {
                     await supabaseAdmin.auth.signInWithOtp({
                         email: email,
                         options: {
-                            emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://fastpik.ryanekoapp.web.id'}/id/auth/callback?next=/id/dashboard`
+                            emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/id/auth/callback?next=/id/dashboard`
                         }
                     })
-                    console.log(`[Mayar Webhook] Magic link sent to: ${email}`)
-                } catch (e: any) {
-                    console.error('[Mayar Webhook] Failed to send magic link:', e.message)
-                }
+                } catch (e) { }
             } else {
-                console.error('[Mayar Webhook] Could not find user')
-                return NextResponse.json({ success: false, message: 'Error finding user' }, { status: 500 })
+                console.error('[Mayar Webhook] User creation failed and user not found')
+                return NextResponse.json({ success: false, message: 'Error finding/creating user' }, { status: 500 })
             }
         } else {
             isNewUser = true
             userId = newUser.user.id
             console.log(`[Mayar Webhook] Created new user: ${userId}`)
 
-            // Send password reset link to new user
+            // Send password setup link to new user
             try {
                 await supabaseAdmin.auth.resetPasswordForEmail(email, {
-                    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://fastpik.ryanekoapp.web.id'}/id/dashboard/reset-password`
+                    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/id/dashboard/reset-password`
                 })
-                console.log(`[Mayar Webhook] Password reset email sent to: ${email}`)
-            } catch (e: any) {
-                console.error('[Mayar Webhook] Failed to send reset email:', e.message)
-            }
+            } catch (e) { }
         }
 
         if (!userId) {
@@ -159,20 +154,18 @@ export async function POST(request: NextRequest) {
             }, { onConflict: 'user_id' })
 
         if (upsertError) {
-            console.error('[Mayar Webhook] Subscription update failed:', upsertError)
+            console.error('[Mayar Webhook] DB Error:', upsertError)
             return NextResponse.json({ success: false, message: 'Error updating subscription' }, { status: 500 })
         }
 
-        console.log(`[Mayar Webhook] SUCCESS - User: ${email}, Tier: ${planTier}, New: ${isNewUser}`)
-
         return NextResponse.json({
             success: true,
-            message: 'Subscription processed successfully',
-            user: { id: userId, email, tier: planTier, isNew: isNewUser }
+            message: 'Processed',
+            data: { email, tier: planTier, isNewUser }
         }, { status: 200 })
 
     } catch (err: any) {
-        console.error('[Mayar Webhook] Exception:', err)
-        return NextResponse.json({ success: false, message: `Server Error: ${err.message}` }, { status: 500 })
+        console.error('[Mayar Webhook] Global error:', err)
+        return NextResponse.json({ success: false, message: err.message }, { status: 500 })
     }
 }
