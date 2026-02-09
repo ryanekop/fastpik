@@ -91,7 +91,7 @@
         "saving": "Saving...",
         "saveAllChanges": "Save All Changes",
         "loginTitle": "Login Account",
-        "loginDescription": "Enter your credentials to access the dashboard",
+        "loginDescription": "Sign in to your account to access the dashboard",
         "emailLabel": "Email",
         "passwordLabel": "Password",
         "forgotPassword": "Forgot password?",

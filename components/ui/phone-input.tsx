@@ -115,7 +115,7 @@ export function PhoneInput({ value = "", onChange, placeholder = "812xxxxxxxx", 
     return (
         <div className={cn("flex gap-0 min-w-0", className)} ref={dropdownRef}>
             {/* Country Dropdown */}
-            <div className="relative z-10">
+            <div className={cn("relative", isOpen ? "z-50" : "z-10")}>
                 <button
                     type="button"
                     onClick={() => setIsOpen(!isOpen)}

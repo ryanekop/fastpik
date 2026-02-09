@@ -5,8 +5,13 @@ import { getProjects } from "@/lib/supabase/projects"
 import { AdminShell } from "@/components/admin/admin-shell"
 import { ProjectListWrapper } from "@/components/admin/project-list-wrapper"
 import { Loader2 } from "lucide-react"
+import { Metadata } from "next"
 
 export const dynamic = 'force-dynamic'
+
+export const metadata: Metadata = {
+    title: "Dashboard"
+}
 
 export default async function DashboardPage() {
     const t = await getTranslations('Admin')

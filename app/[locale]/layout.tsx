@@ -18,7 +18,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Fastpik - Photo Culling",
+  title: {
+    default: "Fastpik - Photo Culling",
+    template: "%s - Fastpik",
+  },
   description: "Select your photos quickly and easily.",
   icons: {
     icon: [

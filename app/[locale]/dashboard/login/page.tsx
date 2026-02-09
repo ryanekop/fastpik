@@ -2,6 +2,11 @@
 import { LoginForm } from "@/components/admin/login-form"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { CheckCircle2 } from "lucide-react"
+import { Metadata } from "next"
+
+export const metadata: Metadata = {
+    title: "Login"
+}
 
 type Props = {
     searchParams: Promise<{ [key: string]: string | string[] | undefined }>
