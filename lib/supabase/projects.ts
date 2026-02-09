@@ -3,6 +3,13 @@ import { createClient } from './server'
 import { createServiceClient } from './service'
 import type { Project } from '@/lib/project-store'
 
+export async function getUserId(): Promise<string | null> {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    return user?.id || null
+}
+
+
 export async function getProjects() {
     const supabase = await createClient()
 
