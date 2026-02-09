@@ -171,7 +171,7 @@ export default function Home() {
 
       {/* Hero Section */}
       <section className="relative overflow-hidden bg-gradient-to-b from-background via-muted/30 to-background py-20 sm:py-32">
-        <div className="absolute inset-0 bg-grid-pattern opacity-5"></div>
+        <div className="absolute inset-0 bg-grid-pattern opacity-5 pointer-events-none"></div>
         <div className="container mx-auto px-4">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
