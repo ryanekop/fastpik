@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
             userId = newUser.user.id
             try {
                 await supabaseAdmin.auth.resetPasswordForEmail(email, {
-                    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/id/dashboard/reset-password`
+                    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/id/auth/callback?type=recovery`
                 })
             } catch (e) { }
         }
