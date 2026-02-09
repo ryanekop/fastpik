@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Loader2, CheckCircle, XCircle, User, Mail, Lock, Key, Eye, EyeOff } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { ThemeToggle } from '@/components/theme-toggle'
 
 export default function SecretAdminPage() {
     const [isAuthenticated, setIsAuthenticated] = useState(false)
@@ -73,7 +74,11 @@ export default function SecretAdminPage() {
     // Auth screen
     if (!isAuthenticated) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 p-4">
+                {/* Theme Toggle */}
+                <div className="fixed top-4 right-4">
+                    <ThemeToggle />
+                </div>
                 <motion.div
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
@@ -117,7 +122,11 @@ export default function SecretAdminPage() {
 
     // Main admin form
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 p-4">
+            {/* Theme Toggle */}
+            <div className="fixed top-4 right-4">
+                <ThemeToggle />
+            </div>
             <div className="max-w-md mx-auto pt-8">
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
@@ -226,8 +235,8 @@ export default function SecretAdminPage() {
                                         animate={{ opacity: 1, y: 0 }}
                                         exit={{ opacity: 0, y: -10 }}
                                         className={`mt-4 p-4 rounded-lg ${result.success
-                                                ? 'bg-emerald-500/20 border border-emerald-500/30'
-                                                : 'bg-red-500/20 border border-red-500/30'
+                                            ? 'bg-emerald-500/20 border border-emerald-500/30'
+                                            : 'bg-red-500/20 border border-red-500/30'
                                             }`}
                                     >
                                         <div className="flex items-start gap-3">
