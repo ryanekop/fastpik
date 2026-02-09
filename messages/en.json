@@ -225,5 +225,16 @@
         "selectPlan": "Select Plan",
         "paymentNote": "Payments are securely processed by Mayar.id.",
         "paymentMethods": "Supports QRIS, Virtual Account, E-Wallet, and Credit Card."
+    },
+    "Profile": {
+        "title": "My Profile",
+        "description": "Manage your account information",
+        "save": "Save Changes",
+        "saving": "Saving...",
+        "resetPassword": "Reset Password",
+        "upgrade": "Upgrade",
+        "membershipStatus": "Membership Status",
+        "validUntil": "Valid until",
+        "foreverAccess": "Forever access"
     }
 }

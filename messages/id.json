@@ -225,5 +225,16 @@
         "selectPlan": "Pilih Paket",
         "paymentNote": "Pembayaran diproses dengan aman oleh Mayar.id.",
         "paymentMethods": "Mendukung QRIS, Virtual Account, E-Wallet, dan Kartu Kredit."
+    },
+    "Profile": {
+        "title": "Profil Saya",
+        "description": "Kelola informasi akun Anda",
+        "save": "Simpan Perubahan",
+        "saving": "Menyimpan...",
+        "resetPassword": "Reset Password",
+        "upgrade": "Upgrade",
+        "membershipStatus": "Status Membership",
+        "validUntil": "Berlaku sampai",
+        "foreverAccess": "Akses selamanya"
     }
 }
