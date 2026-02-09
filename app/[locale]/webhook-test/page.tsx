@@ -41,7 +41,7 @@ export default function WebhookTesterPage() {
     }, [])
 
     const handleAuth = () => {
-        if (secretInput === SECRET_KEY) {
+        if (secretInput.trim() === SECRET_KEY) {
             setIsAuthenticated(true)
             sessionStorage.setItem('webhook-tester-auth', 'true')
             setAuthError('')
@@ -142,7 +142,7 @@ export default function WebhookTesterPage() {
                                 <p className="text-sm text-red-500">{authError}</p>
                             )}
                         </div>
-                        <Button onClick={handleAuth} className="w-full gap-2">
+                        <Button onClick={handleAuth} className="w-full gap-2 cursor-pointer">
                             <KeyRound className="h-4 w-4" />
                             Unlock
                         </Button>
