@@ -219,6 +219,10 @@ export default function PricingPage() {
                                     <LayoutDashboard className="mr-2 h-4 w-4" />
                                     <span>{tIndex('dashboard')}</span>
                                 </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => router.push(`/${locale}/pricing`)} className="cursor-pointer">
+                                    <Crown className="mr-2 h-4 w-4" />
+                                    <span>Paket</span>
+                                </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => router.push(`/${locale}/dashboard/settings`)} className="cursor-pointer">
                                     <Settings className="mr-2 h-4 w-4" />
                                     <span>{tIndex('settings')}</span>

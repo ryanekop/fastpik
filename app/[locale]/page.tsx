@@ -9,7 +9,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { motion } from "framer-motion"
 import { createClient } from "@/lib/supabase/client"
-import { Loader2, LogOut, Settings, LayoutDashboard, User } from "lucide-react"
+import { Loader2, LogOut, Settings, LayoutDashboard, User, Crown } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -136,6 +136,10 @@ export default function Home() {
                 <DropdownMenuItem onClick={() => router.push(`/${locale}/dashboard`)} className="cursor-pointer">
                   <LayoutDashboard className="mr-2 h-4 w-4" />
                   <span>{t('dashboard')}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push(`/${locale}/pricing`)} className="cursor-pointer">
+                  <Crown className="mr-2 h-4 w-4" />
+                  <span>Paket</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => router.push(`/${locale}/dashboard/settings`)} className="cursor-pointer">
                   <Settings className="mr-2 h-4 w-4" />

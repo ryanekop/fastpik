@@ -12,7 +12,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
-import { LogOut, Settings, User } from "lucide-react"
+import { LogOut, Settings, User, LayoutDashboard, Crown } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { LanguageToggle } from "@/components/language-toggle"
 import { useTranslations, useLocale } from "next-intl"
@@ -132,6 +132,14 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                             <DropdownMenuItem onClick={() => router.push(`/${locale}/dashboard/profile`)} className="cursor-pointer">
                                 <User className="mr-2 h-4 w-4" />
                                 <span>Profil</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => router.push(`/${locale}/dashboard`)} className="cursor-pointer">
+                                <LayoutDashboard className="mr-2 h-4 w-4" />
+                                <span>Dashboard</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => router.push(`/${locale}/pricing`)} className="cursor-pointer">
+                                <Crown className="mr-2 h-4 w-4" />
+                                <span>Paket</span>
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => router.push(`/${locale}/dashboard/settings`)} className="cursor-pointer">
                                 <Settings className="mr-2 h-4 w-4" />
