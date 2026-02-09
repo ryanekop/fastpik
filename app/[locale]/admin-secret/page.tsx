@@ -66,7 +66,7 @@ export default function SecretAdminPage() {
     // Dialog states
     const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; user: UserData | null }>({ open: false, user: null })
     const [editDialog, setEditDialog] = useState<{ open: boolean; user: UserData | null }>({ open: false, user: null })
-    const [extendDays, setExtendDays] = useState('15')
+    const [expiryDate, setExpiryDate] = useState('')
     const [selectedTier, setSelectedTier] = useState('')
 
     const fetchUsers = useCallback(async () => {
@@ -159,8 +159,8 @@ export default function SecretAdminPage() {
         }
     }
 
-    const handleExtendTrial = async () => {
-        if (!editDialog.user) return
+    const handleSetExpiry = async () => {
+        if (!editDialog.user || !expiryDate) return
         setLoading(true)
 
         try {
@@ -172,8 +172,8 @@ export default function SecretAdminPage() {
                 },
                 body: JSON.stringify({
                     userId: editDialog.user.id,
-                    action: 'extend_trial',
-                    days: parseInt(extendDays)
+                    action: 'set_expiry',
+                    expiryDate: new Date(expiryDate).toISOString()
                 })
             })
 
@@ -223,10 +223,12 @@ export default function SecretAdminPage() {
         }
     }
 
-    const getTierBadge = (tier: string) => {
+    const getTierBadge = (tier: string, status?: string) => {
+        // Check if it's a trial based on tier or status
+        if (tier === 'free' || status === 'trial') {
+            return <Badge variant="secondary">⏱️ Trial</Badge>
+        }
         switch (tier) {
-            case 'trial':
-                return <Badge variant="secondary">⏱️ Trial</Badge>
             case 'pro_monthly':
                 return <Badge className="bg-blue-500">🔥 Pro Monthly</Badge>
             case 'pro_quarterly':
@@ -456,8 +458,12 @@ export default function SecretAdminPage() {
                                                             variant="outline"
                                                             onClick={() => {
                                                                 setEditDialog({ open: true, user })
-                                                                setSelectedTier(user.tier)
-                                                                setExtendDays('15')
+                                                                setSelectedTier(user.tier === 'free' ? 'free' : user.tier)
+                                                                // Set expiry date to current value or default to today + 15 days
+                                                                const defaultDate = user.expiresAt
+                                                                    ? new Date(user.expiresAt).toISOString().split('T')[0]
+                                                                    : new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+                                                                setExpiryDate(defaultDate)
                                                             }}
                                                             className="cursor-pointer"
                                                         >
@@ -519,19 +525,17 @@ export default function SecretAdminPage() {
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
-                        {/* Extend Trial */}
+                        {/* Set Expiry Date */}
                         <div className="space-y-2">
-                            <Label>Extend Trial (days)</Label>
+                            <Label>Masa Berlaku Berakhir</Label>
                             <div className="flex gap-2">
                                 <Input
-                                    type="number"
-                                    value={extendDays}
-                                    onChange={(e) => setExtendDays(e.target.value)}
-                                    min="1"
-                                    max="365"
+                                    type="date"
+                                    value={expiryDate}
+                                    onChange={(e) => setExpiryDate(e.target.value)}
                                 />
-                                <Button onClick={handleExtendTrial} disabled={loading} className="cursor-pointer">
-                                    {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Extend'}
+                                <Button onClick={handleSetExpiry} disabled={loading || !expiryDate} className="cursor-pointer">
+                                    {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Simpan'}
                                 </Button>
                             </div>
                         </div>
@@ -541,20 +545,20 @@ export default function SecretAdminPage() {
                                 <span className="w-full border-t" />
                             </div>
                             <div className="relative flex justify-center text-xs uppercase">
-                                <span className="bg-background px-2 text-muted-foreground">Or</span>
+                                <span className="bg-background px-2 text-muted-foreground">Atau</span>
                             </div>
                         </div>
 
                         {/* Change Tier */}
                         <div className="space-y-2">
-                            <Label>Change Plan</Label>
+                            <Label>Ganti Paket</Label>
                             <div className="flex gap-2">
                                 <Select value={selectedTier} onValueChange={setSelectedTier}>
                                     <SelectTrigger>
-                                        <SelectValue placeholder="Select plan" />
+                                        <SelectValue placeholder="Pilih paket" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="trial">⏱️ Trial</SelectItem>
+                                        <SelectItem value="free">⏱️ Trial (15 hari)</SelectItem>
                                         <SelectItem value="pro_monthly">🔥 Pro Monthly</SelectItem>
                                         <SelectItem value="pro_quarterly">🔥 Pro Quarterly</SelectItem>
                                         <SelectItem value="pro_yearly">🔥 Pro Yearly</SelectItem>
@@ -562,7 +566,7 @@ export default function SecretAdminPage() {
                                     </SelectContent>
                                 </Select>
                                 <Button onClick={handleChangeTier} disabled={loading || !selectedTier} className="cursor-pointer">
-                                    {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Change'}
+                                    {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Ganti'}
                                 </Button>
                             </div>
                         </div>

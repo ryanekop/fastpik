@@ -139,43 +139,58 @@ export async function PATCH(req: NextRequest) {
             )
         }
 
-        if (action === 'extend_trial') {
-            // Extend trial by X days
-            const newExpiry = new Date()
-            newExpiry.setDate(newExpiry.getDate() + (days || 15))
+        if (action === 'set_expiry') {
+            // Set specific expiry date for subscription
+            const { expiryDate } = await req.json().catch(() => ({}))
+
+            // Update end_date or trial_end_date based on current tier
+            const { data: currentSub } = await supabaseAdmin
+                .from('subscriptions')
+                .select('tier, status')
+                .eq('user_id', userId)
+                .single()
+
+            const updateData: Record<string, any> = {}
+            if (currentSub?.status === 'trial' || currentSub?.tier === 'free') {
+                updateData.trial_end_date = expiryDate
+            } else {
+                updateData.end_date = expiryDate
+            }
 
             const { error } = await supabaseAdmin
                 .from('subscriptions')
-                .upsert({
-                    user_id: userId,
-                    tier: 'trial',
-                    status: 'trial',
-                    trial_end_date: newExpiry.toISOString(),
-                    start_date: new Date().toISOString()
-                }, { onConflict: 'user_id' })
+                .update(updateData)
+                .eq('user_id', userId)
 
             if (error) throw error
 
             return NextResponse.json({
                 success: true,
-                message: `Trial extended by ${days} days`
+                message: `Expiry date updated`
             })
 
         } else if (action === 'change_tier') {
             // Change subscription tier
             let endDate = null
+            let trialEndDate = null
+            const isTrial = tier === 'free'
+
             if (tier !== 'lifetime') {
                 const expiry = new Date()
-                if (tier === 'pro_monthly') {
+                if (tier === 'free') {
+                    // Trial - 15 days default
+                    expiry.setDate(expiry.getDate() + 15)
+                    trialEndDate = expiry.toISOString()
+                } else if (tier === 'pro_monthly') {
                     expiry.setMonth(expiry.getMonth() + 1)
+                    endDate = expiry.toISOString()
                 } else if (tier === 'pro_quarterly') {
                     expiry.setMonth(expiry.getMonth() + 3)
+                    endDate = expiry.toISOString()
                 } else if (tier === 'pro_yearly') {
                     expiry.setFullYear(expiry.getFullYear() + 1)
-                } else {
-                    expiry.setDate(expiry.getDate() + 30) // Default 30 days
+                    endDate = expiry.toISOString()
                 }
-                endDate = expiry.toISOString()
             }
 
             const { error } = await supabaseAdmin
@@ -183,9 +198,10 @@ export async function PATCH(req: NextRequest) {
                 .upsert({
                     user_id: userId,
                     tier: tier,
-                    status: 'active',
+                    status: isTrial ? 'trial' : 'active',
                     start_date: new Date().toISOString(),
-                    end_date: endDate
+                    end_date: endDate,
+                    trial_end_date: trialEndDate
                 }, { onConflict: 'user_id' })
 
             if (error) throw error
