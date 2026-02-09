@@ -1,0 +1,13 @@
+{
+    "headers": [
+        {
+            "source": "/api/webhooks/(.*)",
+            "headers": [
+                {
+                    "key": "x-vercel-protection-bypass",
+                    "value": "true"
+                }
+            ]
+        }
+    ]
+}
