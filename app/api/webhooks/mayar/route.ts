@@ -19,6 +19,13 @@ export async function POST(request: NextRequest) {
 
         console.log('[Mayar Webhook] FULL PAYLOAD:', JSON.stringify(payload, null, 2))
 
+        // Only process payment.received events (ignore membership.newMemberRegistered etc.)
+        const eventType = payload.event || ''
+        if (eventType && eventType !== 'payment.received') {
+            console.log(`[Mayar Webhook] Ignoring event: ${eventType}`)
+            return NextResponse.json({ success: true, message: `Ignored event: ${eventType}` }, { status: 200 })
+        }
+
         // Mayar sends data in an object named 'data'
         const data = payload.data || payload
 
