@@ -1,7 +1,6 @@
 "use client"
 
-import { useState } from 'react'
-import { useTranslations } from 'next-intl'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -11,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { LanguageToggle } from '@/components/language-toggle'
-import { Loader2, Send, CheckCircle, XCircle, ArrowLeft, Zap, Star, Crown, Sparkles } from 'lucide-react'
+import { Loader2, Send, CheckCircle, XCircle, ArrowLeft, Zap, Star, Crown, Sparkles, Lock, KeyRound } from 'lucide-react'
 import Link from 'next/link'
 import { useLocale } from 'next-intl'
 
@@ -22,8 +21,34 @@ const PLANS = [
     { id: 'lifetime', name: 'Pro Lifetime', amount: 349000, icon: Sparkles, color: 'text-amber-500' },
 ]
 
+// Secret key for webhook tester access (same as admin-secret)
+const SECRET_KEY = "fastpik-admin-2024"
+
 export default function WebhookTesterPage() {
     const locale = useLocale()
+
+    // Authentication state
+    const [isAuthenticated, setIsAuthenticated] = useState(false)
+    const [secretInput, setSecretInput] = useState('')
+    const [authError, setAuthError] = useState('')
+
+    // Check if already authenticated (from session storage)
+    useEffect(() => {
+        const stored = sessionStorage.getItem('webhook-tester-auth')
+        if (stored === 'true') {
+            setIsAuthenticated(true)
+        }
+    }, [])
+
+    const handleAuth = () => {
+        if (secretInput === SECRET_KEY) {
+            setIsAuthenticated(true)
+            sessionStorage.setItem('webhook-tester-auth', 'true')
+            setAuthError('')
+        } else {
+            setAuthError('❌ Invalid secret key')
+        }
+    }
 
     const [email, setEmail] = useState('')
     const [name, setName] = useState('Test User')
@@ -90,6 +115,48 @@ export default function WebhookTesterPage() {
         }
     }
 
+    // Show authentication screen if not authenticated
+    if (!isAuthenticated) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-background to-muted/30 flex items-center justify-center p-4">
+                <Card className="w-full max-w-md">
+                    <CardHeader className="text-center">
+                        <div className="mx-auto h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                            <Lock className="h-8 w-8 text-primary" />
+                        </div>
+                        <CardTitle className="text-2xl">🔐 Webhook Tester</CardTitle>
+                        <CardDescription>Masukkan secret key untuk mengakses</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="secret">🔑 Secret Key</Label>
+                            <Input
+                                id="secret"
+                                type="password"
+                                value={secretInput}
+                                onChange={(e) => setSecretInput(e.target.value)}
+                                placeholder="Masukkan secret key..."
+                                onKeyDown={(e) => e.key === 'Enter' && handleAuth()}
+                            />
+                            {authError && (
+                                <p className="text-sm text-red-500">{authError}</p>
+                            )}
+                        </div>
+                        <Button onClick={handleAuth} className="w-full gap-2">
+                            <KeyRound className="h-4 w-4" />
+                            Unlock
+                        </Button>
+                        <div className="text-center">
+                            <Link href={`/${locale}`} className="text-sm text-muted-foreground hover:text-primary">
+                                ← Kembali ke Home
+                            </Link>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+        )
+    }
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-background to-muted/30">
             <header className="flex items-center justify-between p-4 border-b bg-background/80 backdrop-blur-sm">
@@ -153,8 +220,8 @@ export default function WebhookTesterPage() {
                                                 key={plan.id}
                                                 onClick={() => setSelectedPlan(plan.id)}
                                                 className={`p-3 rounded-lg border-2 text-left transition-all ${selectedPlan === plan.id
-                                                        ? 'border-primary bg-primary/10'
-                                                        : 'border-border hover:border-muted-foreground/50'
+                                                    ? 'border-primary bg-primary/10'
+                                                    : 'border-border hover:border-muted-foreground/50'
                                                     }`}
                                             >
                                                 <div className="flex items-center gap-2">
@@ -246,10 +313,10 @@ export default function WebhookTesterPage() {
                             </CardHeader>
                             <CardContent>
                                 <div className={`font-mono text-xs p-3 rounded-md min-h-[100px] ${response?.success
-                                        ? 'bg-green-500/10 text-green-600 dark:text-green-400'
-                                        : response
-                                            ? 'bg-red-500/10 text-red-600 dark:text-red-400'
-                                            : 'bg-muted text-muted-foreground'
+                                    ? 'bg-green-500/10 text-green-600 dark:text-green-400'
+                                    : response
+                                        ? 'bg-red-500/10 text-red-600 dark:text-red-400'
+                                        : 'bg-muted text-muted-foreground'
                                     }`}>
                                     {response
                                         ? JSON.stringify(response.data, null, 2)

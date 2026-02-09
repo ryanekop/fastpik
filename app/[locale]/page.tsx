@@ -196,19 +196,19 @@ export default function Home() {
               {user ? (
                 <Button size="lg" asChild className="gap-2 cursor-pointer text-lg px-8">
                   <Link href={`/${locale}/dashboard`}>
-                    {t('goToDashboard')} <ArrowRight className="h-5 w-5" />
+                    🚀 {t('goToDashboard')} <ArrowRight className="h-5 w-5" />
                   </Link>
                 </Button>
               ) : (
                 <>
                   <Button size="lg" asChild className="gap-2 cursor-pointer text-lg px-8">
                     <Link href={`/${locale}/dashboard/login`}>
-                      {t('startManaging')} <ArrowRight className="h-5 w-5" />
+                      🚀 {t('startManaging')} <ArrowRight className="h-5 w-5" />
                     </Link>
                   </Button>
                   <Button size="lg" variant="outline" asChild className="gap-2 cursor-pointer text-lg px-8">
                     <Link href={`/${locale}/pricing`}>
-                      {t('viewPricing')}
+                      💰 {t('viewPricing')}
                     </Link>
                   </Button>
                 </>
@@ -322,7 +322,7 @@ export default function Home() {
 
             <Button size="lg" variant="outline" asChild className="gap-2">
               <Link href={`/${locale}/pricing`}>
-                {t('pricingCta')} <ArrowRight className="h-5 w-5" />
+                👀 {t('pricingCta')} <ArrowRight className="h-5 w-5" />
               </Link>
             </Button>
           </motion.div>
@@ -343,7 +343,7 @@ export default function Home() {
 
             <Button size="lg" variant="secondary" asChild className="gap-2 text-lg px-8">
               <Link href={user ? `/${locale}/dashboard` : `/${locale}/dashboard/login`}>
-                {t('ctaButton')} <ArrowRight className="h-5 w-5" />
+                🎉 {t('ctaButton')} <ArrowRight className="h-5 w-5" />
               </Link>
             </Button>
           </motion.div>
