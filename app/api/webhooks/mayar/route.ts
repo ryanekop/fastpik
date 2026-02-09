@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import crypto from 'crypto'
 
 // Init Supabase Admin Client (Service Role)
 const supabaseAdmin = createClient(
@@ -14,104 +13,76 @@ const supabaseAdmin = createClient(
     }
 )
 
-const MAYAR_SECRET = process.env.MAYAR_WEBHOOK_SECRET
-
 export async function POST(request: NextRequest) {
     try {
         const payload = await request.json()
 
-        // 1. Verify Mayar Signature (Basic check if secret exists)
-        // Mayar usually sends an 'Authorization' header or similar, but for simplicity 
-        // we'll check if the transacton status is 'success' and assume the secret is kept safe 
-        // if we were using a computed signature verification. 
-        // NOTE: For stricter security, we should verify `X-Mayar-Signature` if available.
-        // allow skipping verification for testing if secret is not set
-        if (MAYAR_SECRET) {
-            // Implement signature verification here if Mayar provides one in headers
-            // For now, we proceed trusting the endpoint is hidden/secure or we trust the payload structure
-        }
+        console.log('[Mayar Webhook] Received payload:', JSON.stringify(payload, null, 2))
 
-        // 2. Filter for SUCCESS transactions only
-        if (payload.status !== 'success' && payload.transaction_status !== 'settlement' && payload.status !== 'settlement') {
-            // "settlement" or "success" usually indicates paid
-            return NextResponse.json({ message: 'Ignored: Status not success' }, { status: 200 })
-        }
+        // Mayar sends data in different formats depending on event type
+        // Format 1 (legacy/test): { status, customer, amount, ... }
+        // Format 2 (Mayar actual): { event, data: { id, status, customer, ... } }
 
-        const customer = payload.customer
-        const email = customer.email
-        const name = customer.name
-        const amount = payload.amount || payload.gross_amount
-        const transactionId = payload.id || payload.transaction_id
+        let eventType = payload.event || 'payment.received'
+        let data = payload.data || payload // Fallback to root if no data wrapper
 
+        // Extract key fields - handle both formats
+        const status = data.status
+        const customer = data.customer || data.customerDetail || {}
+        const email = customer.email || data.email
+        const name = customer.name || customer.fullName || data.name || 'User'
+        const amount = data.amount || data.totalAmount || data.gross_amount || 0
+        const transactionId = data.id || data.transactionId || payload.id || `TRX-${Date.now()}`
+
+        console.log(`[Mayar Webhook] Event: ${eventType}, Email: ${email}, Amount: ${amount}, Status: ${status}`)
+
+        // Validate email
         if (!email) {
-            return NextResponse.json({ message: 'Error: No email provided' }, { status: 400 })
+            console.error('[Mayar Webhook] No email provided')
+            return NextResponse.json({ success: false, message: 'No email provided' }, { status: 400 })
         }
 
-        console.log(`[Mayar Webhook] Processing payment for: ${email}, Amount: ${amount}`)
+        // Filter for successful transactions only
+        // Mayar status can be boolean (true) or string ('success', 'settlement')
+        const isSuccess = status === true || status === 'success' || status === 'settlement' || status === 'paid'
 
-        // 3. Determine Plan based on Amount
-        // 15rb -> 1 Bulan
-        // 39rb -> 3 Bulan
-        // 129rb -> 1 Tahun
-        // 349rb -> Lifetime
+        if (!isSuccess) {
+            console.log(`[Mayar Webhook] Ignored: Status is ${status}`)
+            return NextResponse.json({ success: true, message: `Ignored: Status is ${status}` }, { status: 200 })
+        }
 
+        // Determine Plan based on Amount
+        // 15rb -> 1 Bulan, 39rb -> 3 Bulan, 129rb -> 1 Tahun, 349rb -> Lifetime
         let planDurationDays = 0
         let planTier = 'free'
-        let planStatus = 'active'
         let isLifetime = false
 
-        if (amount == 15000) {
+        const amountNum = Number(amount)
+
+        if (amountNum >= 14000 && amountNum <= 16000) {
             planTier = 'pro_monthly'
             planDurationDays = 30
-        } else if (amount == 39000) {
+        } else if (amountNum >= 38000 && amountNum <= 40000) {
             planTier = 'pro_quarterly'
             planDurationDays = 90
-        } else if (amount == 129000) {
+        } else if (amountNum >= 128000 && amountNum <= 130000) {
             planTier = 'pro_yearly'
             planDurationDays = 365
-        } else if (amount == 349000) {
+        } else if (amountNum >= 348000 && amountNum <= 350000) {
             planTier = 'lifetime'
             isLifetime = true
         } else {
-            console.warn(`[Mayar Webhook] Unknown amount: ${amount}, defaulting to nothing or checking manual assignment.`)
-            // Fallback or error? Let's process it as 1 month if undefined to be safe or just log
-            // For now, return success but don't update if amount mismatch to avoid fraud?
-            // actually, let's treat it as pro_monthly fallback if needed or return
-            return NextResponse.json({ message: 'Ignored: Unknown amount' }, { status: 200 })
+            console.warn(`[Mayar Webhook] Unknown amount: ${amountNum}`)
+            return NextResponse.json({ success: true, message: `Ignored: Unknown amount ${amountNum}` }, { status: 200 })
         }
 
-        // 4. Check if User exists in Supabase
-        const { data: { users }, error: findUserError } = await supabaseAdmin.auth.admin.listUsers()
-        // Note: listUsers isn't efficient for lookup by email, looking up by query is better if available, 
-        // but Supabase Admin API 'listUsers' is what we have unless we select from auth.users via SQL (requires direct connection)
-        // Better: use getUserById if we had ID. Since we have email:
-        // Attempt to create user, if fails, it exists? Or use client search.
-        // Actually, we can just try to "Invite" or "Create" and catch error.
+        console.log(`[Mayar Webhook] Plan: ${planTier}, Duration: ${planDurationDays} days`)
 
-        // Efficient way:
+        // Find or Create User
         let userId: string | undefined
-
-        // Find user by email manually from the list (works for small userbase)
-        // For larger userbase, we should likely use a direct DB query or keep a mapping.
-        // Using `supabaseAdmin.rpc` if we had a function would be best.
-        // BUT, let's try to just SELECT from our public tables if we had a profiles table? 
-        // We don't have a public profiles table synced yet.
-
-        // Let's iterate listUsers (pagination might be needed later)
-        // For known 'fastpik' scale now, listUsers is fine.
-        // Actually, we can use `supabaseAdmin.rpc` to find user by email if we create a function.
-        // For now, let's just create a new user. If it fails with "User already registered", we catch it.
-
         let isNewUser = false
 
-        /* 
-           Strategy:
-           1. Try to get user by email (Wait, Admin API doesn't have getUserByEmail easily exposed in all versions).
-           2. Use listUsers with filter? No filter in listUsers.
-           
-           Workaround: Try to create user.
-        */
-
+        // Try to create user first
         const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
             email: email,
             email_confirm: true,
@@ -119,71 +90,53 @@ export async function POST(request: NextRequest) {
         })
 
         if (createError) {
-            console.log(`[Mayar Webhook] User creation failed/exists: ${createError.message}`)
-            // Likely user exists. Need to find their ID.
-            // We have to scan listUsers unfortunately, or use a workaround.
-            // Workaround: We can't easily get ID of existing user via Admin API without listing.
-            // Let's assume we list.
+            console.log(`[Mayar Webhook] User exists or creation failed: ${createError.message}`)
 
-            // Optimization: If we had a 'users' table in public schema synced with auth.users, we could query it.
-            // Since we don't, we will assume the user MIGHT be found via searching.
-
-            // Let's try listing (limit 1000??)
+            // Find existing user
             const { data: { users: allUsers } } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 })
-            const found = allUsers.find(u => u.email?.toLowerCase() === email.toLowerCase())
+            const found = allUsers?.find(u => u.email?.toLowerCase() === email.toLowerCase())
+
             if (found) {
                 userId = found.id
+                console.log(`[Mayar Webhook] Found existing user: ${userId}`)
 
-                // Send confirmation email for existing user via Magic Link
-                // This doubles as a "Your subscription is active" notification
+                // Send magic link to existing user
                 try {
-                    const { error: magicLinkError } = await supabaseAdmin.auth.signInWithOtp({
+                    await supabaseAdmin.auth.signInWithOtp({
                         email: email,
                         options: {
-                            // Redirect to auth callback which will then redirect to dashboard
                             emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://fastpik.ryanekoapp.web.id'}/id/auth/callback?next=/id/dashboard`
                         }
                     })
-
-                    if (magicLinkError) {
-                        console.error('[Mayar Webhook] Failed to send magic link to existing user:', magicLinkError.message)
-                    } else {
-                        console.log(`[Mayar Webhook] Magic link (login + confirmation) sent to existing user: ${email}`)
-                    }
-                } catch (emailError: any) {
-                    console.error('[Mayar Webhook] Exception sending magic link:', emailError.message)
+                    console.log(`[Mayar Webhook] Magic link sent to: ${email}`)
+                } catch (e: any) {
+                    console.error('[Mayar Webhook] Failed to send magic link:', e.message)
                 }
             } else {
-                console.error('[Mayar Webhook] Could not find user ID even though creation failed.')
-                return NextResponse.json({ message: 'Error finding user' }, { status: 500 })
+                console.error('[Mayar Webhook] Could not find user')
+                return NextResponse.json({ success: false, message: 'Error finding user' }, { status: 500 })
             }
-
         } else {
             isNewUser = true
             userId = newUser.user.id
             console.log(`[Mayar Webhook] Created new user: ${userId}`)
 
-            // Send Reset Password Link directly via Supabase for new users
+            // Send password reset link to new user
             try {
-                const { error: resetError } = await supabaseAdmin.auth.resetPasswordForEmail(email, {
+                await supabaseAdmin.auth.resetPasswordForEmail(email, {
                     redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://fastpik.ryanekoapp.web.id'}/id/dashboard/reset-password`
                 })
-
-                if (resetError) {
-                    console.error('[Mayar Webhook] Failed to send reset password email:', resetError.message)
-                } else {
-                    console.log(`[Mayar Webhook] Reset password email sent to new user: ${email}`)
-                }
-            } catch (emailError: any) {
-                console.error('[Mayar Webhook] Exception sending email:', emailError.message)
+                console.log(`[Mayar Webhook] Password reset email sent to: ${email}`)
+            } catch (e: any) {
+                console.error('[Mayar Webhook] Failed to send reset email:', e.message)
             }
         }
 
         if (!userId) {
-            return NextResponse.json({ message: 'Error: User ID undefined' }, { status: 500 })
+            return NextResponse.json({ success: false, message: 'User ID undefined' }, { status: 500 })
         }
 
-        // 5. Calculate Dates
+        // Calculate Dates
         const startDate = new Date()
         let endDate = null
         if (!isLifetime) {
@@ -192,7 +145,7 @@ export async function POST(request: NextRequest) {
             endDate = end.toISOString()
         }
 
-        // 6. Update/Insert Subscription
+        // Update Subscription
         const { error: upsertError } = await supabaseAdmin
             .from('subscriptions')
             .upsert({
@@ -207,13 +160,19 @@ export async function POST(request: NextRequest) {
 
         if (upsertError) {
             console.error('[Mayar Webhook] Subscription update failed:', upsertError)
-            return NextResponse.json({ message: 'Error updating subscription' }, { status: 500 })
+            return NextResponse.json({ success: false, message: 'Error updating subscription' }, { status: 500 })
         }
 
-        return NextResponse.json({ message: 'Subscription processed successfully' }, { status: 200 })
+        console.log(`[Mayar Webhook] SUCCESS - User: ${email}, Tier: ${planTier}, New: ${isNewUser}`)
+
+        return NextResponse.json({
+            success: true,
+            message: 'Subscription processed successfully',
+            user: { id: userId, email, tier: planTier, isNew: isNewUser }
+        }, { status: 200 })
 
     } catch (err: any) {
         console.error('[Mayar Webhook] Exception:', err)
-        return NextResponse.json({ message: `Server Error: ${err.message}` }, { status: 500 })
+        return NextResponse.json({ success: false, message: `Server Error: ${err.message}` }, { status: 500 })
     }
 }
