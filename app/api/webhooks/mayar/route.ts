@@ -140,7 +140,8 @@ export async function POST(request: NextRequest) {
                     const { error: magicLinkError } = await supabaseAdmin.auth.signInWithOtp({
                         email: email,
                         options: {
-                            emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://fastpik.ryanekoapp.web.id'}/id/dashboard?subscription_activated=true`
+                            // Redirect to auth callback which will then redirect to dashboard
+                            emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://fastpik.ryanekoapp.web.id'}/id/auth/callback?next=/id/dashboard`
                         }
                     })
 
