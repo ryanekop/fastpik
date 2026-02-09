@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
-import { Loader2, Save, KeyRound, Crown, ArrowLeft, RefreshCw, AlertCircle } from 'lucide-react'
+import { Loader2, Save, KeyRound, Crown, ArrowLeft, RefreshCw, AlertCircle, User } from 'lucide-react'
 import Link from 'next/link'
 
 interface Profile {
@@ -245,7 +245,7 @@ export default function ProfilePage() {
                 <div className="flex items-center justify-between mb-6">
                     <div>
                         <h1 className="text-2xl font-bold flex items-center gap-2">
-                            👤 {t('title')}
+                            <User className="h-6 w-6" /> {t('title')}
                         </h1>
                         <p className="text-muted-foreground">{t('description')}</p>
                     </div>

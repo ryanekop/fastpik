@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Loader2, CheckCircle, XCircle, User, Mail, Lock, Key, Eye, EyeOff, Trash2, RefreshCw, Plus, Users, Calendar, Crown } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { LanguageToggle } from '@/components/language-toggle'
 import { useTranslations } from 'next-intl'
 import {
     Table,
@@ -264,7 +265,8 @@ export default function SecretAdminPage() {
     if (!isAuthenticated) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-background p-4">
-                <div className="fixed top-4 right-4">
+                <div className="fixed top-4 right-4 flex items-center gap-2">
+                    <LanguageToggle />
                     <ThemeToggle />
                 </div>
                 <motion.div
@@ -308,7 +310,8 @@ export default function SecretAdminPage() {
     // Main admin dashboard
     return (
         <div className="min-h-screen bg-background p-4">
-            <div className="fixed top-4 right-4 z-50">
+            <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
+                <LanguageToggle />
                 <ThemeToggle />
             </div>
 
@@ -401,7 +404,8 @@ export default function SecretAdminPage() {
                                                 </SelectContent>
                                             </Select>
                                         </div>
-                                        <div className="flex items-end">
+                                        <div className="space-y-2">
+                                            <Label className="opacity-0">.</Label>
                                             <Button type="submit" className="w-full cursor-pointer" disabled={loading}>
                                                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : t('create')}
                                             </Button>
