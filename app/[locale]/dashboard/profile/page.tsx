@@ -9,8 +9,8 @@ import { AvatarUpload } from '@/components/admin/avatar-upload'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Loader2, Save, KeyRound, Crown, ArrowLeft, RefreshCw } from 'lucide-react'
+import { Card, CardContent } from '@/components/ui/card'
+import { Loader2, Save, KeyRound, Crown, ArrowLeft, RefreshCw, AlertCircle } from 'lucide-react'
 import Link from 'next/link'
 
 interface Profile {
@@ -23,6 +23,13 @@ interface Subscription {
     tier: string
     status: string
     end_date: string | null
+    trial_end_date: string | null
+}
+
+interface TrialInfo {
+    projectCount: number
+    projectLimit: number
+    daysRemaining: number | null
 }
 
 export default function ProfilePage() {
@@ -41,6 +48,7 @@ export default function ProfilePage() {
     const [name, setName] = useState('')
     const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
     const [subscription, setSubscription] = useState<Subscription | null>(null)
+    const [trialInfo, setTrialInfo] = useState<TrialInfo | null>(null)
 
     useEffect(() => {
         const loadProfile = async () => {
@@ -70,11 +78,31 @@ export default function ProfilePage() {
                 // Get subscription
                 const { data: sub } = await supabase
                     .from('subscriptions')
-                    .select('tier, status, end_date')
+                    .select('tier, status, end_date, trial_end_date')
                     .eq('user_id', user.id)
                     .single()
 
                 setSubscription(sub)
+
+                // Get trial info (project count)
+                const { count: projectCount } = await supabase
+                    .from('projects')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('user_id', user.id)
+
+                // Calculate trial days remaining
+                let daysRemaining = null
+                if (sub?.status === 'trial' && sub?.trial_end_date) {
+                    const trialEnd = new Date(sub.trial_end_date)
+                    const now = new Date()
+                    daysRemaining = Math.max(0, Math.ceil((trialEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
+                }
+
+                setTrialInfo({
+                    projectCount: projectCount || 0,
+                    projectLimit: 3,
+                    daysRemaining
+                })
             } catch (err) {
                 console.error('Failed to load profile:', err)
             } finally {
@@ -112,9 +140,9 @@ export default function ProfilePage() {
 
             if (profileError) throw profileError
 
-            setSuccess('Profil berhasil disimpan!')
+            setSuccess(t('saveSuccess'))
         } catch (err: any) {
-            setError(err.message || 'Gagal menyimpan profil')
+            setError(err.message || t('saveError'))
         } finally {
             setSaving(false)
         }
@@ -133,7 +161,7 @@ export default function ProfilePage() {
             })
 
         if (error) {
-            throw new Error('Gagal menyimpan foto profil')
+            throw new Error(t('avatarError'))
         }
 
         setAvatarUrl(dataUrl)
@@ -147,16 +175,16 @@ export default function ProfilePage() {
         if (error) {
             setError(error.message)
         } else {
-            setSuccess('Link reset password telah dikirim ke email Anda.')
+            setSuccess(t('resetEmailSent'))
         }
     }
 
     const getTierDisplay = (tier: string) => {
         const tiers: Record<string, string> = {
             'free': 'Free',
-            'pro_monthly': 'Pro (1 Bulan)',
-            'pro_quarterly': 'Pro (3 Bulan)',
-            'pro_yearly': 'Pro (1 Tahun)',
+            'pro_monthly': 'Pro (1 ' + t('month') + ')',
+            'pro_quarterly': 'Pro (3 ' + t('months') + ')',
+            'pro_yearly': 'Pro (1 ' + t('year') + ')',
             'lifetime': 'Pro Lifetime 👑'
         }
         return tiers[tier] || tier
@@ -182,8 +210,8 @@ export default function ProfilePage() {
     }
 
     const formatDate = (dateStr: string | null) => {
-        if (!dateStr) return 'Selamanya'
-        return new Date(dateStr).toLocaleDateString('id-ID', {
+        if (!dateStr) return t('foreverAccess')
+        return new Date(dateStr).toLocaleDateString(locale === 'id' ? 'id-ID' : 'en-US', {
             day: 'numeric',
             month: 'long',
             year: 'numeric'
@@ -191,6 +219,8 @@ export default function ProfilePage() {
     }
 
     const isLifetime = subscription?.tier === 'lifetime'
+    const isPro = subscription?.tier?.startsWith('pro_') || isLifetime
+    const isTrial = subscription?.status === 'trial' || !subscription
 
     if (loading) {
         return (
@@ -233,18 +263,18 @@ export default function ProfilePage() {
 
                             {/* Name */}
                             <div className="space-y-2">
-                                <Label htmlFor="name">Nama</Label>
+                                <Label htmlFor="name">{t('name')}</Label>
                                 <Input
                                     id="name"
                                     value={name}
                                     onChange={(e) => setName(e.target.value)}
-                                    placeholder="Nama Anda"
+                                    placeholder={t('namePlaceholder')}
                                 />
                             </div>
 
                             {/* Email */}
                             <div className="space-y-2">
-                                <Label htmlFor="email">Email</Label>
+                                <Label htmlFor="email">{t('email')}</Label>
                                 <Input
                                     id="email"
                                     value={email}
@@ -252,13 +282,13 @@ export default function ProfilePage() {
                                     className="bg-muted"
                                 />
                                 <p className="text-xs text-muted-foreground">
-                                    Email tidak dapat diubah
+                                    {t('emailHint')}
                                 </p>
                             </div>
 
                             {/* Membership Status */}
                             <div className="space-y-2">
-                                <Label>Status Membership</Label>
+                                <Label>{t('membershipStatus')}</Label>
                                 <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50 border">
                                     <div className="space-y-1">
                                         <div className="flex items-center gap-2">
@@ -269,27 +299,27 @@ export default function ProfilePage() {
                                         </div>
                                         {subscription && subscription.end_date && (
                                             <p className="text-xs text-muted-foreground">
-                                                Berlaku sampai: {formatDate(subscription.end_date)}
+                                                {t('validUntil')}: {formatDate(subscription.end_date)}
                                             </p>
                                         )}
                                         {isLifetime && (
                                             <p className="text-xs text-muted-foreground">
-                                                Akses selamanya ✨
+                                                {t('foreverAccess')} ✨
                                             </p>
                                         )}
                                     </div>
                                     {!isLifetime && (
-                                        <Button size="sm" asChild>
+                                        <Button size="sm" asChild className="cursor-pointer">
                                             <Link href={`/${locale}/pricing`}>
-                                                {subscription ? (
+                                                {subscription && isPro ? (
                                                     <>
                                                         <RefreshCw className="h-4 w-4 mr-2" />
-                                                        Ganti Paket
+                                                        {t('changePlan')}
                                                     </>
                                                 ) : (
                                                     <>
                                                         <Crown className="h-4 w-4 mr-2" />
-                                                        Upgrade
+                                                        {t('upgrade')}
                                                     </>
                                                 )}
                                             </Link>
@@ -297,6 +327,31 @@ export default function ProfilePage() {
                                     )}
                                 </div>
                             </div>
+
+                            {/* Trial Info - Only show for trial users */}
+                            {isTrial && trialInfo && (
+                                <div className="p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
+                                    <div className="flex items-start gap-3">
+                                        <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-500 mt-0.5" />
+                                        <div className="space-y-1">
+                                            <p className="font-medium text-yellow-800 dark:text-yellow-400">
+                                                {t('trialInfo')}
+                                            </p>
+                                            <p className="text-sm text-yellow-700 dark:text-yellow-500">
+                                                {t('projectUsage', {
+                                                    used: trialInfo.projectCount,
+                                                    limit: trialInfo.projectLimit
+                                                })}
+                                            </p>
+                                            {trialInfo.daysRemaining !== null && (
+                                                <p className="text-sm text-yellow-700 dark:text-yellow-500">
+                                                    {t('daysRemaining', { days: trialInfo.daysRemaining })}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Messages */}
                             {error && (
@@ -312,22 +367,22 @@ export default function ProfilePage() {
 
                             {/* Actions */}
                             <div className="flex flex-col gap-3">
-                                <Button onClick={handleSave} disabled={saving}>
+                                <Button onClick={handleSave} disabled={saving} className="cursor-pointer">
                                     {saving ? (
                                         <>
                                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                            Menyimpan...
+                                            {t('saving')}
                                         </>
                                     ) : (
                                         <>
                                             <Save className="mr-2 h-4 w-4" />
-                                            Simpan Perubahan
+                                            {t('save')}
                                         </>
                                     )}
                                 </Button>
-                                <Button variant="outline" onClick={handleResetPassword}>
+                                <Button variant="outline" onClick={handleResetPassword} className="cursor-pointer">
                                     <KeyRound className="mr-2 h-4 w-4" />
-                                    Reset Password
+                                    {t('resetPassword')}
                                 </Button>
                             </div>
                         </CardContent>
@@ -337,4 +392,3 @@ export default function ProfilePage() {
         </AdminShell>
     )
 }
-

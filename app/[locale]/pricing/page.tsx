@@ -1,11 +1,12 @@
 "use client"
 
+import { useEffect, useState } from 'react'
 import { useTranslations, useLocale } from 'next-intl'
 import { ThemeToggle } from "@/components/theme-toggle"
 import { LanguageToggle } from "@/components/language-toggle"
 import { Button } from "@/components/ui/button"
 import Link from 'next/link'
-import { Check, Star, Zap, Crown, Infinity as InfinityIcon } from "lucide-react"
+import { Check, Star, Zap, Crown, Infinity as InfinityIcon, Loader2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import {
     Card,
@@ -16,10 +17,46 @@ import {
     CardTitle,
 } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
+import { createClient } from "@/lib/supabase/client"
+
+// Map tier to plan nameKey
+const tierToPlanMap: Record<string, string> = {
+    'pro_monthly': 'plan1Month',
+    'pro_quarterly': 'plan3Months',
+    'pro_yearly': 'plan1Year',
+    'lifetime': 'planLifetime'
+}
 
 export default function PricingPage() {
     const t = useTranslations('Pricing')
     const locale = useLocale()
+    const supabase = createClient()
+    const [currentTier, setCurrentTier] = useState<string | null>(null)
+    const [loading, setLoading] = useState(true)
+
+    useEffect(() => {
+        const loadSubscription = async () => {
+            try {
+                const { data: { user } } = await supabase.auth.getUser()
+                if (user) {
+                    const { data: sub } = await supabase
+                        .from('subscriptions')
+                        .select('tier, status')
+                        .eq('user_id', user.id)
+                        .single()
+
+                    if (sub && sub.status === 'active') {
+                        setCurrentTier(sub.tier)
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to load subscription:', err)
+            } finally {
+                setLoading(false)
+            }
+        }
+        loadSubscription()
+    }, [supabase])
 
     const plans = [
         {
@@ -92,6 +129,12 @@ export default function PricingPage() {
         }
     ]
 
+    // Check if a plan is the current plan
+    const isCurrentPlan = (planNameKey: string) => {
+        if (!currentTier) return false
+        return tierToPlanMap[currentTier] === planNameKey
+    }
+
     return (
         <div className="flex flex-col min-h-screen font-[family-name:var(--font-geist-sans)]">
             <header className="flex items-center justify-between p-4 border-b">
@@ -130,51 +173,67 @@ export default function PricingPage() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-7xl mx-auto">
-                    {plans.map((plan) => (
-                        <Card key={plan.nameKey} className={cn(
-                            "flex flex-col relative",
-                            plan.popular ? "border-primary shadow-lg scale-105 z-10" : "border-border"
-                        )}>
-                            {plan.popular && (
-                                <div className="absolute -top-4 left-0 right-0 flex justify-center">
-                                    <Badge className="bg-primary text-primary-foreground px-3 py-1">{t('mostPopular')}</Badge>
-                                </div>
-                            )}
-                            <CardHeader>
-                                <div className="flex items-center gap-2 mb-2">
-                                    <plan.icon className={cn("h-5 w-5", plan.popular ? "text-primary" : "text-muted-foreground")} />
-                                    <CardTitle className="text-xl">{t(plan.nameKey)}</CardTitle>
-                                </div>
-                                <div className="flex items-end gap-2">
-                                    <div className="flex flex-col">
-                                        <span className="text-xs text-muted-foreground line-through">{plan.originalPrice}</span>
-                                        <span className="text-3xl font-bold">{plan.price}</span>
+                    {plans.map((plan) => {
+                        const isCurrent = isCurrentPlan(plan.nameKey)
+                        return (
+                            <Card key={plan.nameKey} className={cn(
+                                "flex flex-col relative",
+                                plan.popular ? "border-primary shadow-lg scale-105 z-10" : "border-border",
+                                isCurrent && "ring-2 ring-green-500 border-green-500"
+                            )}>
+                                {plan.popular && !isCurrent && (
+                                    <div className="absolute -top-4 left-0 right-0 flex justify-center">
+                                        <Badge className="bg-primary text-primary-foreground px-3 py-1">{t('mostPopular')}</Badge>
                                     </div>
-                                    <span className="text-muted-foreground text-sm mb-1">{t(plan.durationKey)}</span>
-                                </div>
-                                <CardDescription>
-                                    {plan.isLifetime ? t('billingOnce') : t('billingAuto')}
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent className="flex-1">
-                                <ul className="space-y-3">
-                                    {plan.features.map((featureKey) => (
-                                        <li key={featureKey} className="flex items-center gap-2">
-                                            <Check className="h-4 w-4 text-green-500 shrink-0" />
-                                            <span className="text-sm text-muted-foreground">{t(featureKey)}</span>
-                                        </li>
-                                    ))}
-                                </ul>
-                            </CardContent>
-                            <CardFooter>
-                                <Button className="w-full" variant={plan.popular ? "default" : "outline"} asChild>
-                                    <a href={plan.link} target="_blank" rel="noopener noreferrer">
-                                        {t('selectPlan')}
-                                    </a>
-                                </Button>
-                            </CardFooter>
-                        </Card>
-                    ))}
+                                )}
+                                {isCurrent && (
+                                    <div className="absolute -top-4 left-0 right-0 flex justify-center">
+                                        <Badge className="bg-green-500 text-white px-3 py-1">✓ {t('currentPlan')}</Badge>
+                                    </div>
+                                )}
+                                <CardHeader>
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <plan.icon className={cn("h-5 w-5", plan.popular ? "text-primary" : "text-muted-foreground")} />
+                                        <CardTitle className="text-xl">{t(plan.nameKey)}</CardTitle>
+                                    </div>
+                                    <div className="flex items-end gap-2">
+                                        <div className="flex flex-col">
+                                            <span className="text-xs text-muted-foreground line-through">{plan.originalPrice}</span>
+                                            <span className="text-3xl font-bold">{plan.price}</span>
+                                        </div>
+                                        <span className="text-muted-foreground text-sm mb-1">{t(plan.durationKey)}</span>
+                                    </div>
+                                    <CardDescription>
+                                        {plan.isLifetime ? t('billingOnce') : t('billingAuto')}
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className="flex-1">
+                                    <ul className="space-y-3">
+                                        {plan.features.map((featureKey) => (
+                                            <li key={featureKey} className="flex items-center gap-2">
+                                                <Check className="h-4 w-4 text-green-500 shrink-0" />
+                                                <span className="text-sm text-muted-foreground">{t(featureKey)}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </CardContent>
+                                <CardFooter>
+                                    {isCurrent ? (
+                                        <Button className="w-full" variant="outline" disabled>
+                                            <Check className="h-4 w-4 mr-2" />
+                                            {t('currentPlan')}
+                                        </Button>
+                                    ) : (
+                                        <Button className="w-full cursor-pointer" variant={plan.popular ? "default" : "outline"} asChild>
+                                            <a href={plan.link} target="_blank" rel="noopener noreferrer">
+                                                {t('selectPlan')}
+                                            </a>
+                                        </Button>
+                                    )}
+                                </CardFooter>
+                            </Card>
+                        )
+                    })}
                 </div>
 
                 <div className="mt-16 text-center">

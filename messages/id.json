@@ -223,18 +223,35 @@
         "billingAuto": "Tagihan otomatis diperbarui",
         "billingOnce": "Tagihan sekali bayar",
         "selectPlan": "Pilih Paket",
+        "currentPlan": "Paket Saat Ini",
         "paymentNote": "Pembayaran diproses dengan aman oleh Mayar.id.",
         "paymentMethods": "Mendukung QRIS, Virtual Account, E-Wallet, dan Kartu Kredit."
     },
     "Profile": {
         "title": "Profil Saya",
         "description": "Kelola informasi akun Anda",
+        "name": "Nama",
+        "namePlaceholder": "Nama Anda",
+        "email": "Email",
+        "emailHint": "Email tidak dapat diubah",
         "save": "Simpan Perubahan",
         "saving": "Menyimpan...",
+        "saveSuccess": "Profil berhasil disimpan!",
+        "saveError": "Gagal menyimpan profil",
+        "avatarError": "Gagal menyimpan foto profil",
         "resetPassword": "Reset Password",
+        "resetEmailSent": "Link reset password telah dikirim ke email Anda.",
         "upgrade": "Upgrade",
+        "changePlan": "Ganti Paket",
         "membershipStatus": "Status Membership",
         "validUntil": "Berlaku sampai",
-        "foreverAccess": "Akses selamanya"
+        "foreverAccess": "Akses selamanya",
+        "month": "Bulan",
+        "months": "Bulan",
+        "year": "Tahun",
+        "trialInfo": "Anda sedang dalam masa trial",
+        "projectUsage": "Project: {used}/{limit}",
+        "daysRemaining": "Sisa waktu trial: {days} hari",
+        "currentPlan": "Paket Saat Ini"
     }
 }

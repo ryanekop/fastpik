@@ -223,18 +223,35 @@
         "billingAuto": "Auto-renewing subscription",
         "billingOnce": "One-time payment",
         "selectPlan": "Select Plan",
+        "currentPlan": "Current Plan",
         "paymentNote": "Payments are securely processed by Mayar.id.",
         "paymentMethods": "Supports QRIS, Virtual Account, E-Wallet, and Credit Card."
     },
     "Profile": {
         "title": "My Profile",
         "description": "Manage your account information",
+        "name": "Name",
+        "namePlaceholder": "Your name",
+        "email": "Email",
+        "emailHint": "Email cannot be changed",
         "save": "Save Changes",
         "saving": "Saving...",
+        "saveSuccess": "Profile saved successfully!",
+        "saveError": "Failed to save profile",
+        "avatarError": "Failed to save profile photo",
         "resetPassword": "Reset Password",
+        "resetEmailSent": "Password reset link has been sent to your email.",
         "upgrade": "Upgrade",
+        "changePlan": "Change Plan",
         "membershipStatus": "Membership Status",
         "validUntil": "Valid until",
-        "foreverAccess": "Forever access"
+        "foreverAccess": "Forever access",
+        "month": "Month",
+        "months": "Months",
+        "year": "Year",
+        "trialInfo": "You are on a trial period",
+        "projectUsage": "Projects: {used}/{limit}",
+        "daysRemaining": "Trial remaining: {days} days",
+        "currentPlan": "Current Plan"
     }
 }

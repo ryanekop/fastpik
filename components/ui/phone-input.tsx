@@ -120,9 +120,8 @@ export function PhoneInput({ value = "", onChange, placeholder = "812xxxxxxxx", 
                     type="button"
                     onClick={() => setIsOpen(!isOpen)}
                     className={cn(
-                        "flex items-center gap-1 px-3 h-10 border rounded-l-md bg-muted/50 hover:bg-muted transition-colors cursor-pointer",
-                        error && "border-red-500",
-                        "border-r-0"
+                        "flex items-center gap-1 px-3 h-10 border rounded-l-md bg-muted/50 hover:bg-muted transition-colors cursor-pointer border-r-transparent",
+                        error && "border-red-500"
                     )}
                 >
                     <span className="text-lg">{selectedCountry.flag}</span>

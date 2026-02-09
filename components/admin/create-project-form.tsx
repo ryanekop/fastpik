@@ -120,8 +120,13 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
         }
     }, [editProject?.expiresAt])
 
+    const [error, setError] = useState<string | null>(null)
+    const [upgradeRequired, setUpgradeRequired] = useState(false)
+
     async function onSubmit(values: FormValues) {
         setIsSubmitting(true)
+        setError(null)
+        setUpgradeRequired(false)
         try {
             const maxPhotosNum = parseInt(values.maxPhotos) || 1
             const expiryDaysNum = values.expiryDays ? parseInt(values.expiryDays) : undefined
@@ -155,15 +160,24 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
                 onEditComplete?.()
             } else {
                 const res = await fetch('/api/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(projectPayload) })
-                if (!res.ok) throw new Error("Failed to create project")
+                if (!res.ok) {
+                    const errorData = await res.json()
+                    if (res.status === 403 && errorData.upgradeRequired) {
+                        setError(errorData.message)
+                        setUpgradeRequired(true)
+                        return
+                    }
+                    throw new Error(errorData.message || "Failed to create project")
+                }
                 const savedProject = await res.json()
                 setCurrentProject(savedProject)
                 onProjectCreated?.(savedProject)
                 setGeneratedLink(link)
                 import('@/lib/cache').then(({ preloadProjectPhotos }) => { preloadProjectPhotos(values.gdriveLink, values.detectSubfolders, 2000) })
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error(error)
+            setError(error.message || 'Terjadi kesalahan')
         } finally {
             setIsSubmitting(false)
         }
@@ -264,6 +278,27 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
                             </FormItem>
                         )} />
                     </motion.div>
+
+                    {/* Error Message */}
+                    {error && (
+                        <motion.div
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="p-4 rounded-lg bg-destructive/15 border border-destructive/30"
+                        >
+                            <p className="text-destructive text-sm font-medium mb-2">
+                                ⚠️ {error}
+                            </p>
+                            {upgradeRequired && (
+                                <Button size="sm" className="cursor-pointer" asChild>
+                                    <a href={`/${window.location.pathname.split('/')[1]}/pricing`}>
+                                        🚀 Upgrade ke Pro
+                                    </a>
+                                </Button>
+                            )}
+                        </motion.div>
+                    )}
+
                     <Button type="submit" className="w-full cursor-pointer" disabled={!!generatedLink || !isFormValid || isSubmitting}>
                         {isSubmitting ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />{isEditing ? "Saving..." : "Generating..."}</>) : (isEditing ? `💾 ${t('saveChanges')}` : `✨ ${t('generate')}`)}
                     </Button>
