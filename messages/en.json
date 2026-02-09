@@ -131,6 +131,8 @@
         "rememberMe": "Remember me for 24 hours",
         "signingIn": "Signing in...",
         "signIn": "Sign In",
+        "noAccount": "Don't have an account?",
+        "contactAdmin": "Contact Admin",
         "protectedAdminArea": "Protected Admin Area",
         "resetPasswordTitle": "Reset Password",
         "resetPasswordDesc": "Enter your email to receive a reset link",

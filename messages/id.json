@@ -131,6 +131,8 @@
         "rememberMe": "Ingat saya selama 24 jam",
         "signingIn": "Sedang masuk...",
         "signIn": "Masuk",
+        "noAccount": "Belum punya akun?",
+        "contactAdmin": "Kontak Admin",
         "protectedAdminArea": "Area Admin Terlindungi",
         "resetPasswordTitle": "Reset Password",
         "resetPasswordDesc": "Masukkan email Anda untuk menerima link reset",

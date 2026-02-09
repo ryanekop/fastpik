@@ -320,13 +320,6 @@ export default function Home() {
             <h2 className="text-3xl sm:text-4xl font-bold mb-4">{t('pricingTitle')}</h2>
             <p className="text-muted-foreground text-lg mb-8">{t('pricingSubtitle')}</p>
 
-            <div className="flex flex-wrap justify-center gap-4 mb-8">
-              <Badge variant="secondary" className="text-base py-2 px-4">🔥 1 Bulan: Rp 15.000</Badge>
-              <Badge variant="secondary" className="text-base py-2 px-4">⭐ 3 Bulan: Rp 39.000</Badge>
-              <Badge variant="secondary" className="text-base py-2 px-4">👑 1 Tahun: Rp 129.000</Badge>
-              <Badge variant="secondary" className="text-base py-2 px-4">♾️ Lifetime: Rp 349.000</Badge>
-            </div>
-
             <Button size="lg" variant="outline" asChild className="gap-2">
               <Link href={`/${locale}/pricing`}>
                 {t('pricingCta')} <ArrowRight className="h-5 w-5" />

@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
-import { Loader2, Eye, EyeOff } from "lucide-react"
+import { Loader2, Eye, EyeOff, Instagram } from "lucide-react"
 import Link from "next/link"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { LanguageToggle } from "@/components/language-toggle"
@@ -140,6 +140,17 @@ export function LoginForm() {
                         )}
                     </Button>
                 </form>
+
+                {/* No Account Section */}
+                <div className="mt-6 pt-6 border-t text-center space-y-3">
+                    <p className="text-sm text-muted-foreground">{t('noAccount')}</p>
+                    <Button variant="outline" className="w-full gap-2" asChild>
+                        <a href="https://instagram.com/ryaneko.apps/" target="_blank" rel="noopener noreferrer">
+                            <Instagram className="h-4 w-4" />
+                            {t('contactAdmin')}
+                        </a>
+                    </Button>
+                </div>
             </CardContent>
             <CardFooter className="flex justify-center gap-2 pt-0">
                 <LanguageToggle />
