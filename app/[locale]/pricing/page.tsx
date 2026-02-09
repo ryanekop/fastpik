@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from 'react'
 import { useTranslations, useLocale } from 'next-intl'
+import { useRouter } from 'next/navigation'
 import { ThemeToggle } from "@/components/theme-toggle"
 import { LanguageToggle } from "@/components/language-toggle"
 import { Button } from "@/components/ui/button"
 import Link from 'next/link'
-import { Check, Star, Zap, Crown, Infinity as InfinityIcon, Loader2 } from "lucide-react"
+import { Check, Star, Zap, Crown, Infinity as InfinityIcon, LogOut, Settings, LayoutDashboard, User } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import {
     Card,
@@ -16,8 +17,17 @@ import {
     CardHeader,
     CardTitle,
 } from "@/components/ui/card"
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
+import { User as SupabaseUser } from "@supabase/supabase-js"
 
 // Map tier to plan nameKey
 const tierToPlanMap: Record<string, string> = {
@@ -29,16 +39,38 @@ const tierToPlanMap: Record<string, string> = {
 
 export default function PricingPage() {
     const t = useTranslations('Pricing')
+    const tIndex = useTranslations('Index')
     const locale = useLocale()
+    const router = useRouter()
     const supabase = createClient()
     const [currentTier, setCurrentTier] = useState<string | null>(null)
     const [loading, setLoading] = useState(true)
+    const [user, setUser] = useState<SupabaseUser | null>(null)
+    const [userName, setUserName] = useState<string>("Admin")
+    const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
 
     useEffect(() => {
-        const loadSubscription = async () => {
+        const loadData = async () => {
             try {
                 const { data: { user } } = await supabase.auth.getUser()
                 if (user) {
+                    setUser(user)
+                    const name = user.user_metadata?.full_name || user.email?.split('@')[0] || "Admin"
+                    setUserName(name)
+
+                    // Get profile for avatar
+                    const { data: profile } = await supabase
+                        .from('profiles')
+                        .select('avatar_url, full_name')
+                        .eq('id', user.id)
+                        .single()
+
+                    if (profile) {
+                        setAvatarUrl(profile.avatar_url)
+                        if (profile.full_name) setUserName(profile.full_name)
+                    }
+
+                    // Get subscription
                     const { data: sub } = await supabase
                         .from('subscriptions')
                         .select('tier, status')
@@ -50,13 +82,25 @@ export default function PricingPage() {
                     }
                 }
             } catch (err) {
-                console.error('Failed to load subscription:', err)
+                console.error('Failed to load data:', err)
             } finally {
                 setLoading(false)
             }
         }
-        loadSubscription()
+        loadData()
     }, [supabase])
+
+    // Get initials from name
+    const getInitials = (name: string) => {
+        return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+    }
+
+    const handleLogout = async () => {
+        await supabase.auth.signOut()
+        setUser(null)
+        setAvatarUrl(null)
+        router.refresh()
+    }
 
     const plans = [
         {
@@ -88,7 +132,7 @@ export default function PricingPage() {
                 "featurePrioritySupport"
             ],
             link: "https://ryaneko.myr.id/m/fastpik-pro-access",
-            popular: true,
+            popular: false,
             icon: Star,
             isLifetime: false
         },
@@ -105,7 +149,7 @@ export default function PricingPage() {
                 "featurePrioritySupport"
             ],
             link: "https://ryaneko.myr.id/m/fastpik-pro-access",
-            popular: false,
+            popular: true,  // Changed to true - 1 Year is now popular
             icon: Crown,
             isLifetime: false
         },
@@ -144,9 +188,54 @@ export default function PricingPage() {
                 <div className="flex items-center gap-2">
                     <LanguageToggle />
                     <ThemeToggle />
-                    <Button variant="outline" asChild>
-                        <Link href={`/${locale}/dashboard/login`}>{t('loginButton')}</Link>
-                    </Button>
+
+                    {user ? (
+                        // Show profile dropdown when logged in
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="relative h-9 w-9 rounded-full bg-muted flex items-center justify-center cursor-pointer hover:bg-muted/80 transition-colors overflow-hidden">
+                                    {avatarUrl ? (
+                                        <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                                    ) : (
+                                        <span className="text-xs font-medium">{getInitials(userName)}</span>
+                                    )}
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent className="w-56" align="end" forceMount>
+                                <DropdownMenuLabel className="font-normal">
+                                    <div className="flex flex-col space-y-1">
+                                        <p className="text-sm font-medium leading-none">{userName}</p>
+                                        <p className="text-xs leading-none text-muted-foreground">
+                                            {user.email || "admin@example.com"}
+                                        </p>
+                                    </div>
+                                </DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => router.push(`/${locale}/dashboard/profile`)} className="cursor-pointer">
+                                    <User className="mr-2 h-4 w-4" />
+                                    <span>Profil</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => router.push(`/${locale}/dashboard`)} className="cursor-pointer">
+                                    <LayoutDashboard className="mr-2 h-4 w-4" />
+                                    <span>{tIndex('dashboard')}</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => router.push(`/${locale}/dashboard/settings`)} className="cursor-pointer">
+                                    <Settings className="mr-2 h-4 w-4" />
+                                    <span>{tIndex('settings')}</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={handleLogout} className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950 cursor-pointer">
+                                    <LogOut className="mr-2 h-4 w-4" />
+                                    <span>Log out</span>
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    ) : (
+                        // Show login button when not logged in
+                        <Button variant="outline" asChild>
+                            <Link href={`/${locale}/dashboard/login`}>{t('loginButton')}</Link>
+                        </Button>
+                    )}
                 </div>
             </header>
 
