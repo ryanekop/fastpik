@@ -178,6 +178,25 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
         }
     }, [isAuthenticated, hasPendingSelection, viewMode])
 
+    // Auto-select locked photos when photos are loaded (fixes counter showing 0/8 instead of 5/8)
+    // Must be before early returns to maintain consistent hook order
+    useEffect(() => {
+        if (photos.length > 0 && config.lockedPhotos && config.lockedPhotos.length > 0 && viewMode === 'culling') {
+            const getNameNoExt = (name: string) => name.replace(/\.[^/.]+$/, '')
+            const lockedNames = config.lockedPhotos.map(n => getNameNoExt(n))
+            const lockedPhotoIds = photos
+                .filter(p => lockedNames.includes(getNameNoExt(p.name)))
+                .map(p => p.id)
+                .filter(id => !selected.includes(id))
+
+            if (lockedPhotoIds.length > 0) {
+                lockedPhotoIds.forEach(id => {
+                    toggleSelection(id, config.maxPhotos)
+                })
+            }
+        }
+    }, [photos, viewMode])
+
     const handlePasswordSubmit = (e: React.FormEvent) => {
         e.preventDefault()
         if (passwordInput === config.password) {
@@ -634,22 +653,6 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
     const handleStopDownload = () => {
         abortControllerRef.current?.abort()
     }
-
-    // Auto-select locked photos when photos are loaded (fixes counter showing 0/8 instead of 5/8)
-    useEffect(() => {
-        if (photos.length > 0 && lockedPhotoNames.length > 0 && viewMode === 'culling') {
-            const lockedPhotoIds = photos
-                .filter(p => isPhotoLocked(p))
-                .map(p => p.id)
-                .filter(id => !selected.includes(id))
-
-            if (lockedPhotoIds.length > 0) {
-                lockedPhotoIds.forEach(id => {
-                    toggleSelection(id, config.maxPhotos)
-                })
-            }
-        }
-    }, [photos, viewMode])
 
     // Get selected photo names for display
     const selectedPhotoNames = selected.slice(0, 5).map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name))
