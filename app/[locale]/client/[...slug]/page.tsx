@@ -1,13 +1,16 @@
 import { ClientView } from "@/components/client/client-view";
 import { getProjectById } from "@/lib/supabase/projects";
 
-// Allow caching for a short period or revalidate on demand?
-// For now, let's keep it dynamic as admin might lock photos
 export const revalidate = 0;
 
-export default async function ClientWithVendorPage({ params }: { params: Promise<{ vendorName: string; projectId: string }> }) {
-    const { projectId } = await params;
-    // vendorName is cosmetic in the URL — project lookup is always by projectId
+export default async function ClientPage({ params }: { params: Promise<{ slug: string[] }> }) {
+    const { slug } = await params;
+
+    // Support both URL formats:
+    // /client/{projectId}           -> slug = [projectId]
+    // /client/{vendorName}/{projectId} -> slug = [vendorName, projectId]
+    const projectId = slug.length >= 2 ? slug[slug.length - 1] : slug[0];
+    // vendorName is cosmetic — project lookup is always by projectId
 
     let config = null;
     let isLegacy = false;
