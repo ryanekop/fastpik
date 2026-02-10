@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useSelectionStore, useStoreHydration } from "@/lib/store"
 import { PhotoGrid } from "./photo-grid"
 import { PhotoLightbox } from "./photo-lightbox"
@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
 import { PopupDialog, Toast } from "@/components/ui/popup-dialog"
-import { Copy, Send, AlertCircle, Loader2, RefreshCw, ImageOff, Trash2, Lock, Eye, EyeOff, MessageCircle, Check, Download, MousePointerClick, ArrowLeft } from "lucide-react"
+import { Copy, Send, AlertCircle, Loader2, RefreshCw, ImageOff, Trash2, Lock, Eye, EyeOff, MessageCircle, Check, Download, MousePointerClick, ArrowLeft, Square } from "lucide-react"
 import JSZip from "jszip"
 import { saveAs } from "file-saver"
 import { generateMockPhotos } from "@/lib/mock-data"
@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils"
 import { LanguageToggle } from "@/components/language-toggle"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Card, CardContent } from "@/components/ui/card"
+import { AnimatePresence, motion } from "framer-motion"
 
 interface Photo {
     id: string
@@ -63,6 +64,10 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
     const [downloadSelected, setDownloadSelected] = useState<string[]>([])
     const [isDownloading, setIsDownloading] = useState(false)
     const [downloadProgress, setDownloadProgress] = useState(0)
+    const abortControllerRef = useRef<AbortController | null>(null)
+
+    // Password dialog state (shown when clicking 'Pilih Foto' on password-protected albums)
+    const [showPasswordDialog, setShowPasswordDialog] = useState(false)
 
     // Generate a unique project identifier from config (defined early for use in state initializers)
     const currentProjectId = `${config.clientName}-${config.gdriveLink}`.replace(/[^a-zA-Z0-9]/g, '-').substring(0, 50)
@@ -163,12 +168,15 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
         setProjectId(currentProjectId)
     }
 
-    // Clear selection and fetch photos on mount (only if authenticated)
+    // Fetch photos - runs when authenticated OR when entering download mode (no password needed for download)
     useEffect(() => {
-        if (isAuthenticated && !hasPendingSelection) {
-            fetchPhotos()
+        if (!hasPendingSelection) {
+            // For culling: need authentication. For download and initial: always fetch photos
+            if (isAuthenticated || viewMode === 'download' || viewMode === 'initial') {
+                fetchPhotos()
+            }
         }
-    }, [isAuthenticated, hasPendingSelection])
+    }, [isAuthenticated, hasPendingSelection, viewMode])
 
     const handlePasswordSubmit = (e: React.FormEvent) => {
         e.preventDefault()
@@ -264,56 +272,8 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
         }
     }
 
-    // Password protection screen
-    if (isPasswordProtected && !isAuthenticated) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-background p-4">
-                <Card className="w-full max-w-md">
-                    <CardContent className="pt-6 space-y-6">
-                        <div className="text-center space-y-2">
-                            <Lock className="h-12 w-12 mx-auto text-primary" />
-                            <h1 className="text-xl font-bold">{config.clientName}</h1>
-                            <p className="text-muted-foreground text-sm">{t('passwordProtected') || 'This album is password protected'}</p>
-                        </div>
-                        <form onSubmit={handlePasswordSubmit} className="space-y-4">
-                            <div className="relative">
-                                <Input
-                                    type={showPassword ? "text" : "password"}
-                                    value={passwordInput}
-                                    onChange={(e) => {
-                                        setPasswordInput(e.target.value)
-                                        setPasswordError(false)
-                                    }}
-                                    placeholder={t('enterPassword') || 'Enter password'}
-                                    className={cn(
-                                        "pr-10",
-                                        passwordError && "border-red-500 focus:ring-red-500"
-                                    )}
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                                >
-                                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                                </button>
-                            </div>
-                            {passwordError && (
-                                <p className="text-red-500 text-sm">{t('wrongPassword') || 'Wrong password'}</p>
-                            )}
-                            <Button type="submit" className="w-full cursor-pointer">
-                                {t('unlock') || 'Unlock'} 🔓
-                            </Button>
-                        </form>
-                        <div className="flex justify-center gap-2">
-                            <LanguageToggle />
-                            <ThemeToggle />
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
-        )
-    }
+    // Password wall REMOVED - landing page always shown first.
+    // Password is now requested only when clicking "Pilih Foto" (handled in landing page below)
 
     if (isExpired) {
         return (
@@ -332,7 +292,7 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
         )
     }
 
-    // Landing choice screen - shown after password verification but before main content
+    // Landing choice screen - shown before main content (password not required)
     if (viewMode === 'initial') {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/30 p-4">
@@ -347,7 +307,14 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                         <div className="grid gap-4">
                             {/* Select Photos Option */}
                             <button
-                                onClick={() => setViewMode('culling')}
+                                onClick={() => {
+                                    // If password protected and not authenticated, show password dialog
+                                    if (isPasswordProtected && !isAuthenticated) {
+                                        setShowPasswordDialog(true)
+                                    } else {
+                                        setViewMode('culling')
+                                    }
+                                }}
                                 className="group relative flex items-center gap-4 p-5 rounded-xl border-2 border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-950/30 hover:border-green-400 dark:hover:border-green-600 hover:bg-green-100/80 dark:hover:bg-green-900/40 transition-all duration-300 cursor-pointer"
                             >
                                 <div className="flex-shrink-0 w-14 h-14 rounded-full bg-green-500 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
@@ -357,9 +324,12 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                                     <h3 className="font-semibold text-lg text-green-700 dark:text-green-300">{t('selectPhotos')}</h3>
                                     <p className="text-sm text-muted-foreground">{t('selectPhotosDesc')}</p>
                                 </div>
+                                {isPasswordProtected && !isAuthenticated && (
+                                    <Lock className="h-5 w-5 text-amber-500 shrink-0" />
+                                )}
                             </button>
 
-                            {/* Download Photos Option */}
+                            {/* Download Photos Option - no password needed */}
                             <button
                                 onClick={() => setViewMode('download')}
                                 className="group relative flex items-center gap-4 p-5 rounded-xl border-2 border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/30 hover:border-blue-400 dark:hover:border-blue-600 hover:bg-blue-100/80 dark:hover:bg-blue-900/40 transition-all duration-300 cursor-pointer"
@@ -380,6 +350,79 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                         </div>
                     </CardContent>
                 </Card>
+
+                {/* Password Dialog - shown when clicking Pilih Foto on protected album */}
+                <AnimatePresence>
+                    {showPasswordDialog && (
+                        <>
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100]"
+                                onClick={() => setShowPasswordDialog(false)}
+                            />
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                                transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                                className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[101] w-[90%] max-w-md"
+                            >
+                                <Card>
+                                    <CardContent className="pt-6 space-y-4">
+                                        <div className="text-center space-y-2">
+                                            <Lock className="h-10 w-10 mx-auto text-primary" />
+                                            <h3 className="font-semibold text-lg">{config.clientName}</h3>
+                                            <p className="text-sm text-muted-foreground">{t('passwordProtected')}</p>
+                                        </div>
+                                        <form onSubmit={(e) => {
+                                            e.preventDefault()
+                                            if (passwordInput === config.password) {
+                                                setIsAuthenticated(true)
+                                                setPasswordError(false)
+                                                sessionStorage.setItem(authStorageKey, 'true')
+                                                setShowPasswordDialog(false)
+                                                setViewMode('culling')
+                                            } else {
+                                                setPasswordError(true)
+                                            }
+                                        }} className="space-y-4">
+                                            <div className="relative">
+                                                <Input
+                                                    type={showPassword ? "text" : "password"}
+                                                    value={passwordInput}
+                                                    onChange={(e) => {
+                                                        setPasswordInput(e.target.value)
+                                                        setPasswordError(false)
+                                                    }}
+                                                    placeholder={t('enterPassword') || 'Enter password'}
+                                                    className={cn(
+                                                        "pr-10",
+                                                        passwordError && "border-red-500 focus:ring-red-500"
+                                                    )}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowPassword(!showPassword)}
+                                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                                                >
+                                                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                                </button>
+                                            </div>
+                                            {passwordError && (
+                                                <p className="text-red-500 text-sm">{t('wrongPassword') || 'Wrong password'}</p>
+                                            )}
+                                            <Button type="submit" className="w-full cursor-pointer">
+                                                {t('unlock') || 'Unlock'} 🔓
+                                            </Button>
+                                        </form>
+                                    </CardContent>
+                                </Card>
+                            </motion.div>
+                        </>
+                    )}
+                </AnimatePresence>
             </div>
         )
     }
@@ -527,10 +570,12 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
         )
     }
 
-    // Download photos function
+    // Download photos function with AbortController
     const handleDownloadPhotos = async (photoIds: string[]) => {
         if (photoIds.length === 0) return
 
+        const controller = new AbortController()
+        abortControllerRef.current = controller
         setIsDownloading(true)
         setDownloadProgress(0)
 
@@ -539,17 +584,25 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
             const photosToDownload = photos.filter(p => photoIds.includes(p.id))
 
             for (let i = 0; i < photosToDownload.length; i++) {
+                // Check if aborted
+                if (controller.signal.aborted) {
+                    throw new DOMException('Download cancelled', 'AbortError')
+                }
+
                 const photo = photosToDownload[i]
                 const downloadUrl = photo.downloadUrl || photo.fullUrl || photo.url
 
                 try {
                     // Fetch image through our API proxy to avoid CORS
-                    const response = await fetch(`/api/photos/download?url=${encodeURIComponent(downloadUrl)}`)
+                    const response = await fetch(`/api/photos/download?url=${encodeURIComponent(downloadUrl)}`, {
+                        signal: controller.signal
+                    })
                     if (!response.ok) throw new Error('Failed to fetch image')
 
                     const blob = await response.blob()
                     zip.file(photo.name, blob)
-                } catch (err) {
+                } catch (err: any) {
+                    if (err.name === 'AbortError') throw err
                     console.error(`Failed to download ${photo.name}:`, err)
                 }
 
@@ -561,15 +614,42 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
 
             setToastMessage(t('downloadComplete'))
             setShowToast(true)
-        } catch (err) {
-            console.error('Download failed:', err)
-            setToastMessage(t('downloadFailed'))
-            setShowToast(true)
+        } catch (err: any) {
+            if (err.name === 'AbortError') {
+                setToastMessage(t('downloadStopped'))
+                setShowToast(true)
+            } else {
+                console.error('Download failed:', err)
+                setToastMessage(t('downloadFailed'))
+                setShowToast(true)
+            }
         } finally {
+            abortControllerRef.current = null
             setIsDownloading(false)
             setDownloadProgress(0)
         }
     }
+
+    // Stop download handler
+    const handleStopDownload = () => {
+        abortControllerRef.current?.abort()
+    }
+
+    // Auto-select locked photos when photos are loaded (fixes counter showing 0/8 instead of 5/8)
+    useEffect(() => {
+        if (photos.length > 0 && lockedPhotoNames.length > 0 && viewMode === 'culling') {
+            const lockedPhotoIds = photos
+                .filter(p => isPhotoLocked(p))
+                .map(p => p.id)
+                .filter(id => !selected.includes(id))
+
+            if (lockedPhotoIds.length > 0) {
+                lockedPhotoIds.forEach(id => {
+                    toggleSelection(id, config.maxPhotos)
+                })
+            }
+        }
+    }, [photos, viewMode])
 
     // Get selected photo names for display
     const selectedPhotoNames = selected.slice(0, 5).map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name))
@@ -608,24 +688,29 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                             </div>
                         </div>
                         <div className="flex items-center gap-2">
-                            <Button
-                                onClick={() => handleDownloadPhotos(photos.map(p => p.id))}
-                                disabled={isDownloading || photos.length === 0}
-                                size="icon"
-                                className="bg-blue-600 hover:bg-blue-700 text-white cursor-pointer sm:px-4 sm:w-auto"
-                            >
-                                {isDownloading ? (
-                                    <>
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                        <span className="hidden sm:inline ml-2">{downloadProgress}%</span>
-                                    </>
-                                ) : (
-                                    <>
-                                        <Download className="h-4 w-4" />
-                                        <span className="hidden sm:inline ml-2">{t('downloadAll')}</span>
-                                    </>
-                                )}
-                            </Button>
+                            {isDownloading ? (
+                                <>
+                                    <span className="text-xs text-muted-foreground hidden sm:inline">{downloadProgress}%</span>
+                                    <Button
+                                        onClick={handleStopDownload}
+                                        size="sm"
+                                        className="bg-red-600 hover:bg-red-700 text-white cursor-pointer"
+                                    >
+                                        <Square className="h-3 w-3 mr-1 fill-current" />
+                                        {t('stopDownload')}
+                                    </Button>
+                                </>
+                            ) : (
+                                <Button
+                                    onClick={() => handleDownloadPhotos(photos.map(p => p.id))}
+                                    disabled={photos.length === 0}
+                                    size="sm"
+                                    className="bg-blue-600 hover:bg-blue-700 text-white cursor-pointer"
+                                >
+                                    <Download className="h-4 w-4 mr-1" />
+                                    <span className="hidden sm:inline">{t('downloadAll')}</span>
+                                </Button>
+                            )}
                             <ThemeToggle />
                             <LanguageToggle />
                         </div>
@@ -768,6 +853,15 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                                     </>
                                 )}
                             </Button>
+                            {isDownloading && (
+                                <Button
+                                    onClick={handleStopDownload}
+                                    className="shrink-0 bg-red-600 hover:bg-red-700 text-white cursor-pointer"
+                                >
+                                    <Square className="h-4 w-4 mr-1 fill-current" />
+                                    {t('stopDownload')}
+                                </Button>
+                            )}
                         </div>
                     </div>
                 ) : (

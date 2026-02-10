@@ -220,6 +220,8 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
         setGeneratedLink(null)
         setCurrentProject(null)
         form.reset({ clientName: "", gdriveLink: "", clientWhatsapp: "", adminWhatsapp: "", countryCode: "ID", maxPhotos: "", password: "", detectSubfolders: false, expiryDays: "" })
+        // Re-fetch settings so vendor slug and admin WA are fresh from DB
+        loadDefaultSettings()
     }
 
     const expiryOptions = [

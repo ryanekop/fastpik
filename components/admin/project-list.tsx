@@ -3,8 +3,8 @@
 import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useTranslations, useLocale } from "next-intl"
-import { Plus, Trash2, ExternalLink, Copy, Clock, Users, MessageCircle, Edit, CheckSquare, Square, X, PlusCircle } from "lucide-react"
-import { isProjectExpired, getClientWhatsapp, type Project } from "@/lib/project-store"
+import { Plus, Trash2, ExternalLink, Copy, Clock, Users, MessageCircle, Edit, CheckSquare, Square, X, PlusCircle, Search, Loader2 } from "lucide-react"
+import { isProjectExpired, getClientWhatsapp, generateShortId, type Project } from "@/lib/project-store"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { PopupDialog, Toast } from "@/components/ui/popup-dialog"
@@ -37,6 +37,7 @@ export function ProjectList({
     const [copiedId, setCopiedId] = useState<string | null>(null)
     const [isSelectMode, setIsSelectMode] = useState(false)
     const [selectedIds, setSelectedIds] = useState<string[]>([])
+    const [searchQuery, setSearchQuery] = useState("")
 
     // Message Templates
     const [templates, setTemplates] = useState<{
@@ -117,6 +118,8 @@ export function ProjectList({
     const [extraPhotosCount, setExtraPhotosCount] = useState("5")
     const [lockedPhotosInput, setLockedPhotosInput] = useState("")
     const [generatedExtraLink, setGeneratedExtraLink] = useState<string | null>(null)
+    const [extraExpiryDays, setExtraExpiryDays] = useState("7")
+    const [isGeneratingExtra, setIsGeneratingExtra] = useState(false)
 
     const formatExpiry = (expiresAt: number | undefined): string => {
         if (!expiresAt) return `♾️ ${t('forever')}`
@@ -133,6 +136,16 @@ export function ProjectList({
     const ExpiryDisplay = ({ expiresAt }: { expiresAt: number | undefined }) => (
         <span suppressHydrationWarning>{formatExpiry(expiresAt)}</span>
     )
+
+    // Helper: generate dynamic link from project ID using current vendor slug
+    const buildProjectLink = (projectId: string) => {
+        const origin = window.location.origin
+        const pathParts = window.location.pathname.split('/')
+        const loc = pathParts[1] || 'id'
+        return vendorSlug
+            ? `${origin}/${loc}/client/${vendorSlug}/${projectId}`
+            : `${origin}/${loc}/client/${projectId}`
+    }
 
     const copyLink = (link: string, id: string) => {
         if (navigator.clipboard && window.isSecureContext) {
@@ -168,9 +181,10 @@ export function ProjectList({
             return
         }
 
+        const dynamicLink = buildProjectLink(project.id)
         const variables = {
             client_name: project.clientName,
-            link: project.link,
+            link: dynamicLink,
             max_photos: project.maxPhotos.toString()
         }
 
@@ -250,29 +264,52 @@ export function ProjectList({
         setShowExtraPhotosDialog(true)
     }
 
-    const generateExtraLink = () => {
+    const generateExtraLink = async () => {
         if (!extraPhotosProject) return
-        const extraPhotosNum = parseInt(extraPhotosCount) || 5
-        const lockedPhotosArray = lockedPhotosInput.split('\n').map(l => l.trim()).filter(l => l.length > 0)
-        const totalMaxPhotos = lockedPhotosArray.length + extraPhotosNum
-        const projectData: any = {
-            clientName: extraPhotosProject.clientName,
-            gdriveLink: extraPhotosProject.gdriveLink,
-            adminWhatsapp: extraPhotosProject.adminWhatsapp || extraPhotosProject.whatsapp,
-            maxPhotos: totalMaxPhotos,
-            password: extraPhotosProject.password,
-            detectSubfolders: extraPhotosProject.detectSubfolders,
+        setIsGeneratingExtra(true)
+        try {
+            const extraPhotosNum = parseInt(extraPhotosCount) || 5
+            const lockedPhotosArray = lockedPhotosInput.split('\n').map(l => l.trim()).filter(l => l.length > 0)
+            const totalMaxPhotos = lockedPhotosArray.length + extraPhotosNum
+
+            const newProjectId = generateShortId()
+            const newLink = buildProjectLink(newProjectId)
+            const expiryDaysNum = extraExpiryDays ? parseInt(extraExpiryDays) : undefined
+
+            const projectPayload: Project = {
+                id: newProjectId,
+                clientName: extraPhotosProject.clientName,
+                gdriveLink: extraPhotosProject.gdriveLink,
+                clientWhatsapp: extraPhotosProject.clientWhatsapp || '',
+                adminWhatsapp: extraPhotosProject.adminWhatsapp || (extraPhotosProject as any).whatsapp || '',
+                countryCode: extraPhotosProject.countryCode || 'ID',
+                maxPhotos: totalMaxPhotos,
+                password: extraPhotosProject.password,
+                detectSubfolders: extraPhotosProject.detectSubfolders,
+                lockedPhotos: lockedPhotosArray.length > 0 ? lockedPhotosArray : undefined,
+                createdAt: Date.now(),
+                expiresAt: expiryDaysNum ? Date.now() + (expiryDaysNum * 24 * 60 * 60 * 1000) : undefined,
+                link: newLink
+            }
+
+            const res = await fetch('/api/projects', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(projectPayload)
+            })
+
+            if (!res.ok) {
+                const errData = await res.json()
+                throw new Error(errData.message || 'Failed to create extra project')
+            }
+
+            setGeneratedExtraLink(newLink)
+        } catch (err: any) {
+            setToastMessage(err.message || 'Failed to generate extra link')
+            setShowToast(true)
+        } finally {
+            setIsGeneratingExtra(false)
         }
-        if (lockedPhotosArray.length > 0) projectData.lockedPhotos = lockedPhotosArray
-        const json = JSON.stringify(projectData)
-        const encodedData = btoa(unescape(encodeURIComponent(json)))
-        const origin = window.location.origin
-        const pathParts = window.location.pathname.split('/')
-        const locale = pathParts[1] || 'id'
-        const link = vendorSlug
-            ? `${origin}/${locale}/client/${vendorSlug}/${encodeURIComponent(encodedData)}`
-            : `${origin}/${locale}/client/${encodeURIComponent(encodedData)}`
-        setGeneratedExtraLink(link)
     }
 
     const copyExtraLink = () => {
@@ -289,6 +326,11 @@ export function ProjectList({
         setExtraPhotosProject(null)
         setGeneratedExtraLink(null)
     }
+
+    // Filter projects by search query
+    const filteredProjects = searchQuery.trim()
+        ? projects.filter(p => p.clientName.toLowerCase().includes(searchQuery.toLowerCase()))
+        : projects
 
     if (projects.length === 0) {
         return (
@@ -340,11 +382,23 @@ export function ProjectList({
                 </div>
             </div>
 
+            {/* Search Bar */}
+            <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder={t('searchPlaceholder')}
+                    className="pl-9"
+                />
+            </div>
+
             <div className="grid gap-3 overflow-hidden max-w-full">
                 <AnimatePresence mode="popLayout">
-                    {projects.map((project, index) => {
+                    {filteredProjects.map((project, index) => {
                         const expired = isProjectExpired(project)
                         const isSelected = selectedIds.includes(project.id)
+                        const dynamicLink = buildProjectLink(project.id)
                         return (
                             <motion.div key={project.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -100 }} transition={{ delay: index * 0.05 }} className="overflow-hidden max-w-full">
                                 <Card className={cn("overflow-hidden transition-all hover:shadow-md", expired && "opacity-60 border-destructive/30", isSelected && "border-primary bg-primary/5")}>
@@ -365,13 +419,13 @@ export function ProjectList({
                                                     <span className="flex items-center gap-1 shrink-0">📸 {project.maxPhotos} {t('photo')}</span>
                                                     <span className="flex items-center gap-1 shrink-0"><Clock className="h-3 w-3" /><ExpiryDisplay expiresAt={project.expiresAt} /></span>
                                                 </div>
-                                                <p className="text-xs text-muted-foreground overflow-hidden text-ellipsis whitespace-nowrap block" style={{ maxWidth: 'min(100%, calc(100vw - 100px))' }}>🔗 {project.link}</p>
+                                                <p className="text-xs text-muted-foreground overflow-hidden text-ellipsis whitespace-nowrap block" style={{ maxWidth: 'min(100%, calc(100vw - 100px))' }}>🔗 {dynamicLink}</p>
                                             </div>
                                             {!isSelectMode && (
                                                 <div className="flex items-center gap-1 w-full sm:w-auto justify-end pt-2 sm:pt-0 border-t sm:border-t-0 mt-2 sm:mt-0 border-border/50">
-                                                    <Button size="icon" variant="ghost" onClick={() => copyLink(project.link, project.id)} className="h-8 w-8 cursor-pointer" title={t('copyLink')}>{copiedId === project.id ? <span className="text-green-500 text-xs">✓</span> : <Copy className="h-4 w-4" />}</Button>
+                                                    <Button size="icon" variant="ghost" onClick={() => copyLink(dynamicLink, project.id)} className="h-8 w-8 cursor-pointer" title={t('copyLink')}>{copiedId === project.id ? <span className="text-green-500 text-xs">✓</span> : <Copy className="h-4 w-4" />}</Button>
                                                     <Button size="icon" variant="ghost" onClick={() => sendToClient(project)} className="h-8 w-8 cursor-pointer text-green-600 hover:text-green-700" disabled={expired} title={t('sendToClient')}><MessageCircle className="h-4 w-4" /></Button>
-                                                    <Button size="icon" variant="ghost" onClick={() => openLink(project.link)} className="h-8 w-8 cursor-pointer" disabled={expired} title={t('openLink')}><ExternalLink className="h-4 w-4" /></Button>
+                                                    <Button size="icon" variant="ghost" onClick={() => openLink(dynamicLink)} className="h-8 w-8 cursor-pointer" disabled={expired} title={t('openLink')}><ExternalLink className="h-4 w-4" /></Button>
                                                     <Button size="icon" variant="ghost" onClick={() => onEditProject(project)} className="h-8 w-8 cursor-pointer text-blue-600 hover:text-blue-700" title={t('editProject')}><Edit className="h-4 w-4" /></Button>
                                                     <Button size="icon" variant="ghost" onClick={() => openExtraPhotosDialog(project)} className="h-8 w-8 cursor-pointer text-amber-600 hover:text-amber-700" disabled={expired} title={t('addExtraPhotos')}><PlusCircle className="h-4 w-4" /></Button>
                                                     <Button size="icon" variant="ghost" onClick={() => handleDeleteClick(project.id)} className="h-8 w-8 text-destructive hover:text-destructive cursor-pointer" title={t('delete')}><Trash2 className="h-4 w-4" /></Button>
@@ -406,8 +460,20 @@ export function ProjectList({
                             <label className="text-sm font-medium">🔒 {t('previouslySelectedPhotos')}</label>
                             <textarea className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 resize-none" placeholder={t('previouslySelectedHint')} value={lockedPhotosInput} onChange={(e) => setLockedPhotosInput(e.target.value)} />
                         </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">⏰ {t('extraLinkDuration')}</label>
+                            <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer" value={extraExpiryDays} onChange={(e) => setExtraExpiryDays(e.target.value)}>
+                                <option value="1">1 {t('days')}</option>
+                                <option value="3">3 {t('days')}</option>
+                                <option value="7">7 {t('days')}</option>
+                                <option value="14">14 {t('days')}</option>
+                                <option value="30">30 {t('days')}</option>
+                            </select>
+                        </div>
                         {!generatedExtraLink ? (
-                            <Button onClick={generateExtraLink} className="w-full cursor-pointer" disabled={!extraPhotosCount}>✨ {t('generateExtraLink')}</Button>
+                            <Button onClick={generateExtraLink} className="w-full cursor-pointer" disabled={!extraPhotosCount || isGeneratingExtra}>
+                                {isGeneratingExtra ? (<><Loader2 className="h-4 w-4 mr-2 animate-spin" />{t('generatingExtraLink')}</>) : (<>✨ {t('generateExtraLink')}</>)}
+                            </Button>
                         ) : (
                             <div className="space-y-3">
                                 <div className="p-3 bg-muted rounded-lg break-all text-sm">{generatedExtraLink}</div>
