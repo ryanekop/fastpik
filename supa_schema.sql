@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS settings (
   default_country_code TEXT DEFAULT '+62',
   default_expiry_days INTEGER DEFAULT 7,
   default_admin_whatsapp TEXT,
+  vendor_name TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );

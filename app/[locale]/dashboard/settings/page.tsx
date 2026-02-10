@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { PhoneInput } from "@/components/ui/phone-input"
 import { Loader2, Save, ArrowLeft, MessageSquare } from "lucide-react"
+import { Input } from "@/components/ui/input"
 import Link from "next/link"
 import { AdminShell } from "@/components/admin/admin-shell"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -21,6 +22,7 @@ export default function SettingsPage() {
     const supabase = createClient()
 
     const [defaultAdminWhatsapp, setDefaultAdminWhatsapp] = useState("")
+    const [vendorName, setVendorName] = useState("")
 
     // Message Templates State
     const [tmplLinkInitial, setTmplLinkInitial] = useState({ id: "", en: "" })
@@ -50,6 +52,7 @@ export default function SettingsPage() {
 
             if (data) {
                 setDefaultAdminWhatsapp(data.default_admin_whatsapp || "")
+                setVendorName(data.vendor_name || "")
                 if (data.msg_tmpl_link_initial) setTmplLinkInitial(data.msg_tmpl_link_initial)
                 if (data.msg_tmpl_link_extra) setTmplLinkExtra(data.msg_tmpl_link_extra)
                 if (data.msg_tmpl_result_initial) setTmplResultInitial(data.msg_tmpl_result_initial)
@@ -77,6 +80,7 @@ export default function SettingsPage() {
                 .upsert({
                     user_id: user.id,
                     default_admin_whatsapp: defaultAdminWhatsapp,
+                    vendor_name: vendorName || null,
                     msg_tmpl_link_initial: tmplLinkInitial,
                     msg_tmpl_link_extra: tmplLinkExtra,
                     msg_tmpl_result_initial: tmplResultInitial,
@@ -151,6 +155,23 @@ export default function SettingsPage() {
                                         <p className="text-xs text-muted-foreground">
                                             {t('defaultAdminWhatsappHint')}
                                         </p>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="vendorName">🏷️ {t('vendorName')}</Label>
+                                        <Input
+                                            id="vendorName"
+                                            value={vendorName}
+                                            onChange={(e) => setVendorName(e.target.value)}
+                                            placeholder={t('vendorNamePlaceholder')}
+                                        />
+                                        <p className="text-xs text-muted-foreground">
+                                            {t('vendorNameHint')}
+                                        </p>
+                                        {vendorName && (
+                                            <p className="text-xs text-primary font-mono bg-muted px-2 py-1 rounded">
+                                                …/client/<span className="font-bold">{vendorName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}</span>/xxxxx
+                                            </p>
+                                        )}
                                     </div>
                                 </CardContent>
                             </Card>

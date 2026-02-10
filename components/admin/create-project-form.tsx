@@ -59,6 +59,7 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
     const [currentProject, setCurrentProject] = useState<Project | null>(null)
     const [showPassword, setShowPassword] = useState(false)
     const [isSubmitting, setIsSubmitting] = useState(false)
+    const [vendorSlug, setVendorSlug] = useState<string | null>(null)
 
     const isEditing = !!editProject
 
@@ -92,12 +93,16 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
 
             const { data } = await supabase
                 .from('settings')
-                .select('default_admin_whatsapp')
+                .select('default_admin_whatsapp, vendor_name')
                 .eq('user_id', user.id)
                 .single()
 
             if (data?.default_admin_whatsapp) {
                 form.setValue('adminWhatsapp', data.default_admin_whatsapp)
+            }
+            if (data?.vendor_name) {
+                const slug = data.vendor_name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+                setVendorSlug(slug)
             }
         } catch (err) {
             console.log('No default settings found')
@@ -136,7 +141,9 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
             const origin = window.location.origin
             const pathParts = window.location.pathname.split('/')
             const locale = pathParts[1] || 'id'
-            const link = `${origin}/${locale}/client/${projectId}`
+            const link = vendorSlug
+                ? `${origin}/${locale}/client/${vendorSlug}/${projectId}`
+                : `${origin}/${locale}/client/${projectId}`
 
             const projectPayload: Project = {
                 id: projectId,

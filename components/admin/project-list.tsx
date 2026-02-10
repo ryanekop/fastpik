@@ -43,6 +43,7 @@ export function ProjectList({
         initialLink: { id: string, en: string } | null,
         extraLink: { id: string, en: string } | null
     }>({ initialLink: null, extraLink: null })
+    const [vendorSlug, setVendorSlug] = useState<string | null>(null)
 
     useEffect(() => {
         loadSettings()
@@ -55,7 +56,7 @@ export function ProjectList({
 
             const { data } = await supabase
                 .from('settings')
-                .select('msg_tmpl_link_initial, msg_tmpl_link_extra')
+                .select('msg_tmpl_link_initial, msg_tmpl_link_extra, vendor_name')
                 .eq('user_id', user.id)
                 .single()
 
@@ -64,6 +65,10 @@ export function ProjectList({
                     initialLink: data.msg_tmpl_link_initial,
                     extraLink: data.msg_tmpl_link_extra
                 })
+                if (data.vendor_name) {
+                    const slug = data.vendor_name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+                    setVendorSlug(slug)
+                }
             }
         } catch (err) {
             console.error("Failed to load templates", err)
@@ -264,7 +269,9 @@ export function ProjectList({
         const origin = window.location.origin
         const pathParts = window.location.pathname.split('/')
         const locale = pathParts[1] || 'id'
-        const link = `${origin}/${locale}/client/${encodeURIComponent(encodedData)}`
+        const link = vendorSlug
+            ? `${origin}/${locale}/client/${vendorSlug}/${encodeURIComponent(encodedData)}`
+            : `${origin}/${locale}/client/${encodeURIComponent(encodedData)}`
         setGeneratedExtraLink(link)
     }
 
