@@ -64,7 +64,7 @@ export default async function ClientWithVendorPage({ params }: { params: Promise
                     .from('settings')
                     .select('msg_tmpl_result_initial, msg_tmpl_result_extra')
                     .eq('user_id', project.user_id)
-                    .single();
+                    .maybeSingle();
 
                 if (settings) {
                     templates = {

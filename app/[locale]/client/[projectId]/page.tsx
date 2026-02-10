@@ -68,7 +68,7 @@ export default async function ClientPage({ params }: { params: Promise<{ project
                     .from('settings')
                     .select('msg_tmpl_result_initial, msg_tmpl_result_extra')
                     .eq('user_id', project.user_id)
-                    .single();
+                    .maybeSingle();
 
                 if (settings) {
                     templates = {

@@ -95,7 +95,7 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
                 .from('settings')
                 .select('default_admin_whatsapp, vendor_name')
                 .eq('user_id', user.id)
-                .single()
+                .maybeSingle()
 
             if (data?.default_admin_whatsapp) {
                 form.setValue('adminWhatsapp', data.default_admin_whatsapp)

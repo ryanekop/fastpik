@@ -58,7 +58,7 @@ export function ProjectList({
                 .from('settings')
                 .select('msg_tmpl_link_initial, msg_tmpl_link_extra, vendor_name')
                 .eq('user_id', user.id)
-                .single()
+                .maybeSingle()
 
             if (data) {
                 setTemplates({

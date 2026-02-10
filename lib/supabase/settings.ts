@@ -13,7 +13,7 @@ export async function getSettings(): Promise<Settings> {
     const { data, error } = await supabase
         .from('settings')
         .select('*')
-        .single()
+        .maybeSingle()
 
     if (error || !data) {
         // Return defaults if no settings found (or error)

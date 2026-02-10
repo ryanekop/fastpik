@@ -48,7 +48,7 @@ export default function SettingsPage() {
                 .from('settings')
                 .select('*')
                 .eq('user_id', user.id)
-                .single()
+                .maybeSingle()
 
             if (data) {
                 setDefaultAdminWhatsapp(data.default_admin_whatsapp || "")
