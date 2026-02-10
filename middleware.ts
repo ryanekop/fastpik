@@ -24,5 +24,5 @@ export default async function middleware(request: NextRequest) {
 export const config = {
     // Match all routes including those without locale prefix
     // This allows the middleware to redirect /dashboard/login -> /id/dashboard/login
-    matcher: ['/', '/(id|en)/:path*', '/dashboard/:path*', '/client/:path*', '/api/:path*']
+    matcher: ['/', '/(id|en)/:path*', '/dashboard/:path*', '/client/:path*', '/auth/:path*', '/api/:path*']
 };
