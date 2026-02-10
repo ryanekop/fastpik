@@ -8,8 +8,8 @@ const supabaseAdmin = createClient(
     { auth: { autoRefreshToken: false, persistSession: false } }
 )
 
-// Secret key for admin access
-const ADMIN_SECRET = process.env.ADMIN_SECRET_KEY || 'fastpik-ryan-2024-secret'
+// Secret key for admin access (same as ryaneko-license admin)
+const ADMIN_SECRET = process.env.ADMIN_PASSWORD || process.env.ADMIN_SECRET_KEY || 'fastpik-ryan-2024-secret'
 
 export async function GET(req: NextRequest) {
     const secretKey = req.headers.get('x-admin-secret')
