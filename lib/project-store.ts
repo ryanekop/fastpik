@@ -9,7 +9,7 @@ export interface Project {
     adminWhatsapp: string    // WhatsApp admin (untuk terima hasil pilihan)
     countryCode: string
     maxPhotos: number
-    password?: string
+    password?: string        // Password Album (blocks landing page)
     detectSubfolders: boolean
     expiresAt?: number // Unix timestamp, undefined = never expires
     createdAt: number

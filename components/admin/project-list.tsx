@@ -401,7 +401,7 @@ export function ProjectList({
                         const dynamicLink = buildProjectLink(project.id)
                         return (
                             <motion.div key={project.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -100 }} transition={{ delay: index * 0.05 }} className="overflow-hidden max-w-full">
-                                <Card className={cn("overflow-hidden transition-all hover:shadow-md", expired && "opacity-60 border-destructive/30", isSelected && "border-primary bg-primary/5")}>
+                                <Card className={cn("overflow-hidden transition-all hover:shadow-md", expired && "opacity-60 border-destructive/30", isSelected && "border-primary bg-primary/5", !isSelected && !expired && project.lockedPhotos && project.lockedPhotos.length > 0 && "border-amber-400 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-600")}>
                                     <CardContent className="p-4 overflow-hidden">
                                         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 w-full overflow-hidden">
                                             {isSelectMode && (
@@ -413,6 +413,9 @@ export function ProjectList({
                                                 <div className="flex items-center gap-2 overflow-hidden">
                                                     <Users className="h-4 w-4 text-muted-foreground shrink-0" />
                                                     <h4 className="font-semibold truncate flex-1 min-w-0 cursor-pointer hover:text-primary hover:underline transition-colors" onClick={() => onEditProject(project)} title={`Edit ${project.clientName}`}>{project.clientName}</h4>
+                                                    {project.lockedPhotos && project.lockedPhotos.length > 0 && (
+                                                        <span className="text-xs bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded shrink-0">📷 {t('extraPhotosBadge')}</span>
+                                                    )}
                                                     {expired && <span className="text-xs bg-destructive/20 text-destructive px-2 py-0.5 rounded shrink-0">{t('expired')}</span>}
                                                 </div>
                                                 <div className="flex items-center gap-4 text-sm text-muted-foreground">

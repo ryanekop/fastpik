@@ -50,7 +50,7 @@ interface ClientViewProps {
 export function ClientView({ config, messageTemplates }: ClientViewProps) {
     const t = useTranslations('Client')
     const currentLocale = useLocale()
-    const { selected, toggleSelection, clearSelection, setProjectId, projectId } = useSelectionStore()
+    const { selected, toggleSelection, clearSelection, setSelection, setProjectId, projectId } = useSelectionStore()
     const isHydrated = useStoreHydration() // Use proper Zustand hydration detection
     const [photos, setPhotos] = useState<Photo[]>([])
     const [loading, setLoading] = useState(true)
@@ -291,8 +291,56 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
         }
     }
 
-    // Password wall REMOVED - landing page always shown first.
-    // Password is now requested only when clicking "Pilih Foto" (handled in landing page below)
+    // Password wall - blocks everything if password is set and not authenticated
+    if (isPasswordProtected && !isAuthenticated) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-background p-4">
+                <Card className="w-full max-w-md">
+                    <CardContent className="pt-6 space-y-6">
+                        <div className="text-center space-y-2">
+                            <Lock className="h-12 w-12 mx-auto text-primary" />
+                            <h1 className="text-xl font-bold">{config.clientName}</h1>
+                            <p className="text-muted-foreground text-sm">{t('passwordProtected')}</p>
+                        </div>
+                        <form onSubmit={handlePasswordSubmit} className="space-y-4">
+                            <div className="relative">
+                                <Input
+                                    type={showPassword ? "text" : "password"}
+                                    value={passwordInput}
+                                    onChange={(e) => {
+                                        setPasswordInput(e.target.value)
+                                        setPasswordError(false)
+                                    }}
+                                    placeholder={t('enterPassword') || 'Enter password'}
+                                    className={cn(
+                                        "pr-10",
+                                        passwordError && "border-red-500 focus:ring-red-500"
+                                    )}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                                >
+                                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                </button>
+                            </div>
+                            {passwordError && (
+                                <p className="text-red-500 text-sm">{t('wrongPassword') || 'Wrong password'}</p>
+                            )}
+                            <Button type="submit" className="w-full cursor-pointer">
+                                {t('unlock') || 'Unlock'} 🔓
+                            </Button>
+                        </form>
+                        <div className="flex justify-center gap-2">
+                            <LanguageToggle />
+                            <ThemeToggle />
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+        )
+    }
 
     if (isExpired) {
         return (
@@ -326,14 +374,7 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                         <div className="grid gap-4">
                             {/* Select Photos Option */}
                             <button
-                                onClick={() => {
-                                    // If password protected and not authenticated, show password dialog
-                                    if (isPasswordProtected && !isAuthenticated) {
-                                        setShowPasswordDialog(true)
-                                    } else {
-                                        setViewMode('culling')
-                                    }
-                                }}
+                                onClick={() => setViewMode('culling')}
                                 className="group relative flex items-center gap-4 p-5 rounded-xl border-2 border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-950/30 hover:border-green-400 dark:hover:border-green-600 hover:bg-green-100/80 dark:hover:bg-green-900/40 transition-all duration-300 cursor-pointer"
                             >
                                 <div className="flex-shrink-0 w-14 h-14 rounded-full bg-green-500 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
@@ -343,9 +384,6 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                                     <h3 className="font-semibold text-lg text-green-700 dark:text-green-300">{t('selectPhotos')}</h3>
                                     <p className="text-sm text-muted-foreground">{t('selectPhotosDesc')}</p>
                                 </div>
-                                {isPasswordProtected && !isAuthenticated && (
-                                    <Lock className="h-5 w-5 text-amber-500 shrink-0" />
-                                )}
                             </button>
 
                             {/* Download Photos Option - no password needed */}
@@ -369,79 +407,6 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                         </div>
                     </CardContent>
                 </Card>
-
-                {/* Password Dialog - shown when clicking Pilih Foto on protected album */}
-                <AnimatePresence>
-                    {showPasswordDialog && (
-                        <>
-                            <motion.div
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100]"
-                                onClick={() => setShowPasswordDialog(false)}
-                            />
-                            <motion.div
-                                initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                                animate={{ opacity: 1, scale: 1, y: 0 }}
-                                exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                                transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                                className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[101] w-[90%] max-w-md"
-                            >
-                                <Card>
-                                    <CardContent className="pt-6 space-y-4">
-                                        <div className="text-center space-y-2">
-                                            <Lock className="h-10 w-10 mx-auto text-primary" />
-                                            <h3 className="font-semibold text-lg">{config.clientName}</h3>
-                                            <p className="text-sm text-muted-foreground">{t('passwordProtected')}</p>
-                                        </div>
-                                        <form onSubmit={(e) => {
-                                            e.preventDefault()
-                                            if (passwordInput === config.password) {
-                                                setIsAuthenticated(true)
-                                                setPasswordError(false)
-                                                sessionStorage.setItem(authStorageKey, 'true')
-                                                setShowPasswordDialog(false)
-                                                setViewMode('culling')
-                                            } else {
-                                                setPasswordError(true)
-                                            }
-                                        }} className="space-y-4">
-                                            <div className="relative">
-                                                <Input
-                                                    type={showPassword ? "text" : "password"}
-                                                    value={passwordInput}
-                                                    onChange={(e) => {
-                                                        setPasswordInput(e.target.value)
-                                                        setPasswordError(false)
-                                                    }}
-                                                    placeholder={t('enterPassword') || 'Enter password'}
-                                                    className={cn(
-                                                        "pr-10",
-                                                        passwordError && "border-red-500 focus:ring-red-500"
-                                                    )}
-                                                />
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setShowPassword(!showPassword)}
-                                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                                                >
-                                                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                                                </button>
-                                            </div>
-                                            {passwordError && (
-                                                <p className="text-red-500 text-sm">{t('wrongPassword') || 'Wrong password'}</p>
-                                            )}
-                                            <Button type="submit" className="w-full cursor-pointer">
-                                                {t('unlock') || 'Unlock'} 🔓
-                                            </Button>
-                                        </form>
-                                    </CardContent>
-                                </Card>
-                            </motion.div>
-                        </>
-                    )}
-                </AnimatePresence>
             </div>
         )
     }
@@ -574,7 +539,21 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
     }
 
     const handleClearSelection = () => {
-        clearSelection()
+        // If there are locked photos, keep them and only clear new selections
+        if (config.lockedPhotos && config.lockedPhotos.length > 0) {
+            const getNameNoExt = (name: string) => name.replace(/\.[^/.]+$/, '')
+            const lockedNames = config.lockedPhotos.map(n => getNameNoExt(n))
+
+            const lockedPhotoIds = photos
+                .filter(p => lockedNames.includes(getNameNoExt(p.name)))
+                .map(p => p.id)
+
+            // Set selection to ONLY the locked photos
+            setSelection(lockedPhotoIds)
+        } else {
+            // Normal project, clear everything
+            clearSelection()
+        }
         setShowClearDialog(false)
         setToastMessage(t('selectionCleared'))
         setShowToast(true)
