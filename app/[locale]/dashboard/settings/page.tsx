@@ -186,7 +186,9 @@ export default function SettingsPage() {
                                     variables={[
                                         { key: "client_name", label: t('varClientName') },
                                         { key: "link", label: t('varLink') },
-                                        { key: "max_photos", label: t('varMaxPhotos') }
+                                        { key: "max_photos", label: t('varMaxPhotos') },
+                                        { key: "password", label: t('varPassword') },
+                                        { key: "duration", label: t('varDuration') }
                                     ]}
                                     value={tmplLinkInitial}
                                     onChange={setTmplLinkInitial}
@@ -198,7 +200,9 @@ export default function SettingsPage() {
                                     variables={[
                                         { key: "client_name", label: t('varClientName') },
                                         { key: "link", label: t('varLink') },
-                                        { key: "count", label: t('varExtraCount') }
+                                        { key: "count", label: t('varExtraCount') },
+                                        { key: "password", label: t('varPassword') },
+                                        { key: "duration", label: t('varDuration') }
                                     ]}
                                     value={tmplLinkExtra}
                                     onChange={setTmplLinkExtra}

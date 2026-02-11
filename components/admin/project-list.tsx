@@ -182,10 +182,34 @@ export function ProjectList({
         }
 
         const dynamicLink = buildProjectLink(project.id)
-        const variables = {
+
+        // Build variables object with conditional password and duration
+        const variables: Record<string, string> = {
             client_name: project.clientName,
             link: dynamicLink,
             max_photos: project.maxPhotos.toString()
+        }
+
+        // Add password only if set
+        if (project.password) {
+            variables.password = project.password
+        }
+
+        // Add duration only if expiry is set
+        if (project.expiresAt) {
+            const now = Date.now()
+            const diff = project.expiresAt - now
+            if (diff > 0) {
+                const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+                if (days > 0) {
+                    variables.duration = `${days} ${t('days')}`
+                } else if (hours > 0) {
+                    variables.duration = `${hours} ${t('hours')}`
+                } else {
+                    variables.duration = t('lessThanHour')
+                }
+            }
         }
 
         const message = compileMessage(templates.initialLink, variables, false)
@@ -489,11 +513,26 @@ export function ProjectList({
                                     if (!clientWa) { setToastMessage(tc('noWhatsapp')); setShowToast(true); return }
                                     const extraCount = parseInt(extraPhotosCount) || 5
 
-                                    const variables = {
+                                    // Build variables with conditional password and duration
+                                    const variables: Record<string, string> = {
                                         client_name: extraPhotosProject?.clientName || '',
                                         link: generatedExtraLink,
                                         count: extraCount.toString()
                                     }
+
+                                    // Add password only if set
+                                    if (extraPhotosProject?.password) {
+                                        variables.password = extraPhotosProject.password
+                                    }
+
+                                    // Add duration based on extra expiry
+                                    const expiryMs = parseInt(extraExpiryDays) * 24 * 60 * 60 * 1000
+                                    const expiryDate = Date.now() + expiryMs
+                                    const days = parseInt(extraExpiryDays)
+                                    if (days > 0) {
+                                        variables.duration = `${days} ${t('days')}`
+                                    }
+
                                     const message = compileMessage(templates.extraLink, variables, true)
 
                                     window.open(`https://wa.me/${clientWa}?text=${encodeURIComponent(message)}`, '_blank')

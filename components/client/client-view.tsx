@@ -97,12 +97,42 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
     const [showRestoreDialog, setShowRestoreDialog] = useState(false)
     const [hasPendingSelection, setHasPendingSelection] = useState(false)
 
+    // Time remaining state for countdown
+    const [timeRemaining, setTimeRemaining] = useState<{ days: number, hours: number, minutes: number } | null>(null)
+
     // Track if project check has already been done this session
     // Check if project is expired (client-side only to avoid hydration mismatch)
     const [isExpired, setIsExpired] = useState(false)
 
     useEffect(() => {
         setIsExpired(config.expiresAt ? Date.now() > config.expiresAt : false)
+
+        // Calculate time remaining
+        if (config.expiresAt) {
+            const calculateTimeRemaining = () => {
+                const now = Date.now()
+                const diff = config.expiresAt! - now
+
+                if (diff <= 0) {
+                    setTimeRemaining(null)
+                    setIsExpired(true)
+                } else {
+                    const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+                    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+                    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+                    setTimeRemaining({ days, hours, minutes })
+                }
+            }
+
+            // Calculate immediately
+            calculateTimeRemaining()
+
+            // Update every minute
+            const interval = setInterval(calculateTimeRemaining, 60000)
+            return () => clearInterval(interval)
+        } else {
+            setTimeRemaining(null)
+        }
     }, [config.expiresAt])
 
     // Generate auth storage key (must match the one used in state initializer)
@@ -740,13 +770,24 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                 )}
             </div>
 
-            {/* Error Banner */}
-            {error && (
-                <div className="mx-4 mt-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-yellow-800 dark:text-yellow-200">
-                        <AlertCircle className="h-4 w-4" />
-                        <span className="text-sm">{error}</span>
+            {/* Countdown Banner - Show time remaining if expiry is set */}
+            {timeRemaining && !isExpired && (
+                <div className="bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-800 px-4 py-3">
+                    <div className="flex items-center justify-center gap-2 text-sm">
+                        <span className="text-amber-700 dark:text-amber-400 font-medium">⏰ {t('linkExpiresIn')}:</span>
+                        <span className="text-amber-900 dark:text-amber-200 font-semibold">
+                            {timeRemaining.days > 0 && `${timeRemaining.days} ${t('days')} `}
+                            {timeRemaining.hours > 0 && `${timeRemaining.hours} ${t('hours')} `}
+                            {timeRemaining.minutes > 0 && `${timeRemaining.minutes} ${t('minutes')}`}
+                        </span>
                     </div>
+                </div>
+            )}
+
+            {/* Error State */}
+            {error && (
+                <div className="flex flex-col items-center justify-center py-20 gap-4">
+                    <p className="text-red-500">{error}</p>
                     <Button size="sm" variant="ghost" onClick={fetchPhotos} className="cursor-pointer">
                         <RefreshCw className="h-4 w-4 mr-1" /> {t('tryAgain')}
                     </Button>

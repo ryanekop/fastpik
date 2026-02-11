@@ -13,12 +13,17 @@ export const metadata: Metadata = {
     title: "Dashboard"
 }
 
+import { getLatestChangelog } from "@/lib/supabase/changelogs"
+import { getLocale } from "next-intl/server"
+
 export default async function DashboardPage() {
     const t = await getTranslations('Admin')
+    const locale = await getLocale()
     const projects = await getProjects()
+    const latestChangelog = await getLatestChangelog(locale)
 
     return (
-        <AdminShell>
+        <AdminShell latestChangelog={latestChangelog}>
             <div className="space-y-6">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">{t('dashboardTitle')}</h1>
@@ -32,7 +37,11 @@ export default async function DashboardPage() {
                 </Suspense>
 
                 <div className="mt-8 pt-6 border-t text-center text-sm text-muted-foreground">
-                    <p>{t('footer')} <a href="https://instagram.com/ryanekopram" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">@ryanekopram</a> & <a href="https://instagram.com/ryaneko.apps" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">@ryaneko.apps</a></p>
+                    <p>
+                        {t('footer')} <a href="https://instagram.com/ryanekopram" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">@ryanekopram</a> & <a href="https://instagram.com/ryaneko.apps" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">@ryaneko.apps</a>
+                        <span className="mx-2 text-muted-foreground/50">•</span>
+                        <a href={`/${locale}/dashboard/changelog`} className="text-muted-foreground hover:text-primary transition-colors text-xs">{t('changelog')} v{latestChangelog?.version || '1.0.0'}</a>
+                    </p>
                 </div>
             </div>
         </AdminShell>

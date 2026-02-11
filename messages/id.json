@@ -106,6 +106,7 @@
         "sendToClientWa": "Kirim ke WhatsApp Klien",
         "waExtraMessage": "Halo {name},\n\nSilakan pilih {count} foto tambahan di link berikut:\n{link}\n\nFoto yang telah Anda pilih sebelumnya sudah terkunci dan tidak dapat diubah.\n\nTerima kasih!",
         "searchPlaceholder": "Cari nama klien...",
+        "extraPhotosBadge": "Tambahan Foto",
         "generalTab": "Umum",
         "templatesTab": "Template Pesan",
         "generalConfigTitle": "Konfigurasi Umum",
@@ -127,6 +128,13 @@
         "varExtraCount": "Jumlah Tambahan",
         "varSelectedCount": "Jumlah Dipilih",
         "varPhotoList": "Daftar Foto",
+        "varPassword": "Password",
+        "varDuration": "Durasi Link",
+        "whatsNew": "Apa yang Baru?",
+        "changelog": "Log Perubahan",
+        "seeFullChangelog": "Lihat Semua Perubahan",
+        "dontShowAgain": "Jangan tampilkan lagi untuk versi ini",
+        "close": "Tutup",
         "saving": "Menyimpan...",
         "saveAllChanges": "Simpan Semua Perubahan",
         "loginTitle": "Login Akun",
@@ -216,7 +224,9 @@
         "downloadStopped": "Download dibatalkan",
         "stopDownload": "Stop",
         "selectToDownload": "Pilih foto untuk diunduh",
-        "photosToDownload": "foto akan diunduh"
+        "photosToDownload": "foto akan diunduh",
+        "linkExpiresIn": "Link berlaku hingga",
+        "minutes": "menit"
     },
     "Common": {
         "close": "Tutup",

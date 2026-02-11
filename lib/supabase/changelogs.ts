@@ -1,0 +1,195 @@
+
+import { createClient } from './server'
+
+export interface ChangelogItem {
+    category: string
+    items: string[]
+}
+
+export interface Changelog {
+    id: string
+    version: string
+    releaseDate: string
+    changes: ChangelogItem[]
+}
+
+const FALLBACK_CHANGELOGS = [
+    {
+        id: '1',
+        version: '1.2.0',
+        release_date: new Date().toISOString(),
+        changes_en: [
+            {
+                category: "Features", items: [
+                    "Added \"Extra Photos\" badge for additional selection projects",
+                    "Added password and duration variables to WhatsApp message templates",
+                    "Added countdown timer banner for expiring links in client view",
+                    "Added comprehensive changelog system and \"What's New\" popup"
+                ]
+            },
+            {
+                category: "Fixes", items: [
+                    "Fixed bug where clearing selection incorrectly removed locked photos",
+                    "Fixed missing translation for badge text"
+                ]
+            }
+        ],
+        changes_id: [
+            {
+                category: "Fitur", items: [
+                    "Menambahkan badge \"Tambahan Foto\" untuk proyek pemilihan tambahan",
+                    "Menambahkan variabel password dan durasi pada template pesan WhatsApp",
+                    "Menambahkan banner hitung mundur untuk link yang akan kadaluarsa di tampilan klien",
+                    "Menambahkan sistem changelog lengkap dan popup \"Apa yang Baru\""
+                ]
+            },
+            {
+                category: "Perbaikan", items: [
+                    "Memperbaiki bug di mana menghapus pilihan secara tidak sengaja menghapus foto yang terkunci",
+                    "Memperbaiki terjemahan yang hilang untuk teks badge"
+                ]
+            }
+        ]
+    },
+    {
+        id: '2',
+        version: '1.1.0',
+        release_date: new Date(Date.now() - 86400000).toISOString(),
+        changes_en: [
+            {
+                category: "Features", items: [
+                    "Implemented orange card styling for \"Extra Photo\" projects",
+                    "Reverted to single password system for simpler access control",
+                    "Restored full-page password wall for protected albums"
+                ]
+            },
+            {
+                category: "Changes", items: [
+                    "Removed separate photo selection password",
+                    "Updated project creation form configuration"
+                ]
+            }
+        ],
+        changes_id: [
+            {
+                category: "Fitur", items: [
+                    "Mengimplementasikan gaya kartu oranye untuk proyek \"Foto Tambahan\"",
+                    "Mengembalikan sistem satu password untuk akses yang lebih sederhana",
+                    "Mengembalikan halaman password penuh untuk album yang dilindungi"
+                ]
+            },
+            {
+                category: "Perubahan", items: [
+                    "Menghapus password khusus pemilihan foto",
+                    "Memperbarui konfigurasi formulir pembuatan proyek"
+                ]
+            }
+        ]
+    },
+    {
+        id: '3',
+        version: '1.0.0',
+        release_date: new Date(Date.now() - 604800000).toISOString(),
+        changes_en: [
+            {
+                category: "Initial Release", items: [
+                    "Core photo selection functionality",
+                    "Google Drive integration for photo storage",
+                    "WhatsApp integration for sending links and results",
+                    "Project management dashboard",
+                    "Password protection support",
+                    "Download original photos feature"
+                ]
+            }
+        ],
+        changes_id: [
+            {
+                category: "Rilis Awal", items: [
+                    "Fungsi utama pemilihan foto",
+                    "Integrasi Google Drive untuk penyimpanan foto",
+                    "Integrasi WhatsApp untuk mengirim link dan hasil",
+                    "Dashboard manajemen proyek",
+                    "Dukungan perlindungan password",
+                    "Fitur download foto asli"
+                ]
+            }
+        ]
+    }
+]
+
+export async function getChangelogs(locale: string = 'id'): Promise<Changelog[]> {
+    const supabase = await createClient()
+
+    try {
+        const { data, error } = await supabase
+            .from('changelogs')
+            .select('*')
+            .order('release_date', { ascending: false })
+
+        if (error || !data || data.length === 0) {
+            console.log("Using fallback changelog data")
+            return FALLBACK_CHANGELOGS.map((item: any) => ({
+                id: item.id,
+                version: item.version,
+                releaseDate: item.release_date,
+                changes: locale === 'en' ? item.changes_en : item.changes_id
+            }))
+        }
+
+        return data.map((item: any) => ({
+            id: item.id,
+            version: item.version,
+            releaseDate: item.release_date,
+            changes: locale === 'en' ? item.changes_en : item.changes_id
+        }))
+    } catch (err) {
+        console.error("Failed to fetch changelogs:", err)
+        return FALLBACK_CHANGELOGS.map((item: any) => ({
+            id: item.id,
+            version: item.version,
+            releaseDate: item.release_date,
+            changes: locale === 'en' ? item.changes_en : item.changes_id
+        }))
+    }
+}
+
+
+export async function getLatestChangelog(locale: string = 'id'): Promise<Changelog | null> {
+    const supabase = await createClient()
+
+    try {
+        const { data, error } = await supabase
+            .from('changelogs')
+            .select('*')
+            .order('release_date', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+
+        if (error || !data) {
+            // Use fallback
+            const latest = FALLBACK_CHANGELOGS[0]
+            return {
+                id: latest.id,
+                version: latest.version,
+                releaseDate: latest.release_date,
+                changes: locale === 'en' ? latest.changes_en : latest.changes_id
+            }
+        }
+
+        return {
+            id: data.id,
+            version: data.version,
+            releaseDate: data.release_date,
+            changes: locale === 'en' ? data.changes_en : data.changes_id
+        }
+    } catch (err) {
+        console.error("Failed to fetch latest changelog:", err)
+        const latest = FALLBACK_CHANGELOGS[0]
+        return {
+            id: latest.id,
+            version: latest.version,
+            releaseDate: latest.release_date,
+            changes: locale === 'en' ? latest.changes_en : latest.changes_id
+        }
+    }
+}

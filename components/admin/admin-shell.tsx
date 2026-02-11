@@ -12,18 +12,24 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
-import { LogOut, Settings, User, LayoutDashboard, Crown } from "lucide-react"
+import { LogOut, Settings, User, LayoutDashboard, Crown, History } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { LanguageToggle } from "@/components/language-toggle"
 import { useTranslations, useLocale } from "next-intl"
 import Link from "next/link"
+import { WhatsNewPopup } from "./whats-new-popup"
 
 interface Subscription {
     tier: string
     status: string
 }
 
-export function AdminShell({ children }: { children: React.ReactNode }) {
+interface AdminShellProps {
+    children: React.ReactNode
+    latestChangelog?: any // Using any to avoid complex type import issues, or duplicate interface
+}
+
+export function AdminShell({ children, latestChangelog }: AdminShellProps) {
     const router = useRouter()
     const supabase = createClient()
     const t = useTranslations('Admin')
@@ -145,6 +151,10 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                                 <Settings className="mr-2 h-4 w-4" />
                                 <span>{t('settings')}</span>
                             </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => router.push(`/${locale}/dashboard/changelog`)} className="cursor-pointer">
+                                <History className="mr-2 h-4 w-4" />
+                                <span>{t('changelog')}</span>
+                            </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={handleLogout} className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950 cursor-pointer">
                                 <LogOut className="mr-2 h-4 w-4" />
@@ -159,6 +169,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                     {children}
                 </div>
             </main>
+            {latestChangelog && <WhatsNewPopup latestChangelog={latestChangelog} />}
         </div>
     )
 }
