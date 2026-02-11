@@ -676,113 +676,115 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
 
     return (
         <div className="min-h-screen bg-background pb-36">
-            {/* Header - Conditional based on viewMode */}
-            <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b p-4 flex justify-between items-center transition-all">
-                {viewMode === 'download' ? (
-                    <>
-                        {/* Download Mode Header */}
-                        <div className="flex items-center gap-3">
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => setViewMode('initial')}
-                                className="cursor-pointer"
-                            >
-                                <ArrowLeft className="h-5 w-5" />
-                            </Button>
-                            <div>
-                                <h1 className="font-bold text-lg">{config.clientName}</h1>
-                                <p className="text-xs text-muted-foreground">
-                                    {downloadSelected.length > 0
-                                        ? `${downloadSelected.length} ${t('photosToDownload')}`
-                                        : t('selectToDownload')}
-                                </p>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            {isDownloading ? (
-                                <>
-                                    <span className="text-xs text-muted-foreground hidden sm:inline">{downloadProgress}%</span>
-                                    <Button
-                                        onClick={handleStopDownload}
-                                        size="sm"
-                                        className="bg-red-600 hover:bg-red-700 text-white cursor-pointer"
-                                    >
-                                        <Square className="h-3 w-3 mr-1 fill-current" />
-                                        {t('stopDownload')}
-                                    </Button>
-                                </>
-                            ) : (
+            {/* Header + Countdown Banner - Sticky as one unit */}
+            <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-md transition-all">
+                <div className="border-b p-4 flex justify-between items-center">
+                    {viewMode === 'download' ? (
+                        <>
+                            {/* Download Mode Header */}
+                            <div className="flex items-center gap-3">
                                 <Button
-                                    onClick={() => handleDownloadPhotos(photos.map(p => p.id))}
-                                    disabled={photos.length === 0}
-                                    size="sm"
-                                    className="bg-blue-600 hover:bg-blue-700 text-white cursor-pointer"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => setViewMode('initial')}
+                                    className="cursor-pointer"
                                 >
-                                    <Download className="h-4 w-4 mr-1" />
-                                    <span className="hidden sm:inline">{t('downloadAll')}</span>
+                                    <ArrowLeft className="h-5 w-5" />
                                 </Button>
-                            )}
-                            <ThemeToggle />
-                            <LanguageToggle />
-                        </div>
-                    </>
-                ) : (
-                    <>
-                        {/* Culling Mode Header */}
-                        <div className="flex items-center gap-3">
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => setViewMode('initial')}
-                                className="cursor-pointer"
-                            >
-                                <ArrowLeft className="h-5 w-5" />
-                            </Button>
-                            <div>
-                                <h1 className="font-bold text-lg">{config.clientName}</h1>
-                                <p className={cn(
-                                    "text-xs transition-colors",
-                                    alertMax ? "text-red-500 font-semibold" : "text-muted-foreground"
-                                )}>
-                                    {selected.length} / {config.maxPhotos} {t('selected')}
-                                    {lockedPhotoNames.length > 0 && (
-                                        <span className="ml-2 text-amber-600 dark:text-amber-400">
-                                            🔒 {lockedPhotoNames.length} {t('lockedPhotosCount')}
-                                        </span>
-                                    )}
-                                    {alertMax && ` ⚠️ ${t('maxLimit')}`}
-                                </p>
+                                <div>
+                                    <h1 className="font-bold text-lg">{config.clientName}</h1>
+                                    <p className="text-xs text-muted-foreground">
+                                        {downloadSelected.length > 0
+                                            ? `${downloadSelected.length} ${t('photosToDownload')}`
+                                            : t('selectToDownload')}
+                                    </p>
+                                </div>
                             </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <Progress
-                                value={(selected.length / config.maxPhotos) * 100}
-                                className={cn(
-                                    "w-24 transition-colors",
-                                    alertMax && "bg-red-200"
+                            <div className="flex items-center gap-2">
+                                {isDownloading ? (
+                                    <>
+                                        <span className="text-xs text-muted-foreground hidden sm:inline">{downloadProgress}%</span>
+                                        <Button
+                                            onClick={handleStopDownload}
+                                            size="sm"
+                                            className="bg-red-600 hover:bg-red-700 text-white cursor-pointer"
+                                        >
+                                            <Square className="h-3 w-3 mr-1 fill-current" />
+                                            {t('stopDownload')}
+                                        </Button>
+                                    </>
+                                ) : (
+                                    <Button
+                                        onClick={() => handleDownloadPhotos(photos.map(p => p.id))}
+                                        disabled={photos.length === 0}
+                                        size="sm"
+                                        className="bg-blue-600 hover:bg-blue-700 text-white cursor-pointer"
+                                    >
+                                        <Download className="h-4 w-4 mr-1" />
+                                        <span className="hidden sm:inline">{t('downloadAll')}</span>
+                                    </Button>
                                 )}
-                            />
-                            <ThemeToggle />
-                            <LanguageToggle />
+                                <ThemeToggle />
+                                <LanguageToggle />
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            {/* Culling Mode Header */}
+                            <div className="flex items-center gap-3">
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => setViewMode('initial')}
+                                    className="cursor-pointer"
+                                >
+                                    <ArrowLeft className="h-5 w-5" />
+                                </Button>
+                                <div>
+                                    <h1 className="font-bold text-lg">{config.clientName}</h1>
+                                    <p className={cn(
+                                        "text-xs transition-colors",
+                                        alertMax ? "text-red-500 font-semibold" : "text-muted-foreground"
+                                    )}>
+                                        {selected.length} / {config.maxPhotos} {t('selected')}
+                                        {lockedPhotoNames.length > 0 && (
+                                            <span className="ml-2 text-amber-600 dark:text-amber-400">
+                                                🔒 {lockedPhotoNames.length} {t('lockedPhotosCount')}
+                                            </span>
+                                        )}
+                                        {alertMax && ` ⚠️ ${t('maxLimit')}`}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <Progress
+                                    value={(selected.length / config.maxPhotos) * 100}
+                                    className={cn(
+                                        "w-24 transition-colors",
+                                        alertMax && "bg-red-200"
+                                    )}
+                                />
+                                <ThemeToggle />
+                                <LanguageToggle />
+                            </div>
+                        </>
+                    )}
+                </div>
+
+                {/* Countdown Banner - Inside sticky header */}
+                {timeRemaining && !isExpired && (
+                    <div className="bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-800 px-4 py-2">
+                        <div className="flex items-center justify-center gap-2 text-sm">
+                            <span className="text-amber-700 dark:text-amber-400 font-medium">⏰ {t('linkExpiresIn')}:</span>
+                            <span className="text-amber-900 dark:text-amber-200 font-semibold">
+                                {timeRemaining.days > 0 && `${timeRemaining.days} ${t('days')} `}
+                                {timeRemaining.hours > 0 && `${timeRemaining.hours} ${t('hours')} `}
+                                {timeRemaining.minutes > 0 && `${timeRemaining.minutes} ${t('minutes')}`}
+                            </span>
                         </div>
-                    </>
+                    </div>
                 )}
             </div>
-
-            {/* Countdown Banner - Show time remaining if expiry is set */}
-            {timeRemaining && !isExpired && (
-                <div className="sticky top-[57px] z-40 bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-800 px-4 py-3">
-                    <div className="flex items-center justify-center gap-2 text-sm">
-                        <span className="text-amber-700 dark:text-amber-400 font-medium">⏰ {t('linkExpiresIn')}:</span>
-                        <span className="text-amber-900 dark:text-amber-200 font-semibold">
-                            {timeRemaining.days > 0 && `${timeRemaining.days} ${t('days')} `}
-                            {timeRemaining.hours > 0 && `${timeRemaining.hours} ${t('hours')} `}
-                            {timeRemaining.minutes > 0 && `${timeRemaining.minutes} ${t('minutes')}`}
-                        </span>
-                    </div>
-                </div>
-            )}
 
             {/* Error State */}
             {error && (
