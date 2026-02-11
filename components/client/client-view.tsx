@@ -601,6 +601,32 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
         )
     }
 
+    // Download a single photo - tries direct Google Drive API first, falls back to proxy
+    const downloadPhoto = async (photo: Photo, signal: AbortSignal): Promise<Blob> => {
+        const apiKey = process.env.NEXT_PUBLIC_GOOGLE_API_KEY
+
+        // Try direct Google Drive API first (no Vercel bandwidth cost)
+        if (apiKey) {
+            try {
+                const directUrl = `https://www.googleapis.com/drive/v3/files/${photo.id}?alt=media&key=${apiKey}`
+                const response = await fetch(directUrl, { signal })
+                if (response.ok) {
+                    return await response.blob()
+                }
+                console.warn(`Direct download failed for ${photo.name} (${response.status}), falling back to proxy`)
+            } catch (err: any) {
+                if (err.name === 'AbortError') throw err
+                console.warn(`Direct download error for ${photo.name}, falling back to proxy:`, err.message)
+            }
+        }
+
+        // Fallback: use Vercel proxy (costs bandwidth but always works)
+        const downloadUrl = photo.downloadUrl || photo.fullUrl || photo.url
+        const response = await fetch(`/api/photos/download?url=${encodeURIComponent(downloadUrl)}`, { signal })
+        if (!response.ok) throw new Error('Failed to fetch image')
+        return await response.blob()
+    }
+
     // Download photos function with AbortController
     const handleDownloadPhotos = async (photoIds: string[]) => {
         if (photoIds.length === 0) return
@@ -621,16 +647,9 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                 }
 
                 const photo = photosToDownload[i]
-                const downloadUrl = photo.downloadUrl || photo.fullUrl || photo.url
 
                 try {
-                    // Fetch image through our API proxy to avoid CORS
-                    const response = await fetch(`/api/photos/download?url=${encodeURIComponent(downloadUrl)}`, {
-                        signal: controller.signal
-                    })
-                    if (!response.ok) throw new Error('Failed to fetch image')
-
-                    const blob = await response.blob()
+                    const blob = await downloadPhoto(photo, controller.signal)
                     zip.file(photo.name, blob)
                 } catch (err: any) {
                     if (err.name === 'AbortError') throw err
