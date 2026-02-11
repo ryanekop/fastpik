@@ -772,7 +772,7 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
 
             {/* Countdown Banner - Show time remaining if expiry is set */}
             {timeRemaining && !isExpired && (
-                <div className="bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-800 px-4 py-3">
+                <div className="sticky top-[57px] z-40 bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-800 px-4 py-3">
                     <div className="flex items-center justify-center gap-2 text-sm">
                         <span className="text-amber-700 dark:text-amber-400 font-medium">⏰ {t('linkExpiresIn')}:</span>
                         <span className="text-amber-900 dark:text-amber-200 font-semibold">

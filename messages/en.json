@@ -226,6 +226,8 @@
         "selectToDownload": "Select photos to download",
         "photosToDownload": "photos to download",
         "linkExpiresIn": "Link expires in",
+        "days": "days",
+        "hours": "hours",
         "minutes": "minutes"
     },
     "Common": {

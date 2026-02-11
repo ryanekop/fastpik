@@ -226,6 +226,8 @@
         "selectToDownload": "Pilih foto untuk diunduh",
         "photosToDownload": "foto akan diunduh",
         "linkExpiresIn": "Link berlaku hingga",
+        "days": "hari",
+        "hours": "jam",
         "minutes": "menit"
     },
     "Common": {
