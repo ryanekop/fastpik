@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useCallback, useEffect, useRef, useMemo } from "react"
+import { createPortal } from "react-dom"
 import { Check, ZoomIn, Loader2, RefreshCw, ChevronDown, ChevronRight, ArrowUpDown, Calendar, ArrowUpAz, Folder, FolderOpen, ArrowLeft } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -29,6 +30,7 @@ interface PhotoGridProps {
     onZoom: (photo: Photo) => void
     detectSubfolders?: boolean
     lockedPhotoNames?: string[] // Names of photos that are locked (previously selected)
+    headerPortalRef?: React.RefObject<HTMLDivElement | null> // Portal target for header
 }
 
 // Single photo card - NO ANIMATIONS for performance
@@ -220,7 +222,7 @@ function FolderCard({
     )
 }
 
-export function PhotoGrid({ photos, selected, onToggle, onZoom, detectSubfolders = true, lockedPhotoNames = [] }: PhotoGridProps) {
+export function PhotoGrid({ photos, selected, onToggle, onZoom, detectSubfolders = true, lockedPhotoNames = [], headerPortalRef }: PhotoGridProps) {
     const t = useTranslations('Client')
     const [sortBy, setSortBy] = useState<'name' | 'date'>('name')
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
@@ -423,56 +425,64 @@ export function PhotoGrid({ photos, selected, onToggle, onZoom, detectSubfolders
         )
     }
 
+    // Header content for breadcrumb + sort
+    const headerContent = (
+        <div className="bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/90 border-b px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-2 overflow-hidden">
+                {/* Back button when navigating folders */}
+                {detectSubfolders && currentPath && (
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={navigateBack}
+                        className="gap-1 pl-0 hover:bg-transparent hover:text-primary shrink-0 cursor-pointer"
+                    >
+                        <ArrowLeft className="w-5 h-5" />
+                    </Button>
+                )}
+                <div className="flex flex-col min-w-0">
+                    <span className="font-semibold text-base truncate leading-tight">
+                        {displayFolderName}
+                    </span>
+                    <span className="text-muted-foreground text-xs font-normal leading-tight">
+                        {currentPhotos.length} photos{hasFoldersAtCurrentLevel ? `, ${currentLevelFolders.length} folders` : ''}
+                    </span>
+                </div>
+            </div>
+
+            {/* Sort Controls (Integrated) */}
+            <div className="flex gap-1 shrink-0">
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer">
+                            {sortBy === 'name' ? <ArrowUpAz className="h-4 w-4" /> : <Calendar className="h-4 w-4" />}
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => setSortBy('name')} className="cursor-pointer">Name</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setSortBy('date')} className="cursor-pointer">Date</DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 cursor-pointer"
+                    onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+                >
+                    <ArrowUpDown className={cn("h-4 w-4 transition-transform", sortOrder === 'desc' && "rotate-180")} />
+                </Button>
+            </div>
+        </div>
+    )
+
     // Render: Photo Grid View (with optional subfolders)
     return (
         <div className="pb-44">
-            {/* Merged Breadcrumb + Sort Header (Single Sticky Row) */}
-            <div className="sticky top-[73px] z-[49] bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/90 border-b px-4 py-3 flex items-center justify-between shadow-sm">
-                <div className="flex items-center gap-2 overflow-hidden">
-                    {/* Back button when navigating folders */}
-                    {detectSubfolders && currentPath && (
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={navigateBack}
-                            className="gap-1 pl-0 hover:bg-transparent hover:text-primary shrink-0 cursor-pointer"
-                        >
-                            <ArrowLeft className="w-5 h-5" />
-                        </Button>
-                    )}
-                    <div className="flex flex-col min-w-0">
-                        <span className="font-semibold text-base truncate leading-tight">
-                            {displayFolderName}
-                        </span>
-                        <span className="text-muted-foreground text-xs font-normal leading-tight">
-                            {currentPhotos.length} photos{hasFoldersAtCurrentLevel ? `, ${currentLevelFolders.length} folders` : ''}
-                        </span>
-                    </div>
-                </div>
-
-                {/* Sort Controls (Integrated) */}
-                <div className="flex gap-1 shrink-0">
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer">
-                                {sortBy === 'name' ? <ArrowUpAz className="h-4 w-4" /> : <Calendar className="h-4 w-4" />}
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => setSortBy('name')} className="cursor-pointer">Name</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setSortBy('date')} className="cursor-pointer">Date</DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 cursor-pointer"
-                        onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
-                    >
-                        <ArrowUpDown className={cn("h-4 w-4 transition-transform", sortOrder === 'desc' && "rotate-180")} />
-                    </Button>
-                </div>
-            </div>
+            {/* Render header: portal into sticky container or inline fallback */}
+            {headerPortalRef?.current
+                ? createPortal(headerContent, headerPortalRef.current)
+                : headerContent
+            }
 
             {/* Subfolders at current level */}
             {hasFoldersAtCurrentLevel && (

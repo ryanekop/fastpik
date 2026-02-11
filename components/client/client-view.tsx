@@ -100,6 +100,9 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
     // Time remaining state for countdown
     const [timeRemaining, setTimeRemaining] = useState<{ days: number, hours: number, minutes: number } | null>(null)
 
+    // Portal ref for PhotoGrid header
+    const photoGridHeaderRef = useRef<HTMLDivElement | null>(null)
+
     // Track if project check has already been done this session
     // Check if project is expired (client-side only to avoid hydration mismatch)
     const [isExpired, setIsExpired] = useState(false)
@@ -784,6 +787,9 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                         </div>
                     </div>
                 )}
+
+                {/* Portal slot for PhotoGrid's header (breadcrumb + sort) */}
+                <div ref={photoGridHeaderRef} />
             </div>
 
             {/* Error State */}
@@ -818,6 +824,7 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                     onZoom={handleZoom}
                     detectSubfolders={config.detectSubfolders}
                     lockedPhotoNames={[]}
+                    headerPortalRef={photoGridHeaderRef}
                 />
             ) : (
                 <PhotoGrid
@@ -827,6 +834,7 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                     onZoom={handleZoom}
                     detectSubfolders={config.detectSubfolders}
                     lockedPhotoNames={lockedPhotoNames}
+                    headerPortalRef={photoGridHeaderRef}
                 />
             )}
 
