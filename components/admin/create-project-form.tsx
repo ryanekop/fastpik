@@ -157,7 +157,7 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
                 detectSubfolders: values.detectSubfolders,
                 lockedPhotos: lockedPhotosArray.length > 0 ? lockedPhotosArray : undefined,
                 createdAt: isEditing && editProject ? editProject.createdAt : Date.now(),
-                expiresAt: expiryDaysNum ? Date.now() + (expiryDaysNum * 24 * 60 * 60 * 1000) : undefined,
+                expiresAt: expiryDaysNum ? Date.now() + (expiryDaysNum * 24 * 60 * 60 * 1000) : null,
                 link: link
             }
 

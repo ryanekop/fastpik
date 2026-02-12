@@ -90,20 +90,24 @@ export function ProjectList({
             return msg
         }
 
-        // Fallback to translation with correct variable mapping
-        if (isExtra) {
-            return t('waExtraMessage', {
-                name: variables.client_name,
-                count: variables.count,
-                link: variables.link
-            })
-        } else {
-            return tc('waClientMessage', {
-                name: variables.client_name,
-                link: variables.link,
-                max: variables.max_photos
-            })
+        // Fallback: build a default message that includes password & duration if available
+        const namePart = variables.client_name
+        const linkPart = variables.link
+        const countPart = isExtra ? variables.count : (variables.max_photos || variables.count)
+
+        let fallback = isExtra
+            ? t('waExtraMessage', { name: namePart, count: countPart, link: linkPart })
+            : tc('waClientMessage', { name: namePart, link: linkPart, max: countPart })
+
+        // Append password info if available
+        if (variables.password) {
+            fallback += `\n\n🔐 Password: ${variables.password}`
         }
+        // Append duration info if available
+        if (variables.duration) {
+            fallback += `\n⏰ ${locale === 'id' ? 'Berlaku' : 'Valid for'}: ${variables.duration}`
+        }
+        return fallback
     }
 
     // Popup states
@@ -123,7 +127,7 @@ export function ProjectList({
     const [extraExpiryDays, setExtraExpiryDays] = useState("7")
     const [isGeneratingExtra, setIsGeneratingExtra] = useState(false)
 
-    const formatExpiry = (expiresAt: number | undefined): string => {
+    const formatExpiry = (expiresAt: number | null | undefined): string => {
         if (!expiresAt) return `♾️ ${t('forever')}`
         const now = Date.now()
         const diff = expiresAt - now
@@ -135,7 +139,7 @@ export function ProjectList({
         return t('lessThanHour')
     }
 
-    const ExpiryDisplay = ({ expiresAt }: { expiresAt: number | undefined }) => (
+    const ExpiryDisplay = ({ expiresAt }: { expiresAt: number | null | undefined }) => (
         <span suppressHydrationWarning>{formatExpiry(expiresAt)}</span>
     )
 

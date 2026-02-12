@@ -11,7 +11,7 @@ export interface Project {
     maxPhotos: number
     password?: string        // Password Album (blocks landing page)
     detectSubfolders: boolean
-    expiresAt?: number // Unix timestamp, undefined = never expires
+    expiresAt?: number | null // Unix timestamp, undefined/null = never expires
     createdAt: number
     link: string
     lockedPhotos?: string[] // List of previously selected photo filenames
@@ -87,7 +87,7 @@ export function isProjectExpired(project: Project): boolean {
 }
 
 // Helper to format remaining time
-export function formatExpiryTime(expiresAt: number | undefined): string {
+export function formatExpiryTime(expiresAt: number | null | undefined): string {
     if (!expiresAt) return "♾️ Selamanya"
 
     const now = Date.now()
