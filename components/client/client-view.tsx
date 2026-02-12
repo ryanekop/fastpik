@@ -626,25 +626,45 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
     }
 
     // Download via Cloudflare Worker proxy (zero Vercel bandwidth)
-    const downloadViaCFWorker = async (photo: Photo, signal: AbortSignal): Promise<Blob> => {
+    const downloadViaCFWorker = async (photo: Photo, signal: AbortSignal): Promise<Blob | null> => {
         const cfWorkerUrl = process.env.NEXT_PUBLIC_CF_WORKER_URL
-        const downloadUrl = photo.downloadUrl || photo.fullUrl || photo.url
+        const apiKey = process.env.NEXT_PUBLIC_GOOGLE_API_KEY
+        if (!cfWorkerUrl) return null
 
-        if (cfWorkerUrl) {
+        // Use googleapis API URL (more stable than drive.google.com)
+        const targetUrl = apiKey
+            ? `https://www.googleapis.com/drive/v3/files/${photo.id}?alt=media&key=${apiKey}`
+            : (photo.downloadUrl || photo.fullUrl || photo.url)
+
+        // Retry once on 500 errors
+        for (let attempt = 0; attempt < 2; attempt++) {
             try {
-                const response = await fetch(`${cfWorkerUrl}?url=${encodeURIComponent(downloadUrl)}`, { signal })
+                if (signal.aborted) throw new DOMException('Download cancelled', 'AbortError')
+                const response = await fetch(`${cfWorkerUrl}?url=${encodeURIComponent(targetUrl)}`, { signal })
                 if (response.ok) return await response.blob()
+
+                if (response.status >= 500 && attempt === 0) {
+                    console.warn(`[CF Worker] 500 for "${photo.name}", retrying...`)
+                    await delay(1000)
+                    continue
+                }
+                return null
             } catch (err: any) {
                 if (err.name === 'AbortError') throw err
+                if (attempt === 0) {
+                    await delay(1000)
+                    continue
+                }
                 console.warn(`[CF Worker] Error for ${photo.name}:`, err.message)
+                return null
             }
         }
+        return null
+    }
 
-        // Last resort: Vercel proxy
-        console.warn(`[Vercel] Last resort for ${photo.name}`)
-        const response = await fetch(`/api/photos/download?url=${encodeURIComponent(downloadUrl)}`, { signal })
-        if (!response.ok) throw new Error(`Failed to fetch ${photo.name}`)
-        return await response.blob()
+    // Open Google Drive direct download in new tab (ultimate fallback)
+    const redirectToGDrive = (photo: Photo) => {
+        window.open(`https://drive.google.com/uc?id=${photo.id}&export=download`, '_blank')
     }
 
     // Parallel download helper: runs tasks in batches of `concurrency`
@@ -653,8 +673,9 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
         signal: AbortSignal,
         useDirect: boolean,
         onProgress: (completed: number) => void
-    ): Promise<Map<string, Blob>> => {
-        const results = new Map<string, Blob>()
+    ): Promise<{ blobs: Map<string, Blob>; failed: Photo[] }> => {
+        const blobs = new Map<string, Blob>()
+        const failed: Photo[] = []
         let completed = 0
 
         for (let i = 0; i < photos.length; i += CONCURRENCY) {
@@ -673,10 +694,15 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                         blob = await downloadViaCFWorker(photo, signal)
                     }
 
-                    results.set(photo.name, blob)
+                    if (blob) {
+                        blobs.set(photo.name, blob)
+                    } else {
+                        failed.push(photo)
+                    }
                 } catch (err: any) {
                     if (err.name === 'AbortError') throw err
                     console.error(`Failed: ${photo.name}`, err)
+                    failed.push(photo)
                 }
 
                 completed++
@@ -686,7 +712,7 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
             await Promise.all(promises)
         }
 
-        return results
+        return { blobs, failed }
     }
 
     // Main download function with adaptive strategy + parallel + auto-batch
@@ -706,9 +732,16 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                 const photo = photosToDownload[0]
                 let blob = await downloadDirect(photo, controller.signal)
                 if (!blob) blob = await downloadViaCFWorker(photo, controller.signal)
-                saveAs(blob, photo.name)
-                setToastMessage(t('downloadComplete'))
-                setShowToast(true)
+                if (blob) {
+                    saveAs(blob, photo.name)
+                    setToastMessage(t('downloadComplete'))
+                    setShowToast(true)
+                } else {
+                    // All APIs failed → redirect to Google Drive
+                    redirectToGDrive(photo)
+                    setToastMessage(t('downloadFailed'))
+                    setShowToast(true)
+                }
                 return
             }
 
@@ -747,7 +780,7 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                 }
 
                 // Download all photos in this batch using parallel downloads
-                const blobMap = await downloadParallel(
+                const { blobs, failed } = await downloadParallel(
                     batchPhotos,
                     controller.signal,
                     useDirect,
@@ -758,17 +791,28 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                 )
 
                 // Create ZIP from downloaded blobs
-                const zip = new JSZip()
-                for (const [name, blob] of blobMap) {
-                    zip.file(name, blob)
+                if (blobs.size > 0) {
+                    const zip = new JSZip()
+                    for (const [name, blob] of blobs) {
+                        zip.file(name, blob)
+                    }
+
+                    const zipName = isBatched
+                        ? `${config.clientName}-photos-${batch + 1}.zip`
+                        : `${config.clientName}-photos.zip`
+
+                    const content = await zip.generateAsync({ type: 'blob' })
+                    saveAs(content, zipName)
                 }
 
-                const zipName = isBatched
-                    ? `${config.clientName}-photos-${batch + 1}.zip`
-                    : `${config.clientName}-photos.zip`
-
-                const content = await zip.generateAsync({ type: 'blob' })
-                saveAs(content, zipName)
+                // Redirect failed photos to Google Drive (max 5 tabs to avoid popup blocker)
+                if (failed.length > 0) {
+                    console.warn(`[Fallback] ${failed.length} photos failed, redirecting to Google Drive`)
+                    const maxRedirects = Math.min(failed.length, 5)
+                    for (let r = 0; r < maxRedirects; r++) {
+                        redirectToGDrive(failed[r])
+                    }
+                }
 
                 // Brief pause between batches
                 if (isBatched && batch < totalBatches - 1) {
