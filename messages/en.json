@@ -157,7 +157,9 @@
         "backToLogin": "Back to Login",
         "copied": "Copied!",
         "sendReminder": "Send Reminder",
-        "waReminderMessage": "Hello {name},\n\nThis is a friendly reminder to select your photos. ⏰\n\nPlease select at the following link:\n{link}\n\nRemaining time: {duration}\n\nThank you!"
+        "waReminderMessage": "Hello {name},\n\nThis is a friendly reminder to select your photos.\n\nPlease select at the following link:\n{link}\n\nRemaining time: {duration}\n\nThank you!",
+        "tmplReminderTitle": "Reminder Link",
+        "tmplReminderDesc": "WhatsApp message sent as a reminder for client to select photos."
     },
     "Client": {
         "select": "Select",

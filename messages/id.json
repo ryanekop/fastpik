@@ -157,7 +157,9 @@
         "backToLogin": "Kembali ke Login",
         "copied": "Tersalin!",
         "sendReminder": "Kirim Pengingat",
-        "waReminderMessage": "Halo {name},\n\nIni adalah pengingat untuk segera memilih foto Anda. ⏰\n\nSilakan pilih di link berikut:\n{link}\n\nSisa waktu: {duration}\n\nTerima kasih!"
+        "waReminderMessage": "Halo {name},\n\nIni adalah pengingat untuk segera memilih foto Anda.\n\nSilakan pilih di link berikut:\n{link}\n\nSisa waktu: {duration}\n\nTerima kasih!",
+        "tmplReminderTitle": "Link Pengingat",
+        "tmplReminderDesc": "Pesan WhatsApp yang dikirim sebagai pengingat klien untuk memilih foto."
     },
     "Client": {
         "select": "Pilih",

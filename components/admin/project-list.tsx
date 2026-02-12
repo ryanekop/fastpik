@@ -42,8 +42,9 @@ export function ProjectList({
     // Message Templates
     const [templates, setTemplates] = useState<{
         initialLink: { id: string, en: string } | null,
-        extraLink: { id: string, en: string } | null
-    }>({ initialLink: null, extraLink: null })
+        extraLink: { id: string, en: string } | null,
+        reminderLink: { id: string, en: string } | null
+    }>({ initialLink: null, extraLink: null, reminderLink: null })
     const [vendorSlug, setVendorSlug] = useState<string | null>(null)
 
     useEffect(() => {
@@ -57,14 +58,15 @@ export function ProjectList({
 
             const { data } = await supabase
                 .from('settings')
-                .select('msg_tmpl_link_initial, msg_tmpl_link_extra, vendor_name')
+                .select('msg_tmpl_link_initial, msg_tmpl_link_extra, msg_tmpl_reminder, vendor_name')
                 .eq('user_id', user.id)
                 .maybeSingle()
 
             if (data) {
                 setTemplates({
                     initialLink: data.msg_tmpl_link_initial,
-                    extraLink: data.msg_tmpl_link_extra
+                    extraLink: data.msg_tmpl_link_extra,
+                    reminderLink: data.msg_tmpl_reminder
                 })
                 if (data.vendor_name) {
                     const slug = data.vendor_name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
@@ -227,13 +229,24 @@ export function ProjectList({
         const dynamicLink = buildProjectLink(project.id)
         const duration = formatExpiry(project.expiresAt)
 
-        const message = t('waReminderMessage', {
-            name: project.clientName,
+        const variables: Record<string, string> = {
+            client_name: project.clientName,
             link: dynamicLink,
             duration: duration
-        })
+        }
 
-        window.open(`https://wa.me/${clientWa}?text=${encodeURIComponent(message)}`, '_blank')
+        const message = compileMessage(templates.reminderLink, variables, false)
+        if (!message || !templates.reminderLink?.id) {
+            // Fallback to default if no custom template
+            const fallbackMessage = t('waReminderMessage', {
+                name: project.clientName,
+                link: dynamicLink,
+                duration: duration
+            })
+            window.open(`https://wa.me/${clientWa}?text=${encodeURIComponent(fallbackMessage)}`, '_blank')
+        } else {
+            window.open(`https://wa.me/${clientWa}?text=${encodeURIComponent(message)}`, '_blank')
+        }
     }
 
     const handleDeleteClick = (projectId: string) => {

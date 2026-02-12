@@ -29,6 +29,7 @@ export default function SettingsPage() {
     const [tmplLinkExtra, setTmplLinkExtra] = useState({ id: "", en: "" })
     const [tmplResultInitial, setTmplResultInitial] = useState({ id: "", en: "" })
     const [tmplResultExtra, setTmplResultExtra] = useState({ id: "", en: "" })
+    const [tmplReminder, setTmplReminder] = useState({ id: "", en: "" })
 
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
@@ -57,6 +58,7 @@ export default function SettingsPage() {
                 if (data.msg_tmpl_link_extra) setTmplLinkExtra(data.msg_tmpl_link_extra)
                 if (data.msg_tmpl_result_initial) setTmplResultInitial(data.msg_tmpl_result_initial)
                 if (data.msg_tmpl_result_extra) setTmplResultExtra(data.msg_tmpl_result_extra)
+                if (data.msg_tmpl_reminder) setTmplReminder(data.msg_tmpl_reminder)
             }
         } catch (err) {
             console.error('Failed to load settings:', err)
@@ -85,6 +87,7 @@ export default function SettingsPage() {
                     msg_tmpl_link_extra: tmplLinkExtra,
                     msg_tmpl_result_initial: tmplResultInitial,
                     msg_tmpl_result_extra: tmplResultExtra,
+                    msg_tmpl_reminder: tmplReminder,
                     updated_at: new Date().toISOString()
                 }, {
                     onConflict: 'user_id'
@@ -230,6 +233,18 @@ export default function SettingsPage() {
                                     ]}
                                     value={tmplResultExtra}
                                     onChange={setTmplResultExtra}
+                                />
+
+                                <MessageTemplateEditor
+                                    title={t('tmplReminderTitle')}
+                                    description={t('tmplReminderDesc')}
+                                    variables={[
+                                        { key: "client_name", label: t('varClientName') },
+                                        { key: "link", label: t('varLink') },
+                                        { key: "duration", label: t('varDuration') }
+                                    ]}
+                                    value={tmplReminder}
+                                    onChange={setTmplReminder}
                                 />
                             </div>
                         </TabsContent>
