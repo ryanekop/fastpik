@@ -111,8 +111,7 @@ export function MessageTemplateEditor({
                         const mockData: Record<string, string> = {
                             client_name: "Budi Santoso",
                             link: "https://fastpik.id/client/...",
-                            max_photos: "50",
-                            count: "10",
+                            count: "50",
                             list: "IMG_001.jpg, IMG_002.jpg...",
                             password: "secret123",
                             duration: "7 hari"

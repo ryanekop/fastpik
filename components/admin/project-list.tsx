@@ -189,7 +189,7 @@ export function ProjectList({
         const variables: Record<string, string> = {
             client_name: project.clientName,
             link: dynamicLink,
-            max_photos: project.maxPhotos.toString()
+            count: project.maxPhotos.toString()
         }
 
         // Add password only if set
