@@ -601,45 +601,61 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
         )
     }
 
-    // Download a single photo - tries direct Google Drive API first, falls back to proxy
+    // Helper: delay between downloads to avoid rate limiting
+    const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
+    // Download a single photo - tries direct Google Drive API with retry, falls back to proxy
     const downloadPhoto = async (photo: Photo, signal: AbortSignal): Promise<Blob> => {
         const apiKey = process.env.NEXT_PUBLIC_GOOGLE_API_KEY
+        const MAX_RETRIES = 3
 
         // Try direct Google Drive API first (no Vercel bandwidth cost)
         if (apiKey) {
-            try {
-                const directUrl = `https://www.googleapis.com/drive/v3/files/${photo.id}?alt=media&key=${apiKey}`
-                const response = await fetch(directUrl, { signal })
-                if (response.ok) {
-                    return await response.blob()
-                }
+            for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+                try {
+                    if (signal.aborted) throw new DOMException('Download cancelled', 'AbortError')
 
-                // Detailed logging for failure
-                if (response.status === 403) {
-                    console.error(`[Direct Download] 403 Forbidden for "${photo.name}". This usually means: 
-                    1. The file/folder is not set to "Anyone with the link can view". 
-                    2. API Key is restricted in Google Cloud Console.`);
-                } else if (response.status === 429) {
-                    console.warn(`[Direct Download] 429 Rate Limit hit for ${photo.name}.`);
-                } else {
-                    console.warn(`[Direct Download] Failed for ${photo.name} (Status: ${response.status})`);
-                }
+                    const directUrl = `https://www.googleapis.com/drive/v3/files/${photo.id}?alt=media&key=${apiKey}`
+                    const response = await fetch(directUrl, { signal })
+                    if (response.ok) {
+                        return await response.blob()
+                    }
 
-                console.warn(`Falling back to Vercel proxy for ${photo.name}...`)
-            } catch (err: any) {
-                if (err.name === 'AbortError') throw err
-                console.warn(`[Direct Download] Error for ${photo.name}, falling back to proxy:`, err.message)
+                    // If rate limited (403/429), wait and retry
+                    if (response.status === 403 || response.status === 429) {
+                        const waitTime = Math.pow(2, attempt + 1) * 1000 // 2s, 4s, 8s
+                        console.warn(`[Direct Download] ${response.status} for "${photo.name}" (attempt ${attempt + 1}/${MAX_RETRIES}). Retrying in ${waitTime / 1000}s...`)
+                        await delay(waitTime)
+                        continue
+                    }
+
+                    // Other errors - don't retry
+                    console.warn(`[Direct Download] Failed for ${photo.name} (Status: ${response.status})`)
+                    break
+                } catch (err: any) {
+                    if (err.name === 'AbortError') throw err
+
+                    // CORS errors (from rate limiting) - wait and retry
+                    if (attempt < MAX_RETRIES - 1) {
+                        const waitTime = Math.pow(2, attempt + 1) * 1000
+                        console.warn(`[Direct Download] CORS/network error for "${photo.name}" (attempt ${attempt + 1}/${MAX_RETRIES}). Retrying in ${waitTime / 1000}s...`)
+                        await delay(waitTime)
+                        continue
+                    }
+                    console.warn(`[Direct Download] All retries failed for ${photo.name}, falling back to proxy`)
+                }
             }
         }
 
         // Fallback: use Vercel proxy (costs bandwidth but always works)
+        console.warn(`[Proxy Fallback] Downloading ${photo.name} via Vercel proxy`)
         const downloadUrl = photo.downloadUrl || photo.fullUrl || photo.url
         const response = await fetch(`/api/photos/download?url=${encodeURIComponent(downloadUrl)}`, { signal })
         if (!response.ok) throw new Error('Failed to fetch image')
         return await response.blob()
     }
 
-    // Download photos function with AbortController
+    // Download photos function with AbortController and rate limit awareness
     const handleDownloadPhotos = async (photoIds: string[]) => {
         if (photoIds.length === 0) return
 
@@ -651,6 +667,8 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
         try {
             const zip = new JSZip()
             const photosToDownload = photos.filter(p => photoIds.includes(p.id))
+            let directCount = 0
+            let proxyCount = 0
 
             for (let i = 0; i < photosToDownload.length; i++) {
                 // Check if aborted
@@ -661,6 +679,9 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                 const photo = photosToDownload[i]
 
                 try {
+                    // Add delay between downloads to avoid rate limiting (300ms gap)
+                    if (i > 0) await delay(300)
+
                     const blob = await downloadPhoto(photo, controller.signal)
                     zip.file(photo.name, blob)
                 } catch (err: any) {
@@ -670,6 +691,8 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
 
                 setDownloadProgress(Math.round(((i + 1) / photosToDownload.length) * 100))
             }
+
+            console.log(`[Download Summary] Direct: ${directCount}, Proxy fallback: ${proxyCount}`)
 
             const content = await zip.generateAsync({ type: 'blob' })
             saveAs(content, `${config.clientName}-photos.zip`)
