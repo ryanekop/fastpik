@@ -20,19 +20,41 @@ const FALLBACK_CHANGELOGS = [
         release_date: '2026-02-12T00:00:00.000Z',
         changes_en: [
             {
+                category: "Features", items: [
+                    "Customizable WhatsApp reminder templates in settings",
+                    "Expanded action area in dashboard for desktop view",
+                    "Confirmation dialog for \"Download All\" feature"
+                ]
+            },
+            {
                 category: "Improvements", items: [
-                    "Faster photo download with parallel processing",
-                    "Single photo now downloads directly without ZIP",
-                    "Large albums auto-split into multiple ZIP files"
+                    "Standardized all template variables to use {{count}}",
+                    "Removed problematic emojis from default templates"
+                ]
+            },
+            {
+                category: "Fixes", items: [
+                    "Fixed bug where project expiry was not cleared when set to 'Forever'"
                 ]
             }
         ],
         changes_id: [
             {
+                category: "Fitur", items: [
+                    "Template pengingat WhatsApp yang dapat disesuaikan di pengaturan",
+                    "Area dashboard lebih lebar untuk tampilan desktop",
+                    "Dialog konfirmasi sebelum \"Download Semua\""
+                ]
+            },
+            {
                 category: "Peningkatan", items: [
-                    "Download foto lebih cepat dengan proses paralel",
-                    "Foto tunggal langsung tersimpan tanpa ZIP",
-                    "Album besar otomatis terbagi ke beberapa file ZIP"
+                    "Standardisasi semua variabel template menjadi {{count}}",
+                    "Menghapus emoji bermasalah dari template default"
+                ]
+            },
+            {
+                category: "Perbaikan", items: [
+                    "Memperbaiki bug di mana durasi proyek tidak terhapus saat diset 'Selamanya'"
                 ]
             }
         ]
