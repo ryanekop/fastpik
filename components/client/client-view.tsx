@@ -613,10 +613,22 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                 if (response.ok) {
                     return await response.blob()
                 }
-                console.warn(`Direct download failed for ${photo.name} (${response.status}), falling back to proxy`)
+
+                // Detailed logging for failure
+                if (response.status === 403) {
+                    console.error(`[Direct Download] 403 Forbidden for "${photo.name}". This usually means: 
+                    1. The file/folder is not set to "Anyone with the link can view". 
+                    2. API Key is restricted in Google Cloud Console.`);
+                } else if (response.status === 429) {
+                    console.warn(`[Direct Download] 429 Rate Limit hit for ${photo.name}.`);
+                } else {
+                    console.warn(`[Direct Download] Failed for ${photo.name} (Status: ${response.status})`);
+                }
+
+                console.warn(`Falling back to Vercel proxy for ${photo.name}...`)
             } catch (err: any) {
                 if (err.name === 'AbortError') throw err
-                console.warn(`Direct download error for ${photo.name}, falling back to proxy:`, err.message)
+                console.warn(`[Direct Download] Error for ${photo.name}, falling back to proxy:`, err.message)
             }
         }
 
