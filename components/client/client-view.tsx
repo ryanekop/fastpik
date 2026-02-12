@@ -601,80 +601,95 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
         )
     }
 
-    // Helper: delay between downloads to avoid rate limiting
+    // Helper: delay
     const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
-    // Batch size for auto-splitting large downloads
-    const BATCH_SIZE = 200
+    // Constants
+    const BATCH_SIZE = 200        // Photos per ZIP file
+    const CONCURRENCY = 5         // Parallel downloads
+    const DIRECT_TEST_COUNT = 3   // Test direct API on first N photos
 
-    // Download a single photo - tries direct Google Drive API with retry, falls back to CF Worker
-    const downloadPhoto = async (photo: Photo, signal: AbortSignal): Promise<Blob> => {
+    // Download via direct Google Drive API (no bandwidth cost, but may get rate-limited)
+    const downloadDirect = async (photo: Photo, signal: AbortSignal): Promise<Blob | null> => {
         const apiKey = process.env.NEXT_PUBLIC_GOOGLE_API_KEY
-        const cfWorkerUrl = process.env.NEXT_PUBLIC_CF_WORKER_URL
-        const MAX_RETRIES = 3
+        if (!apiKey) return null
 
-        // Try direct Google Drive API first (zero bandwidth cost)
-        if (apiKey) {
-            for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-                try {
-                    if (signal.aborted) throw new DOMException('Download cancelled', 'AbortError')
-
-                    const directUrl = `https://www.googleapis.com/drive/v3/files/${photo.id}?alt=media&key=${apiKey}`
-                    const response = await fetch(directUrl, { signal })
-                    if (response.ok) {
-                        return await response.blob()
-                    }
-
-                    // If rate limited (403/429), wait and retry
-                    if (response.status === 403 || response.status === 429) {
-                        const waitTime = Math.pow(2, attempt + 1) * 1000 // 2s, 4s, 8s
-                        console.warn(`[Direct] ${response.status} for "${photo.name}" (attempt ${attempt + 1}/${MAX_RETRIES}). Retrying in ${waitTime / 1000}s...`)
-                        await delay(waitTime)
-                        continue
-                    }
-
-                    // Other errors - don't retry
-                    console.warn(`[Direct] Failed for ${photo.name} (Status: ${response.status})`)
-                    break
-                } catch (err: any) {
-                    if (err.name === 'AbortError') throw err
-
-                    // CORS errors (from rate limiting) - wait and retry
-                    if (attempt < MAX_RETRIES - 1) {
-                        const waitTime = Math.pow(2, attempt + 1) * 1000
-                        console.warn(`[Direct] CORS/network error for "${photo.name}" (attempt ${attempt + 1}/${MAX_RETRIES}). Retrying in ${waitTime / 1000}s...`)
-                        await delay(waitTime)
-                        continue
-                    }
-                    console.warn(`[Direct] All retries failed for ${photo.name}, falling back to proxy`)
-                }
-            }
+        try {
+            const directUrl = `https://www.googleapis.com/drive/v3/files/${photo.id}?alt=media&key=${apiKey}`
+            const response = await fetch(directUrl, { signal })
+            if (response.ok) return await response.blob()
+            return null
+        } catch (err: any) {
+            if (err.name === 'AbortError') throw err
+            return null
         }
+    }
 
-        // Fallback: Cloudflare Worker proxy (zero Vercel bandwidth cost)
+    // Download via Cloudflare Worker proxy (zero Vercel bandwidth)
+    const downloadViaCFWorker = async (photo: Photo, signal: AbortSignal): Promise<Blob> => {
+        const cfWorkerUrl = process.env.NEXT_PUBLIC_CF_WORKER_URL
         const downloadUrl = photo.downloadUrl || photo.fullUrl || photo.url
+
         if (cfWorkerUrl) {
             try {
-                console.log(`[CF Worker] Downloading ${photo.name} via Cloudflare proxy`)
                 const response = await fetch(`${cfWorkerUrl}?url=${encodeURIComponent(downloadUrl)}`, { signal })
-                if (response.ok) {
-                    return await response.blob()
-                }
-                console.warn(`[CF Worker] Failed for ${photo.name} (${response.status})`)
+                if (response.ok) return await response.blob()
             } catch (err: any) {
                 if (err.name === 'AbortError') throw err
                 console.warn(`[CF Worker] Error for ${photo.name}:`, err.message)
             }
         }
 
-        // Last resort: Vercel proxy (uses bandwidth - avoid if possible)
-        console.warn(`[Vercel Proxy] Downloading ${photo.name} via Vercel (last resort)`)
+        // Last resort: Vercel proxy
+        console.warn(`[Vercel] Last resort for ${photo.name}`)
         const response = await fetch(`/api/photos/download?url=${encodeURIComponent(downloadUrl)}`, { signal })
-        if (!response.ok) throw new Error('Failed to fetch image')
+        if (!response.ok) throw new Error(`Failed to fetch ${photo.name}`)
         return await response.blob()
     }
 
-    // Download photos function with auto-batch support
+    // Parallel download helper: runs tasks in batches of `concurrency`
+    const downloadParallel = async (
+        photos: Photo[],
+        signal: AbortSignal,
+        useDirect: boolean,
+        onProgress: (completed: number) => void
+    ): Promise<Map<string, Blob>> => {
+        const results = new Map<string, Blob>()
+        let completed = 0
+
+        for (let i = 0; i < photos.length; i += CONCURRENCY) {
+            if (signal.aborted) throw new DOMException('Download cancelled', 'AbortError')
+
+            const chunk = photos.slice(i, i + CONCURRENCY)
+            const promises = chunk.map(async (photo) => {
+                try {
+                    let blob: Blob | null = null
+
+                    if (useDirect) {
+                        blob = await downloadDirect(photo, signal)
+                    }
+
+                    if (!blob) {
+                        blob = await downloadViaCFWorker(photo, signal)
+                    }
+
+                    results.set(photo.name, blob)
+                } catch (err: any) {
+                    if (err.name === 'AbortError') throw err
+                    console.error(`Failed: ${photo.name}`, err)
+                }
+
+                completed++
+                onProgress(completed)
+            })
+
+            await Promise.all(promises)
+        }
+
+        return results
+    }
+
+    // Main download function with adaptive strategy + parallel + auto-batch
     const handleDownloadPhotos = async (photoIds: string[]) => {
         if (photoIds.length === 0) return
 
@@ -689,54 +704,65 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
             // === SINGLE PHOTO: direct save (no ZIP) ===
             if (photosToDownload.length === 1) {
                 const photo = photosToDownload[0]
-                const blob = await downloadPhoto(photo, controller.signal)
+                let blob = await downloadDirect(photo, controller.signal)
+                if (!blob) blob = await downloadViaCFWorker(photo, controller.signal)
                 saveAs(blob, photo.name)
                 setToastMessage(t('downloadComplete'))
                 setShowToast(true)
                 return
             }
 
-            // === MULTIPLE PHOTOS: ZIP with auto-batch ===
+            // === ADAPTIVE STRATEGY: test direct on first N photos ===
+            let useDirect = false
+            const testPhotos = photosToDownload.slice(0, DIRECT_TEST_COUNT)
+            let directSuccessCount = 0
+
+            console.log(`[Adaptive] Testing direct Google API on ${testPhotos.length} photos...`)
+
+            for (const photo of testPhotos) {
+                if (controller.signal.aborted) throw new DOMException('Download cancelled', 'AbortError')
+                const blob = await downloadDirect(photo, controller.signal)
+                if (blob) {
+                    directSuccessCount++
+                }
+            }
+
+            // Use direct if majority (>50%) of test photos succeeded
+            useDirect = directSuccessCount > DIRECT_TEST_COUNT / 2
+            console.log(`[Adaptive] Direct success: ${directSuccessCount}/${testPhotos.length} → ${useDirect ? 'Using DIRECT + CF Worker fallback' : 'Using CF Worker only (faster)'}`)
+
+            // === MULTIPLE PHOTOS: parallel download + auto-batch ZIP ===
             const totalBatches = Math.ceil(photosToDownload.length / BATCH_SIZE)
             const isBatched = totalBatches > 1
 
             for (let batch = 0; batch < totalBatches; batch++) {
-                if (controller.signal.aborted) {
-                    throw new DOMException('Download cancelled', 'AbortError')
-                }
+                if (controller.signal.aborted) throw new DOMException('Download cancelled', 'AbortError')
 
                 const batchStart = batch * BATCH_SIZE
                 const batchEnd = Math.min(batchStart + BATCH_SIZE, photosToDownload.length)
                 const batchPhotos = photosToDownload.slice(batchStart, batchEnd)
-                const zip = new JSZip()
 
                 if (isBatched) {
                     console.log(`[Download] Batch ${batch + 1}/${totalBatches} (${batchPhotos.length} photos)`)
                 }
 
-                for (let i = 0; i < batchPhotos.length; i++) {
-                    if (controller.signal.aborted) {
-                        throw new DOMException('Download cancelled', 'AbortError')
+                // Download all photos in this batch using parallel downloads
+                const blobMap = await downloadParallel(
+                    batchPhotos,
+                    controller.signal,
+                    useDirect,
+                    (completed) => {
+                        const globalCompleted = batchStart + completed
+                        setDownloadProgress(Math.round((globalCompleted / photosToDownload.length) * 100))
                     }
+                )
 
-                    const photo = batchPhotos[i]
-
-                    try {
-                        // Add delay between downloads to avoid rate limiting (300ms gap)
-                        if (i > 0) await delay(300)
-                        const blob = await downloadPhoto(photo, controller.signal)
-                        zip.file(photo.name, blob)
-                    } catch (err: any) {
-                        if (err.name === 'AbortError') throw err
-                        console.error(`Failed to download ${photo.name}:`, err)
-                    }
-
-                    // Progress: global progress across all batches
-                    const globalIndex = batchStart + i + 1
-                    setDownloadProgress(Math.round((globalIndex / photosToDownload.length) * 100))
+                // Create ZIP from downloaded blobs
+                const zip = new JSZip()
+                for (const [name, blob] of blobMap) {
+                    zip.file(name, blob)
                 }
 
-                // Generate and save this batch's ZIP
                 const zipName = isBatched
                     ? `${config.clientName}-photos-${batch + 1}.zip`
                     : `${config.clientName}-photos.zip`
@@ -744,7 +770,7 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                 const content = await zip.generateAsync({ type: 'blob' })
                 saveAs(content, zipName)
 
-                // Brief pause between batches to allow browser to process
+                // Brief pause between batches
                 if (isBatched && batch < totalBatches - 1) {
                     await delay(1000)
                 }
