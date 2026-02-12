@@ -189,7 +189,8 @@ export function ProjectList({
         const variables: Record<string, string> = {
             client_name: project.clientName,
             link: dynamicLink,
-            count: project.maxPhotos.toString()
+            count: project.maxPhotos.toString(),
+            max_photos: project.maxPhotos.toString() // backward compatibility
         }
 
         // Add password only if set
@@ -233,6 +234,7 @@ export function ProjectList({
             client_name: project.clientName,
             link: dynamicLink,
             count: project.maxPhotos.toString(),
+            max_photos: project.maxPhotos.toString(), // backward compatibility
             duration: duration
         }
 
