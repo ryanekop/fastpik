@@ -241,6 +241,8 @@ export default function SettingsPage() {
                                     variables={[
                                         { key: "client_name", label: t('varClientName') },
                                         { key: "link", label: t('varLink') },
+                                        { key: "max_photos", label: t('varMaxPhotos') },
+                                        { key: "password", label: t('varPassword') },
                                         { key: "duration", label: t('varDuration') }
                                     ]}
                                     value={tmplReminder}

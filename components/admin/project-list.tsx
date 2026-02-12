@@ -232,7 +232,13 @@ export function ProjectList({
         const variables: Record<string, string> = {
             client_name: project.clientName,
             link: dynamicLink,
+            max_photos: project.maxPhotos.toString(),
             duration: duration
+        }
+
+        // Add password only if set
+        if (project.password) {
+            variables.password = project.password
         }
 
         const message = compileMessage(templates.reminderLink, variables, false)
