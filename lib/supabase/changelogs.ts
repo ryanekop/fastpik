@@ -15,21 +15,44 @@ export interface Changelog {
 
 const FALLBACK_CHANGELOGS = [
     {
+        id: '0',
+        version: '1.2.1',
+        release_date: '2026-02-12T00:00:00.000Z',
+        changes_en: [
+            {
+                category: "Improvements", items: [
+                    "Faster photo download with parallel processing",
+                    "Single photo now downloads directly without ZIP",
+                    "Large albums auto-split into multiple ZIP files"
+                ]
+            }
+        ],
+        changes_id: [
+            {
+                category: "Peningkatan", items: [
+                    "Download foto lebih cepat dengan proses paralel",
+                    "Foto tunggal langsung tersimpan tanpa ZIP",
+                    "Album besar otomatis terbagi ke beberapa file ZIP"
+                ]
+            }
+        ]
+    },
+    {
         id: '1',
         version: '1.2.0',
-        release_date: new Date().toISOString(),
+        release_date: '2026-02-11T00:00:00.000Z',
         changes_en: [
             {
                 category: "Features", items: [
                     "Added \"Extra Photos\" badge for additional selection projects",
                     "Added password and duration variables to WhatsApp message templates",
                     "Added countdown timer banner for expiring links in client view",
-                    "Added comprehensive changelog system and \"What's New\" popup"
+                    "Added changelog system and \"What's New\" popup"
                 ]
             },
             {
                 category: "Fixes", items: [
-                    "Fixed bug where clearing selection incorrectly removed locked photos",
+                    "Fixed clearing selection incorrectly removed locked photos",
                     "Fixed missing translation for badge text"
                 ]
             }
@@ -39,14 +62,14 @@ const FALLBACK_CHANGELOGS = [
                 category: "Fitur", items: [
                     "Menambahkan badge \"Tambahan Foto\" untuk proyek pemilihan tambahan",
                     "Menambahkan variabel password dan durasi pada template pesan WhatsApp",
-                    "Menambahkan banner hitung mundur untuk link yang akan kadaluarsa di tampilan klien",
-                    "Menambahkan sistem changelog lengkap dan popup \"Apa yang Baru\""
+                    "Menambahkan banner hitung mundur untuk link yang akan kadaluarsa",
+                    "Menambahkan sistem changelog dan popup \"Apa yang Baru\""
                 ]
             },
             {
                 category: "Perbaikan", items: [
-                    "Memperbaiki bug di mana menghapus pilihan secara tidak sengaja menghapus foto yang terkunci",
-                    "Memperbaiki terjemahan yang hilang untuk teks badge"
+                    "Memperbaiki hapus pilihan yang menghapus foto terkunci",
+                    "Memperbaiki terjemahan badge yang hilang"
                 ]
             }
         ]
