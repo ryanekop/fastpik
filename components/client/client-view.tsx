@@ -96,6 +96,7 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
     const [toastMessage, setToastMessage] = useState("")
     const [showRestoreDialog, setShowRestoreDialog] = useState(false)
     const [hasPendingSelection, setHasPendingSelection] = useState(false)
+    const [showDownloadAllDialog, setShowDownloadAllDialog] = useState(false)
 
     // Time remaining state for countdown
     const [timeRemaining, setTimeRemaining] = useState<{ days: number, hours: number, minutes: number } | null>(null)
@@ -898,7 +899,7 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                                     </>
                                 ) : (
                                     <Button
-                                        onClick={() => handleDownloadPhotos(photos.map(p => p.id))}
+                                        onClick={() => setShowDownloadAllDialog(true)}
                                         disabled={photos.length === 0}
                                         size="sm"
                                         className="bg-blue-600 hover:bg-blue-700 text-white cursor-pointer"
@@ -1158,6 +1159,21 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                 type="info"
                 confirmText={t('continue') || 'Lanjutkan'}
                 cancelText={t('startFresh') || 'Mulai Baru'}
+            />
+
+            {/* Download All Confirmation Dialog */}
+            <PopupDialog
+                isOpen={showDownloadAllDialog}
+                onClose={() => setShowDownloadAllDialog(false)}
+                onConfirm={() => {
+                    setShowDownloadAllDialog(false)
+                    handleDownloadPhotos(photos.map(p => p.id))
+                }}
+                title={t('confirmDownloadAll')}
+                message={t('confirmDownloadAllMsg', { count: photos.length })}
+                type="info"
+                confirmText={t('continue')}
+                cancelText={t('cancel')}
             />
         </div>
     )

@@ -155,7 +155,9 @@
         "sendingLink": "Mengirim link...",
         "sendResetLink": "Kirim Link Reset",
         "backToLogin": "Kembali ke Login",
-        "copied": "Tersalin!"
+        "copied": "Tersalin!",
+        "sendReminder": "Kirim Pengingat",
+        "waReminderMessage": "Halo {name},\n\nIni adalah pengingat untuk segera memilih foto Anda. ⏰\n\nSilakan pilih di link berikut:\n{link}\n\nSisa waktu: {duration}\n\nTerima kasih!"
     },
     "Client": {
         "select": "Pilih",
@@ -216,6 +218,8 @@
         "selectPhotos": "Pilih Foto",
         "selectPhotosDesc": "Pilih foto untuk dikirim ke admin",
         "downloadAll": "Download Semua",
+        "confirmDownloadAll": "Download Semua Foto?",
+        "confirmDownloadAllMsg": "Apakah Anda yakin ingin download semua {count} foto? Proses ini mungkin membutuhkan waktu tergantung jumlah foto.",
         "downloadSelected": "Download Terpilih",
         "downloadingPhotos": "Mengunduh foto...",
         "preparingDownload": "Menyiapkan file...",

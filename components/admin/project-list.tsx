@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useTranslations, useLocale } from "next-intl"
-import { Plus, Trash2, ExternalLink, Copy, Clock, Users, MessageCircle, Edit, CheckSquare, Square, X, PlusCircle, Search, Loader2 } from "lucide-react"
+import { Plus, Trash2, ExternalLink, Copy, Clock, Users, MessageCircle, Edit, CheckSquare, Square, X, PlusCircle, Search, Loader2, Bell } from "lucide-react"
 import { isProjectExpired, getClientWhatsapp, generateShortId, type Project } from "@/lib/project-store"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -213,6 +213,26 @@ export function ProjectList({
         }
 
         const message = compileMessage(templates.initialLink, variables, false)
+        window.open(`https://wa.me/${clientWa}?text=${encodeURIComponent(message)}`, '_blank')
+    }
+
+    const sendReminder = (project: Project) => {
+        const clientWa = getClientWhatsapp(project)
+        if (!clientWa) {
+            setToastMessage(tc('noWhatsapp') || 'WhatsApp not set')
+            setShowToast(true)
+            return
+        }
+
+        const dynamicLink = buildProjectLink(project.id)
+        const duration = formatExpiry(project.expiresAt)
+
+        const message = t('waReminderMessage', {
+            name: project.clientName,
+            link: dynamicLink,
+            duration: duration
+        })
+
         window.open(`https://wa.me/${clientWa}?text=${encodeURIComponent(message)}`, '_blank')
     }
 
@@ -452,6 +472,7 @@ export function ProjectList({
                                                 <div className="flex items-center gap-1 w-full sm:w-auto justify-end pt-2 sm:pt-0 border-t sm:border-t-0 mt-2 sm:mt-0 border-border/50">
                                                     <Button size="icon" variant="ghost" onClick={() => copyLink(dynamicLink, project.id)} className="h-8 w-8 cursor-pointer" title={t('copyLink')}>{copiedId === project.id ? <span className="text-green-500 text-xs">✓</span> : <Copy className="h-4 w-4" />}</Button>
                                                     <Button size="icon" variant="ghost" onClick={() => sendToClient(project)} className="h-8 w-8 cursor-pointer text-green-600 hover:text-green-700" disabled={expired} title={t('sendToClient')}><MessageCircle className="h-4 w-4" /></Button>
+                                                    <Button size="icon" variant="ghost" onClick={() => sendReminder(project)} className="h-8 w-8 cursor-pointer text-amber-600 hover:text-amber-700" disabled={expired || !project.expiresAt} title={t('sendReminder')}><Bell className="h-4 w-4" /></Button>
                                                     <Button size="icon" variant="ghost" onClick={() => openLink(dynamicLink)} className="h-8 w-8 cursor-pointer" disabled={expired} title={t('openLink')}><ExternalLink className="h-4 w-4" /></Button>
                                                     <Button size="icon" variant="ghost" onClick={() => onEditProject(project)} className="h-8 w-8 cursor-pointer text-blue-600 hover:text-blue-700" title={t('editProject')}><Edit className="h-4 w-4" /></Button>
                                                     <Button size="icon" variant="ghost" onClick={() => openExtraPhotosDialog(project)} className="h-8 w-8 cursor-pointer text-amber-600 hover:text-amber-700" disabled={expired} title={t('addExtraPhotos')}><PlusCircle className="h-4 w-4" /></Button>
