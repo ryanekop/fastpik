@@ -267,11 +267,11 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
                     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.2 }}>
                         <FormField control={form.control} name="adminWhatsapp" render={({ field }) => (<FormItem><FormLabel>📲 {t('waAdminLabel')}</FormLabel><FormControl><PhoneInput value={field.value} onChange={(fullNumber) => { field.onChange(fullNumber) }} placeholder="812xxxxxxxx" /></FormControl><FormMessage /></FormItem>)} />
                     </motion.div>
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.3 }}>
+                        <FormField control={form.control} name="maxPhotos" render={({ field }) => (<FormItem><FormLabel>📸 {t('maxPhotos')}</FormLabel><FormControl><Input type="number" min="1" placeholder="5" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                    </motion.div>
                     <div className="grid grid-cols-2 gap-4">
-                        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.3 }}>
-                            <FormField control={form.control} name="maxPhotos" render={({ field }) => (<FormItem><FormLabel>📸 {t('maxPhotos')}</FormLabel><FormControl><Input type="number" min="1" placeholder="5" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                        </motion.div>
-                        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.3 }}>
+                        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.33 }}>
                             <FormField control={form.control} name="expiryDays" render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>⏰ {t('selectionDuration')}</FormLabel>
@@ -285,21 +285,21 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
                                 </FormItem>
                             )} />
                         </motion.div>
+                        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.35 }}>
+                            <FormField control={form.control} name="downloadExpiryDays" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>📥 {t('downloadDuration')}</FormLabel>
+                                    <FormControl>
+                                        <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer" value={field.value} onChange={field.onChange}>
+                                            {expiryOptions.map(opt => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
+                                        </select>
+                                    </FormControl>
+                                    {isEditing && editProject?.downloadExpiresAt && remainingDownloadDays !== null && (<p className="text-xs text-muted-foreground mt-1">⏳ {t('remainingTime')}: {remainingDownloadDays} {t('days')}</p>)}
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                        </motion.div>
                     </div>
-                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.35 }}>
-                        <FormField control={form.control} name="downloadExpiryDays" render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>📥 {t('downloadDuration')}</FormLabel>
-                                <FormControl>
-                                    <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer" value={field.value} onChange={field.onChange}>
-                                        {expiryOptions.map(opt => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
-                                    </select>
-                                </FormControl>
-                                {isEditing && editProject?.downloadExpiresAt && remainingDownloadDays !== null && (<p className="text-xs text-muted-foreground mt-1">⏳ {t('remainingTime')}: {remainingDownloadDays} {t('days')}</p>)}
-                                <FormMessage />
-                            </FormItem>
-                        )} />
-                    </motion.div>
                     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.4 }}>
                         <FormField control={form.control} name="password" render={({ field }) => (
                             <FormItem>

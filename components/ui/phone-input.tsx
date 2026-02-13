@@ -138,7 +138,7 @@ export function PhoneInput({ value = "", onChange, placeholder = "812xxxxxxxx", 
                                 type="button"
                                 onClick={() => handleCountrySelect(country)}
                                 className={cn(
-                                    "flex items-center gap-3 w-full px-3 py-2 text-left hover:bg-muted/50 transition-colors",
+                                    "flex items-center gap-3 w-full px-3 py-2 text-left hover:bg-muted/50 transition-colors cursor-pointer",
                                     selectedCountry.code === country.code && "bg-muted"
                                 )}
                             >
