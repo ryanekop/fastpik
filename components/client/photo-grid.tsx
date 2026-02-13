@@ -213,11 +213,11 @@ function FolderCard({
     return (
         <div
             onClick={onClick}
-            className="flex flex-col items-center justify-center p-6 border rounded-xl hover:bg-accent/50 cursor-pointer transition-all hover:scale-105 active:scale-95 bg-card shadow-sm aspect-[4/3]"
+            className="flex flex-col items-center justify-center p-3 md:p-6 border rounded-xl hover:bg-accent/50 cursor-pointer transition-all hover:scale-105 active:scale-95 bg-card shadow-sm aspect-[4/3]"
         >
-            <Folder className="w-16 h-16 text-primary mb-3 fill-primary/10" />
-            <h3 className="font-semibold text-lg text-center truncate w-full px-2" title={name}>{name}</h3>
-            <p className="text-muted-foreground text-sm">{count} photos</p>
+            <Folder className="w-10 h-10 md:w-16 md:h-16 text-primary mb-2 md:mb-3 fill-primary/10" />
+            <h3 className="font-semibold text-sm md:text-lg text-center truncate w-full px-1 md:px-2" title={name}>{name}</h3>
+            <p className="text-muted-foreground text-xs md:text-sm">{count} photos</p>
         </div>
     )
 }
