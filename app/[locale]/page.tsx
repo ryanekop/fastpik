@@ -31,14 +31,8 @@ const features = [
   { icon: Link2, titleKey: 'feature1Title', descKey: 'feature1Desc', color: 'text-blue-500' },
   { icon: Zap, titleKey: 'feature3Title', descKey: 'feature3Desc', color: 'text-yellow-500' },
   { icon: Download, titleKey: 'feature7Title', descKey: 'feature7Desc', color: 'text-cyan-500' },
-  { icon: ZoomIn, titleKey: 'feature8Title', descKey: 'feature8Desc', color: 'text-amber-500' },
-  { icon: Hash, titleKey: 'feature9Title', descKey: 'feature9Desc', color: 'text-pink-500' },
-  { icon: ImagePlus, titleKey: 'feature10Title', descKey: 'feature10Desc', color: 'text-emerald-500' },
   { icon: Timer, titleKey: 'feature11Title', descKey: 'feature11Desc', color: 'text-orange-500' },
-  { icon: Bell, titleKey: 'feature12Title', descKey: 'feature12Desc', color: 'text-rose-500' },
-  { icon: Globe, titleKey: 'feature13Title', descKey: 'feature13Desc', color: 'text-teal-500' },
   { icon: Smartphone, titleKey: 'feature4Title', descKey: 'feature4Desc', color: 'text-purple-500' },
-  { icon: Moon, titleKey: 'feature5Title', descKey: 'feature5Desc', color: 'text-indigo-500' },
   { icon: Lock, titleKey: 'feature6Title', descKey: 'feature6Desc', color: 'text-red-500' },
 ]
 
@@ -242,7 +236,7 @@ export default function Home() {
             <p className="text-muted-foreground text-lg">{t('featuresSubtitle')}</p>
           </motion.div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 max-w-7xl mx-auto">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
             {features.map((feature, index) => {
               const Icon = feature.icon
               return (
@@ -266,6 +260,19 @@ export default function Home() {
               )
             })}
           </div>
+
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            className="text-center mt-10"
+          >
+            <Button variant="outline" size="lg" asChild className="gap-2">
+              <Link href={`/${locale}/features`}>
+                ✨ {t('seeAllFeatures')} <ArrowRight className="h-5 w-5" />
+              </Link>
+            </Button>
+          </motion.div>
         </div>
       </section>
 

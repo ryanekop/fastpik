@@ -51,7 +51,8 @@
         "pricingSubtitle": "Starting from Rp 15,000/month",
         "pricingCta": "View All Plans",
         "ctaTitle": "Ready to Start?",
-        "ctaSubtitle": "Sign up now and enjoy 3-day free trial",
+        "ctaSubtitle": "Sign up now and enjoy 1-day free trial",
+        "seeAllFeatures": "See All Features",
         "ctaButton": "Start Free Now",
         "footerMadeWith": "Made with ❤️ from"
     },
@@ -384,5 +385,12 @@
         "trial": "Trial",
         "noPlan": "No Plan",
         "never": "Forever"
+    },
+    "Features": {
+        "pageTitle": "All Fastpik Features",
+        "pageDescription": "Discover all the features that make your photo culling process easier and more efficient.",
+        "coreFeatures": "Core Features",
+        "additionalFeatures": "Additional Features",
+        "startNow": "Start Now"
     }
 }

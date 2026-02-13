@@ -51,7 +51,8 @@
         "pricingSubtitle": "Mulai dari Rp 15.000/bulan",
         "pricingCta": "Lihat Semua Paket",
         "ctaTitle": "Siap Memulai?",
-        "ctaSubtitle": "Daftar sekarang dan nikmati trial gratis 3 hari",
+        "ctaSubtitle": "Daftar sekarang dan nikmati trial gratis 1 hari",
+        "seeAllFeatures": "Lihat Semua Fitur",
         "ctaButton": "Mulai Gratis Sekarang",
         "footerMadeWith": "Made with ❤️ from"
     },
@@ -384,5 +385,12 @@
         "trial": "Trial",
         "noPlan": "Tidak Ada Paket",
         "never": "Selamanya"
+    },
+    "Features": {
+        "pageTitle": "Semua Fitur Fastpik",
+        "pageDescription": "Temukan semua fitur yang membuat proses culling foto Anda lebih mudah dan efisien.",
+        "coreFeatures": "Fitur Utama",
+        "additionalFeatures": "Fitur Tambahan",
+        "startNow": "Mulai Sekarang"
     }
 }
