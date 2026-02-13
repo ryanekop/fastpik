@@ -15,6 +15,41 @@ export interface Changelog {
 
 const FALLBACK_CHANGELOGS = [
     {
+        id: 'v122',
+        version: '1.2.2',
+        release_date: '2026-02-13T00:00:00.000Z',
+        changes_en: [
+            {
+                category: "Improvements", items: [
+                    "Photos and folders now display side-by-side in the same grid for a cleaner layout",
+                    "Responsive folder cards — smaller icon and text on mobile devices",
+                ]
+            },
+            {
+                category: "Fixes", items: [
+                    "Added confirmation popup before clearing selection in download mode",
+                    "Fixed WhatsApp templates to correctly include password and remaining time for photo selection",
+                    "Fixed link duration edit when set to 'Forever'",
+                ]
+            }
+        ],
+        changes_id: [
+            {
+                category: "Peningkatan", items: [
+                    "Foto dan folder sekarang ditampilkan berdampingan dalam satu grid agar lebih rapi",
+                    "Folder card responsif — ikon dan teks lebih kecil di perangkat mobile",
+                ]
+            },
+            {
+                category: "Perbaikan", items: [
+                    "Menambahkan popup konfirmasi sebelum menghapus pilihan di mode download",
+                    "Memperbaiki template WhatsApp agar menyertakan password dan sisa waktu pilih foto dengan benar",
+                    "Memperbaiki edit durasi link saat diset ke 'Selamanya'",
+                ]
+            }
+        ]
+    },
+    {
         id: '0',
         version: '1.2.1',
         release_date: '2026-02-12T00:00:00.000Z',
