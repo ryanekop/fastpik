@@ -247,7 +247,7 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
     ]
 
     return (
-        <div className="w-full max-w-lg mx-auto">
+        <div className="w-full max-w-2xl mx-auto">
             {onBack && (<Button variant="ghost" onClick={onBack} className="mb-4 gap-2 cursor-pointer"><ArrowLeft className="h-4 w-4" />{t('backToList')}</Button>)}
             <h2 className="text-xl font-semibold mb-4">{isEditing ? `✏️ ${t('editProject')}` : t('createNew')}</h2>
             <Form {...form}>
