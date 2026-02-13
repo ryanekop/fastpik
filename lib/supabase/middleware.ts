@@ -3,7 +3,24 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function updateSession(request: NextRequest, response: NextResponse) {
-    // Use the provided response (from next-intl) or create a new one
+    const pathname = request.nextUrl.pathname
+
+    // ============================================================
+    // PERFORMANCE: Skip ALL Supabase calls for public routes
+    // This avoids the ~1-2s latency from getUser() on every request
+    // ============================================================
+    const isClientRoute = pathname.includes('/client')
+    const isPublicRoute =
+        /^\/[a-z]{2}\/?$/.test(pathname) ||       // Landing page: /en, /id, /en/, /id/
+        pathname.includes('/pricing') ||
+        pathname.includes('/features') ||
+        pathname === '/'
+
+    if (isClientRoute || isPublicRoute) {
+        return response
+    }
+
+    // Only create Supabase client for routes that need auth (dashboard, etc.)
     let supabaseResponse = response
 
     const supabase = createServerClient(
@@ -40,14 +57,6 @@ export async function updateSession(request: NextRequest, response: NextResponse
     const {
         data: { user },
     } = await supabase.auth.getUser()
-
-    const pathname = request.nextUrl.pathname
-
-    // Client routes are always public - no auth required
-    const isClientRoute = pathname.includes('/client')
-    if (isClientRoute) {
-        return supabaseResponse
-    }
 
     // Protected Routes Logic - now uses /dashboard instead of /admin
     const isDashboardRoute = pathname.includes('/dashboard')

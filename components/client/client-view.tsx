@@ -10,8 +10,8 @@ import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
 import { PopupDialog, Toast } from "@/components/ui/popup-dialog"
 import { Copy, Send, AlertCircle, Loader2, RefreshCw, ImageOff, Trash2, Lock, Eye, EyeOff, MessageCircle, Check, Download, MousePointerClick, ArrowLeft, Square } from "lucide-react"
-import JSZip from "jszip"
-import { saveAs } from "file-saver"
+// jszip and file-saver are dynamically imported when needed (see handleDownloadPhotos)
+// This reduces the initial JS bundle by ~48KB
 import { generateMockPhotos } from "@/lib/mock-data"
 import { cn } from "@/lib/utils"
 import { LanguageToggle } from "@/components/language-toggle"
@@ -801,6 +801,7 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                 let blob = await downloadDirect(photo, controller.signal)
                 if (!blob) blob = await downloadViaCFWorker(photo, controller.signal)
                 if (blob) {
+                    const { saveAs } = await import('file-saver')
                     saveAs(blob, photo.name)
                     setToastMessage(t('downloadComplete'))
                     setShowToast(true)
@@ -860,6 +861,10 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
 
                 // Create ZIP from downloaded blobs
                 if (blobs.size > 0) {
+                    const [{ default: JSZip }, { saveAs }] = await Promise.all([
+                        import('jszip'),
+                        import('file-saver'),
+                    ])
                     const zip = new JSZip()
                     for (const [name, blob] of blobs) {
                         zip.file(name, blob)
