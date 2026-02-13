@@ -97,6 +97,7 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
     const [showRestoreDialog, setShowRestoreDialog] = useState(false)
     const [hasPendingSelection, setHasPendingSelection] = useState(false)
     const [showDownloadAllDialog, setShowDownloadAllDialog] = useState(false)
+    const [showDownloadClearDialog, setShowDownloadClearDialog] = useState(false)
 
     // Time remaining state for countdown
     const [timeRemaining, setTimeRemaining] = useState<{ days: number, hours: number, minutes: number } | null>(null)
@@ -1043,7 +1044,7 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                         <div className="flex gap-2">
                             <Button
                                 variant="outline"
-                                onClick={() => setDownloadSelected([])}
+                                onClick={() => setShowDownloadClearDialog(true)}
                                 disabled={downloadSelected.length === 0}
                                 className="shrink-0 cursor-pointer text-red-500 border-red-200 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
                             >
@@ -1129,11 +1130,26 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                 )}
             </div>
 
-            {/* Clear Selection Confirmation Dialog */}
+            {/* Clear Selection Confirmation Dialog (Culling Mode) */}
             <PopupDialog
                 isOpen={showClearDialog}
                 onClose={() => setShowClearDialog(false)}
                 onConfirm={handleClearSelection}
+                title={t('confirmClear')}
+                message={t('confirmClearMsg')}
+                type="danger"
+                confirmText={t('clearSelection')}
+                cancelText={t('cancel') || 'Batal'}
+            />
+
+            {/* Clear Selection Confirmation Dialog (Download Mode) */}
+            <PopupDialog
+                isOpen={showDownloadClearDialog}
+                onClose={() => setShowDownloadClearDialog(false)}
+                onConfirm={() => {
+                    setDownloadSelected([])
+                    setShowDownloadClearDialog(false)
+                }}
                 title={t('confirmClear')}
                 message={t('confirmClearMsg')}
                 type="danger"
