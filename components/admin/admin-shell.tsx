@@ -17,6 +17,7 @@ import { ThemeToggle } from "@/components/theme-toggle"
 import { LanguageToggle } from "@/components/language-toggle"
 import { useTranslations, useLocale } from "next-intl"
 import Link from "next/link"
+import Image from "next/image"
 import { WhatsNewPopup } from "./whats-new-popup"
 
 interface Subscription {
@@ -106,8 +107,9 @@ export function AdminShell({ children, latestChangelog }: AdminShellProps) {
     return (
         <div className="flex flex-col min-h-screen">
             <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background px-6 shadow-sm">
-                <Link href={`/${locale}`} className="flex items-center gap-2 font-bold text-lg hover:opacity-80 transition-opacity cursor-pointer">
-                    📸 Fastpik
+                <Link href={`/${locale}`} className="flex items-center gap-3 font-bold text-lg hover:opacity-80 transition-opacity cursor-pointer">
+                    <Image src="/fastpik-logo.png" alt="Fastpik" width={28} height={28} className="rounded-md" />
+                    Fastpik
                 </Link>
                 <div className="ml-auto flex items-center gap-4">
                     <LanguageToggle />

@@ -7,6 +7,7 @@ import { ThemeToggle } from "@/components/theme-toggle"
 import { LanguageToggle } from "@/components/language-toggle"
 import { Button } from "@/components/ui/button"
 import Link from 'next/link'
+import Image from 'next/image'
 import { Check, Star, Zap, Crown, Infinity as InfinityIcon, LogOut, Settings, LayoutDashboard, User } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -186,8 +187,9 @@ export default function PricingPage() {
     return (
         <div className="flex flex-col min-h-screen font-[family-name:var(--font-geist-sans)]">
             <header className="flex items-center justify-between p-4 border-b">
-                <Link href={`/${locale}`} className="font-bold text-xl tracking-tight flex items-center gap-2 hover:opacity-80 transition-opacity">
-                    📸 Fastpik
+                <Link href={`/${locale}`} className="font-bold text-xl tracking-tight flex items-center gap-3 hover:opacity-80 transition-opacity">
+                    <Image src="/fastpik-logo.png" alt="Fastpik" width={28} height={28} className="rounded-md" />
+                    Fastpik
                 </Link>
                 <div className="flex items-center gap-2">
                     <LanguageToggle />
