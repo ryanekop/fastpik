@@ -27,6 +27,7 @@ type FormValues = {
     password: string
     detectSubfolders: boolean
     expiryDays: string
+    downloadExpiryDays: string
     lockedPhotos: string
 }
 
@@ -40,6 +41,7 @@ const formSchema = z.object({
     password: z.string(),
     detectSubfolders: z.boolean(),
     expiryDays: z.string(),
+    downloadExpiryDays: z.string(),
     lockedPhotos: z.string(),
 })
 
@@ -75,6 +77,7 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
             password: editProject?.password || "",
             detectSubfolders: editProject?.detectSubfolders || false,
             expiryDays: "",
+            downloadExpiryDays: "",
             lockedPhotos: editProject?.lockedPhotos?.join("\n") || "",
         },
     })
@@ -125,6 +128,14 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
         }
     }, [editProject?.expiresAt])
 
+    const [remainingDownloadDays, setRemainingDownloadDays] = useState<number | null>(null)
+
+    useEffect(() => {
+        if (editProject?.downloadExpiresAt) {
+            setRemainingDownloadDays(Math.max(0, Math.ceil((editProject.downloadExpiresAt - Date.now()) / (24 * 60 * 60 * 1000))))
+        }
+    }, [editProject?.downloadExpiresAt])
+
     const [error, setError] = useState<string | null>(null)
     const [upgradeRequired, setUpgradeRequired] = useState(false)
 
@@ -135,6 +146,7 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
         try {
             const maxPhotosNum = parseInt(values.maxPhotos) || 1
             const expiryDaysNum = values.expiryDays ? parseInt(values.expiryDays) : undefined
+            const downloadExpiryDaysNum = values.downloadExpiryDays ? parseInt(values.downloadExpiryDays) : undefined
             const lockedPhotosArray = values.lockedPhotos.split('\n').map(l => l.trim()).filter(l => l.length > 0)
 
             const projectId = isEditing && editProject ? editProject.id : generateShortId()
@@ -158,6 +170,7 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
                 lockedPhotos: lockedPhotosArray.length > 0 ? lockedPhotosArray : undefined,
                 createdAt: isEditing && editProject ? editProject.createdAt : Date.now(),
                 expiresAt: expiryDaysNum ? Date.now() + (expiryDaysNum * 24 * 60 * 60 * 1000) : null,
+                downloadExpiresAt: downloadExpiryDaysNum ? Date.now() + (downloadExpiryDaysNum * 24 * 60 * 60 * 1000) : null,
                 link: link
             }
 
@@ -219,7 +232,7 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
     const createNewProject = () => {
         setGeneratedLink(null)
         setCurrentProject(null)
-        form.reset({ clientName: "", gdriveLink: "", clientWhatsapp: "", adminWhatsapp: "", countryCode: "ID", maxPhotos: "", password: "", detectSubfolders: false, expiryDays: "", lockedPhotos: "" })
+        form.reset({ clientName: "", gdriveLink: "", clientWhatsapp: "", adminWhatsapp: "", countryCode: "ID", maxPhotos: "", password: "", detectSubfolders: false, expiryDays: "", downloadExpiryDays: "", lockedPhotos: "" })
         // Re-fetch settings so vendor slug and admin WA are fresh from DB
         loadDefaultSettings()
     }
@@ -261,7 +274,7 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
                         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.3 }}>
                             <FormField control={form.control} name="expiryDays" render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>⏰ {t('linkDuration')}</FormLabel>
+                                    <FormLabel>⏰ {t('selectionDuration')}</FormLabel>
                                     <FormControl>
                                         <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer" value={field.value} onChange={field.onChange}>
                                             {expiryOptions.map(opt => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
@@ -273,6 +286,20 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
                             )} />
                         </motion.div>
                     </div>
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.35 }}>
+                        <FormField control={form.control} name="downloadExpiryDays" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>📥 {t('downloadDuration')}</FormLabel>
+                                <FormControl>
+                                    <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer" value={field.value} onChange={field.onChange}>
+                                        {expiryOptions.map(opt => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
+                                    </select>
+                                </FormControl>
+                                {isEditing && editProject?.downloadExpiresAt && remainingDownloadDays !== null && (<p className="text-xs text-muted-foreground mt-1">⏳ {t('remainingTime')}: {remainingDownloadDays} {t('days')}</p>)}
+                                <FormMessage />
+                            </FormItem>
+                        )} />
+                    </motion.div>
                     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.4 }}>
                         <FormField control={form.control} name="password" render={({ field }) => (
                             <FormItem>

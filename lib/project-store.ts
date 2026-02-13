@@ -12,6 +12,7 @@ export interface Project {
     password?: string        // Password Album (blocks landing page)
     detectSubfolders: boolean
     expiresAt?: number | null // Unix timestamp, undefined/null = never expires
+    downloadExpiresAt?: number | null // Unix timestamp for download mode expiry
     createdAt: number
     link: string
     lockedPhotos?: string[] // List of previously selected photo filenames

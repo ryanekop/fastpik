@@ -62,6 +62,8 @@
         "saveChanges": "Simpan Perubahan",
         "backToList": "Kembali ke Daftar",
         "linkDuration": "Durasi Link",
+        "selectionDuration": "Durasi Link Pilih Foto",
+        "downloadDuration": "Durasi Link Download Foto",
         "remainingTime": "Sisa waktu",
         "days": "hari",
         "hours": "jam",

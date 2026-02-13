@@ -20,6 +20,11 @@ const FALLBACK_CHANGELOGS = [
         release_date: '2026-02-13T00:00:00.000Z',
         changes_en: [
             {
+                category: "Features", items: [
+                    "Separate link duration for photo selection and download modes",
+                ]
+            },
+            {
                 category: "Improvements", items: [
                     "Photos and folders now display side-by-side in the same grid for a cleaner layout",
                     "Responsive folder cards — smaller icon and text on mobile devices",
@@ -34,6 +39,11 @@ const FALLBACK_CHANGELOGS = [
             }
         ],
         changes_id: [
+            {
+                category: "Fitur", items: [
+                    "Durasi link terpisah untuk mode pilih foto dan download foto",
+                ]
+            },
             {
                 category: "Peningkatan", items: [
                     "Foto dan folder sekarang ditampilkan berdampingan dalam satu grid agar lebih rapi",

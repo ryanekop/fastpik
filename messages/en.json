@@ -62,6 +62,8 @@
         "saveChanges": "Save Changes",
         "backToList": "Back to List",
         "linkDuration": "Link Duration",
+        "selectionDuration": "Selection Link Duration",
+        "downloadDuration": "Download Link Duration",
         "remainingTime": "Remaining time",
         "days": "days",
         "hours": "hours",

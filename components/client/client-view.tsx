@@ -38,6 +38,7 @@ interface ClientViewProps {
         gdriveLink: string
         detectSubfolders: boolean
         expiresAt?: number
+        downloadExpiresAt?: number
         password?: string
         lockedPhotos?: string[] // Previously selected photo filenames
     }
@@ -105,14 +106,14 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
     // Portal ref for PhotoGrid header
     const photoGridHeaderRef = useRef<HTMLDivElement | null>(null)
 
-    // Track if project check has already been done this session
     // Check if project is expired (client-side only to avoid hydration mismatch)
-    const [isExpired, setIsExpired] = useState(false)
+    const [isSelectionExpired, setIsSelectionExpired] = useState(false)
+    const [isDownloadExpired, setIsDownloadExpired] = useState(false)
 
     useEffect(() => {
-        setIsExpired(config.expiresAt ? Date.now() > config.expiresAt : false)
+        setIsSelectionExpired(config.expiresAt ? Date.now() > config.expiresAt : false)
 
-        // Calculate time remaining
+        // Calculate time remaining for selection
         if (config.expiresAt) {
             const calculateTimeRemaining = () => {
                 const now = Date.now()
@@ -120,7 +121,7 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
 
                 if (diff <= 0) {
                     setTimeRemaining(null)
-                    setIsExpired(true)
+                    setIsSelectionExpired(true)
                 } else {
                     const days = Math.floor(diff / (1000 * 60 * 60 * 24))
                     const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
@@ -129,16 +130,47 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                 }
             }
 
-            // Calculate immediately
             calculateTimeRemaining()
-
-            // Update every minute
             const interval = setInterval(calculateTimeRemaining, 60000)
             return () => clearInterval(interval)
         } else {
             setTimeRemaining(null)
         }
     }, [config.expiresAt])
+
+    // Download expiry state
+    const [downloadTimeRemaining, setDownloadTimeRemaining] = useState<{ days: number, hours: number, minutes: number } | null>(null)
+
+    useEffect(() => {
+        const downloadExpiry = config.downloadExpiresAt ?? config.expiresAt
+        setIsDownloadExpired(downloadExpiry ? Date.now() > downloadExpiry : false)
+
+        if (downloadExpiry) {
+            const calcDownloadTime = () => {
+                const now = Date.now()
+                const diff = downloadExpiry - now
+
+                if (diff <= 0) {
+                    setDownloadTimeRemaining(null)
+                    setIsDownloadExpired(true)
+                } else {
+                    const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+                    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+                    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+                    setDownloadTimeRemaining({ days, hours, minutes })
+                }
+            }
+
+            calcDownloadTime()
+            const interval = setInterval(calcDownloadTime, 60000)
+            return () => clearInterval(interval)
+        } else {
+            setDownloadTimeRemaining(null)
+        }
+    }, [config.downloadExpiresAt, config.expiresAt])
+
+    // Both expired = fully expired
+    const isFullyExpired = isSelectionExpired && isDownloadExpired
 
     // Generate auth storage key (must match the one used in state initializer)
     const authStorageKey = `fastpik-auth-${config.clientName}-${config.gdriveLink}`.replace(/[^a-zA-Z0-9-]/g, '-').substring(0, 60)
@@ -377,7 +409,7 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
         )
     }
 
-    if (isExpired) {
+    if (isFullyExpired) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-background p-4">
                 <div className="text-center space-y-4">
@@ -409,29 +441,63 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                         <div className="grid gap-4">
                             {/* Select Photos Option */}
                             <button
-                                onClick={() => setViewMode('culling')}
-                                className="group relative flex items-center gap-4 p-5 rounded-xl border-2 border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-950/30 hover:border-green-400 dark:hover:border-green-600 hover:bg-green-100/80 dark:hover:bg-green-900/40 transition-all duration-300 cursor-pointer"
+                                onClick={() => !isSelectionExpired && setViewMode('culling')}
+                                disabled={isSelectionExpired}
+                                className={cn(
+                                    "group relative flex items-center gap-4 p-5 rounded-xl border-2 transition-all duration-300",
+                                    isSelectionExpired
+                                        ? "border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/30 opacity-60 cursor-not-allowed"
+                                        : "border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-950/30 hover:border-green-400 dark:hover:border-green-600 hover:bg-green-100/80 dark:hover:bg-green-900/40 cursor-pointer"
+                                )}
                             >
-                                <div className="flex-shrink-0 w-14 h-14 rounded-full bg-green-500 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                                <div className={cn(
+                                    "flex-shrink-0 w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform",
+                                    isSelectionExpired ? "bg-gray-400" : "bg-green-500 group-hover:scale-110"
+                                )}>
                                     <MousePointerClick className="w-7 h-7 text-white" />
                                 </div>
                                 <div className="text-left flex-1">
-                                    <h3 className="font-semibold text-lg text-green-700 dark:text-green-300">{t('selectPhotos')}</h3>
-                                    <p className="text-sm text-muted-foreground">{t('selectPhotosDesc')}</p>
+                                    <h3 className={cn(
+                                        "font-semibold text-lg",
+                                        isSelectionExpired ? "text-gray-400" : "text-green-700 dark:text-green-300"
+                                    )}>
+                                        {t('selectPhotos')}
+                                        {isSelectionExpired && " ⏰"}
+                                    </h3>
+                                    <p className="text-sm text-muted-foreground">
+                                        {isSelectionExpired ? t('linkExpired') : t('selectPhotosDesc')}
+                                    </p>
                                 </div>
                             </button>
 
-                            {/* Download Photos Option - no password needed */}
+                            {/* Download Photos Option */}
                             <button
-                                onClick={() => setViewMode('download')}
-                                className="group relative flex items-center gap-4 p-5 rounded-xl border-2 border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/30 hover:border-blue-400 dark:hover:border-blue-600 hover:bg-blue-100/80 dark:hover:bg-blue-900/40 transition-all duration-300 cursor-pointer"
+                                onClick={() => !isDownloadExpired && setViewMode('download')}
+                                disabled={isDownloadExpired}
+                                className={cn(
+                                    "group relative flex items-center gap-4 p-5 rounded-xl border-2 transition-all duration-300",
+                                    isDownloadExpired
+                                        ? "border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/30 opacity-60 cursor-not-allowed"
+                                        : "border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/30 hover:border-blue-400 dark:hover:border-blue-600 hover:bg-blue-100/80 dark:hover:bg-blue-900/40 cursor-pointer"
+                                )}
                             >
-                                <div className="flex-shrink-0 w-14 h-14 rounded-full bg-blue-500 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                                <div className={cn(
+                                    "flex-shrink-0 w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform",
+                                    isDownloadExpired ? "bg-gray-400" : "bg-blue-500 group-hover:scale-110"
+                                )}>
                                     <Download className="w-7 h-7 text-white" />
                                 </div>
                                 <div className="text-left flex-1">
-                                    <h3 className="font-semibold text-lg text-blue-700 dark:text-blue-300">{t('downloadPhotos')}</h3>
-                                    <p className="text-sm text-muted-foreground">{t('downloadPhotosDesc')}</p>
+                                    <h3 className={cn(
+                                        "font-semibold text-lg",
+                                        isDownloadExpired ? "text-gray-400" : "text-blue-700 dark:text-blue-300"
+                                    )}>
+                                        {t('downloadPhotos')}
+                                        {isDownloadExpired && " ⏰"}
+                                    </h3>
+                                    <p className="text-sm text-muted-foreground">
+                                        {isDownloadExpired ? t('linkExpired') : t('downloadPhotosDesc')}
+                                    </p>
                                 </div>
                             </button>
                         </div>
@@ -957,18 +1023,25 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                 </div>
 
                 {/* Countdown Banner - Inside sticky header */}
-                {timeRemaining && !isExpired && (
-                    <div className="bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-800 px-4 py-2">
-                        <div className="flex items-center justify-center gap-2 text-sm">
-                            <span className="text-amber-700 dark:text-amber-400 font-medium">⏰ {t('linkExpiresIn')}:</span>
-                            <span className="text-amber-900 dark:text-amber-200 font-semibold">
-                                {timeRemaining.days > 0 && `${timeRemaining.days} ${t('days')} `}
-                                {timeRemaining.hours > 0 && `${timeRemaining.hours} ${t('hours')} `}
-                                {timeRemaining.minutes > 0 && `${timeRemaining.minutes} ${t('minutes')}`}
-                            </span>
-                        </div>
-                    </div>
-                )}
+                {(() => {
+                    const activeTimeRemaining = viewMode === 'download' ? downloadTimeRemaining : timeRemaining
+                    const activeExpired = viewMode === 'download' ? isDownloadExpired : isSelectionExpired
+                    if (activeTimeRemaining && !activeExpired) {
+                        return (
+                            <div className="bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-800 px-4 py-2">
+                                <div className="flex items-center justify-center gap-2 text-sm">
+                                    <span className="text-amber-700 dark:text-amber-400 font-medium">⏰ {t('linkExpiresIn')}:</span>
+                                    <span className="text-amber-900 dark:text-amber-200 font-semibold">
+                                        {activeTimeRemaining.days > 0 && `${activeTimeRemaining.days} ${t('days')} `}
+                                        {activeTimeRemaining.hours > 0 && `${activeTimeRemaining.hours} ${t('hours')} `}
+                                        {activeTimeRemaining.minutes > 0 && `${activeTimeRemaining.minutes} ${t('minutes')}`}
+                                    </span>
+                                </div>
+                            </div>
+                        )
+                    }
+                    return null
+                })()}
 
                 {/* Portal slot for PhotoGrid's header (breadcrumb + sort) */}
                 <div ref={photoGridHeaderRef} />
