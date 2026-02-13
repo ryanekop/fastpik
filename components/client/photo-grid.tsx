@@ -213,7 +213,7 @@ function FolderCard({
     return (
         <div
             onClick={onClick}
-            className="flex flex-col items-center justify-center p-6 border rounded-xl hover:bg-accent/50 cursor-pointer transition-all hover:scale-105 active:scale-95 bg-card shadow-sm aspect-square"
+            className="flex flex-col items-center justify-center p-6 border rounded-xl hover:bg-accent/50 cursor-pointer transition-all hover:scale-105 active:scale-95 bg-card shadow-sm aspect-[4/3]"
         >
             <Folder className="w-16 h-16 text-primary mb-3 fill-primary/10" />
             <h3 className="font-semibold text-lg text-center truncate w-full px-2" title={name}>{name}</h3>
@@ -484,27 +484,22 @@ export function PhotoGrid({ photos, selected, onToggle, onZoom, detectSubfolders
                 : headerContent
             }
 
-            {/* Subfolders at current level */}
-            {hasFoldersAtCurrentLevel && (
-                <div className="p-4 pb-2">
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                        {currentLevelFolders.map(name => (
-                            <FolderCard
-                                key={name}
-                                name={name}
-                                count={allFolderPaths.filter(p =>
-                                    currentPath === null
-                                        ? p.startsWith(name)
-                                        : p.startsWith(`${currentPath} > ${name}`)
-                                ).length}
-                                onClick={() => navigateInto(name)}
-                            />
-                        ))}
-                    </div>
-                </div>
-            )}
-
-            <div className={cn("p-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3", hasFoldersAtCurrentLevel && "pt-2")}>
+            {/* Combined grid: folders + photos side by side */}
+            <div className="p-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                {/* Subfolders first */}
+                {hasFoldersAtCurrentLevel && currentLevelFolders.map(name => (
+                    <FolderCard
+                        key={name}
+                        name={name}
+                        count={allFolderPaths.filter(p =>
+                            currentPath === null
+                                ? p.startsWith(name)
+                                : p.startsWith(`${currentPath} > ${name}`)
+                        ).length}
+                        onClick={() => navigateInto(name)}
+                    />
+                ))}
+                {/* Then photos */}
                 {visiblePhotos.map((photo, index) => (
                     // content-visibility: auto optimization wrapper
                     <div
