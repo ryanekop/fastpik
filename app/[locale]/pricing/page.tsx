@@ -264,7 +264,7 @@ export default function PricingPage() {
                             {t('trialTitle')}
                         </h3>
                         <p className="text-muted-foreground mt-2">
-                            {t('trialDescription', { count: 15, days: 3, projects: 3 })}
+                            {t('trialDescription', { days: 1, projects: 3 })}
                         </p>
                     </div>
                 </div>
