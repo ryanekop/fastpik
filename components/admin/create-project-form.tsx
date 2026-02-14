@@ -255,18 +255,18 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
 
     const getKeepLabel = (fieldName: 'expiryDays' | 'downloadExpiryDays') => {
         if (fieldName === 'expiryDays') {
-            if (!editProject?.expiresAt) return `⏸️ ${t('forever')}`
+            if (!editProject?.expiresAt) return `⏸️ — ${t('forever')} —`
             const days = Math.max(0, Math.ceil((editProject.expiresAt - Date.now()) / (24 * 60 * 60 * 1000)))
-            return `⏸️ ${t('remainingTime')}: ${days} ${t('days')}`
+            return `⏸️ — ${days} ${t('days')} —`
         } else {
-            if (!editProject?.downloadExpiresAt) return `⏸️ ${t('forever')}`
+            if (!editProject?.downloadExpiresAt) return `⏸️ — ${t('forever')} —`
             const days = Math.max(0, Math.ceil((editProject.downloadExpiresAt - Date.now()) / (24 * 60 * 60 * 1000)))
-            return `⏸️ ${t('remainingTime')}: ${days} ${t('days')}`
+            return `⏸️ — ${days} ${t('days')} —`
         }
     }
 
     const expiryOptions = [
-        ...(isEditing ? [{ value: "__keep__", label: `⏸️ — ${t('remainingTime')} —` }] : []),
+        ...(isEditing ? [{ value: "__keep__", label: `⏸️ — ${t('noChange')} —` }] : []),
         { value: "", label: `♾️ ${t('forever')}` },
         { value: "1", label: `1 ${t('days')}` },
         { value: "3", label: `3 ${t('days')}` },

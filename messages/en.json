@@ -79,6 +79,7 @@
         "linkDuration": "Link Duration",
         "selectionDuration": "Selection Link Duration",
         "downloadDuration": "Download Link Duration",
+        "noChange": "No change",
         "remainingTime": "Remaining time",
         "days": "days",
         "hours": "hours",
