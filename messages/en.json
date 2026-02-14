@@ -211,6 +211,15 @@
         "dashboardDurationSelection": "Selection Link Duration",
         "dashboardDurationDownload": "Download Link Duration",
         "dashboardDurationHint": "Choose which duration to display on each project card",
+        "defaultProjectTitle": "Default Project",
+        "defaultProjectDesc": "Default values when creating a new project",
+        "defaultMaxPhotos": "Max Photos",
+        "defaultPasswordLabel": "Password",
+        "defaultPasswordPlaceholder": "Leave empty for no default password",
+        "defaultSelectionDuration": "Selection Link Duration",
+        "defaultDownloadDuration": "Download Link Duration",
+        "defaultDurationNone": "Not set",
+        "defaultProjectHint": "These values will be auto-filled when creating a new project, can be changed per project.",
         "templateEmojiNotice": "Currently, sending links containing emojis is not supported on WhatsApp Desktop. Please use the WhatsApp app on iOS/Android to send links, or avoid using emojis in your templates if you are using WhatsApp Desktop."
     },
     "Client": {

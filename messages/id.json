@@ -211,6 +211,15 @@
         "dashboardDurationSelection": "Durasi Link Pilih Foto",
         "dashboardDurationDownload": "Durasi Link Download",
         "dashboardDurationHint": "Pilih durasi mana yang ditampilkan di setiap project card",
+        "defaultProjectTitle": "Default Project",
+        "defaultProjectDesc": "Nilai default saat membuat project baru",
+        "defaultMaxPhotos": "Maksimal Foto",
+        "defaultPasswordLabel": "Password",
+        "defaultPasswordPlaceholder": "Kosongkan jika tidak ingin default password",
+        "defaultSelectionDuration": "Durasi Link Pilih Foto",
+        "defaultDownloadDuration": "Durasi Link Download",
+        "defaultDurationNone": "Tidak diset",
+        "defaultProjectHint": "Nilai ini akan otomatis terisi saat membuat project baru, bisa diubah per project.",
         "templateEmojiNotice": "Saat ini, pengiriman link yang mengandung emoji tidak didukung di WhatsApp Desktop. Gunakan aplikasi WhatsApp di iOS/Android untuk mengirim link, atau hindari penggunaan emoji pada template jika Anda menggunakan WhatsApp Desktop."
     },
     "Client": {

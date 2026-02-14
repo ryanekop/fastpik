@@ -24,6 +24,10 @@ export default function SettingsPage() {
     const [defaultAdminWhatsapp, setDefaultAdminWhatsapp] = useState("")
     const [vendorName, setVendorName] = useState("")
     const [dashboardDurationDisplay, setDashboardDurationDisplay] = useState<'selection' | 'download'>('selection')
+    const [defaultMaxPhotos, setDefaultMaxPhotos] = useState("")
+    const [defaultExpiryDays, setDefaultExpiryDays] = useState("")
+    const [defaultDownloadExpiryDays, setDefaultDownloadExpiryDays] = useState("")
+    const [defaultPassword, setDefaultPassword] = useState("")
 
     // Message Templates State
     const [tmplLinkInitial, setTmplLinkInitial] = useState({ id: "", en: "" })
@@ -56,6 +60,10 @@ export default function SettingsPage() {
                 setDefaultAdminWhatsapp(data.default_admin_whatsapp || "")
                 setVendorName(data.vendor_name || "")
                 setDashboardDurationDisplay(data.dashboard_duration_display || 'selection')
+                setDefaultMaxPhotos(data.default_max_photos?.toString() || "")
+                setDefaultExpiryDays(data.default_expiry_days?.toString() || "")
+                setDefaultDownloadExpiryDays(data.default_download_expiry_days?.toString() || "")
+                setDefaultPassword(data.default_password || "")
                 if (data.msg_tmpl_link_initial) setTmplLinkInitial(data.msg_tmpl_link_initial)
                 if (data.msg_tmpl_link_extra) setTmplLinkExtra(data.msg_tmpl_link_extra)
                 if (data.msg_tmpl_result_initial) setTmplResultInitial(data.msg_tmpl_result_initial)
@@ -86,6 +94,10 @@ export default function SettingsPage() {
                     default_admin_whatsapp: defaultAdminWhatsapp,
                     vendor_name: vendorName || null,
                     dashboard_duration_display: dashboardDurationDisplay,
+                    default_max_photos: defaultMaxPhotos ? parseInt(defaultMaxPhotos) : null,
+                    default_expiry_days: defaultExpiryDays ? parseInt(defaultExpiryDays) : null,
+                    default_download_expiry_days: defaultDownloadExpiryDays ? parseInt(defaultDownloadExpiryDays) : null,
+                    default_password: defaultPassword || null,
                     msg_tmpl_link_initial: tmplLinkInitial,
                     msg_tmpl_link_extra: tmplLinkExtra,
                     msg_tmpl_result_initial: tmplResultInitial,
@@ -209,6 +221,73 @@ export default function SettingsPage() {
                                             {t('dashboardDurationHint')}
                                         </p>
                                     </div>
+                                </CardContent>
+                            </Card>
+
+                            {/* Default Project Settings */}
+                            <Card className="mt-6">
+                                <CardHeader>
+                                    <CardTitle>📋 {t('defaultProjectTitle')}</CardTitle>
+                                    <CardDescription>{t('defaultProjectDesc')}</CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-6">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label>📸 {t('defaultMaxPhotos')}</Label>
+                                            <Input
+                                                type="number"
+                                                min="1"
+                                                value={defaultMaxPhotos}
+                                                onChange={(e) => setDefaultMaxPhotos(e.target.value)}
+                                                placeholder="10"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>🔐 {t('defaultPasswordLabel')}</Label>
+                                            <Input
+                                                value={defaultPassword}
+                                                onChange={(e) => setDefaultPassword(e.target.value)}
+                                                placeholder={t('defaultPasswordPlaceholder')}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label>⏰ {t('defaultSelectionDuration')}</Label>
+                                            <select
+                                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer"
+                                                value={defaultExpiryDays}
+                                                onChange={(e) => setDefaultExpiryDays(e.target.value)}
+                                            >
+                                                <option value="">{t('defaultDurationNone')}</option>
+                                                <option value="1">1 {t('days')}</option>
+                                                <option value="3">3 {t('days')}</option>
+                                                <option value="5">5 {t('days')}</option>
+                                                <option value="7">7 {t('days')}</option>
+                                                <option value="14">14 {t('days')}</option>
+                                                <option value="30">30 {t('days')}</option>
+                                                <option value="90">90 {t('days')}</option>
+                                            </select>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>📥 {t('defaultDownloadDuration')}</Label>
+                                            <select
+                                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer"
+                                                value={defaultDownloadExpiryDays}
+                                                onChange={(e) => setDefaultDownloadExpiryDays(e.target.value)}
+                                            >
+                                                <option value="">{t('defaultDurationNone')}</option>
+                                                <option value="1">1 {t('days')}</option>
+                                                <option value="3">3 {t('days')}</option>
+                                                <option value="5">5 {t('days')}</option>
+                                                <option value="7">7 {t('days')}</option>
+                                                <option value="14">14 {t('days')}</option>
+                                                <option value="30">30 {t('days')}</option>
+                                                <option value="90">90 {t('days')}</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">{t('defaultProjectHint')}</p>
                                 </CardContent>
                             </Card>
                         </TabsContent>

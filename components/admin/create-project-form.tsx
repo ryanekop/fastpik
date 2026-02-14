@@ -106,7 +106,7 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
 
             const { data } = await supabase
                 .from('settings')
-                .select('default_admin_whatsapp, vendor_name')
+                .select('default_admin_whatsapp, vendor_name, default_max_photos, default_expiry_days, default_download_expiry_days, default_password')
                 .eq('user_id', user.id)
                 .maybeSingle()
 
@@ -116,6 +116,18 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
             if (data?.vendor_name) {
                 const slug = data.vendor_name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
                 setVendorSlug(slug)
+            }
+            if (data?.default_max_photos) {
+                form.setValue('maxPhotos', data.default_max_photos.toString())
+            }
+            if (data?.default_expiry_days) {
+                form.setValue('expiryDays', data.default_expiry_days.toString())
+            }
+            if (data?.default_download_expiry_days) {
+                form.setValue('downloadExpiryDays', data.default_download_expiry_days.toString())
+            }
+            if (data?.default_password) {
+                form.setValue('password', data.default_password)
             }
         } catch (err) {
             console.log('No default settings found')
