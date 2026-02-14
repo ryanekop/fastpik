@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, DragEvent } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useTranslations, useLocale } from "next-intl"
-import { Plus, Trash2, ExternalLink, Copy, Clock, Users, MessageCircle, Edit, CheckSquare, Square, X, PlusCircle, Search, Loader2, Bell, FolderOpen, ArrowUpDown, Move, ChevronRight, Home, FolderPlus } from "lucide-react"
+import { Plus, Trash2, ExternalLink, Copy, Clock, Users, MessageCircle, Edit, CheckSquare, Square, X, PlusCircle, Search, Loader2, Bell, FolderOpen, ArrowUpDown, Move, ChevronRight, Home, FolderPlus, FileText } from "lucide-react"
 import { isProjectExpired, getClientWhatsapp, generateShortId, type Project } from "@/lib/project-store"
 import type { Folder } from "@/lib/supabase/folders"
 import { Button } from "@/components/ui/button"
@@ -47,6 +47,7 @@ export function ProjectList({
     const locale = useLocale()
     const supabase = createClient()
     const [copiedId, setCopiedId] = useState<string | null>(null)
+    const [copiedTemplateId, setCopiedTemplateId] = useState<string | null>(null)
     const [isSelectMode, setIsSelectMode] = useState(false)
     const [selectedIds, setSelectedIds] = useState<string[]>([])
     const [searchQuery, setSearchQuery] = useState("")
@@ -267,6 +268,50 @@ export function ProjectList({
 
         const message = compileMessage(templates.initialLink, variables, false)
         window.open(`https://wa.me/${clientWa}?text=${encodeURIComponent(message)}`, '_blank')
+    }
+
+    const copyTemplateForProject = (project: Project) => {
+        const dynamicLink = buildProjectLink(project.id)
+        const variables: Record<string, string> = {
+            client_name: project.clientName,
+            link: dynamicLink,
+            count: project.maxPhotos.toString(),
+            max_photos: project.maxPhotos.toString()
+        }
+        if (project.password) {
+            variables.password = project.password
+        }
+        if (project.expiresAt) {
+            const now = Date.now()
+            const diff = project.expiresAt - now
+            if (diff > 0) {
+                const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+                if (days > 0) {
+                    variables.duration = `${days} ${t('days')}`
+                } else if (hours > 0) {
+                    variables.duration = `${hours} ${t('hours')}`
+                } else {
+                    variables.duration = t('lessThanHour')
+                }
+            }
+        }
+        const message = compileMessage(templates.initialLink, variables, false)
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(message)
+            setCopiedTemplateId(project.id)
+            setTimeout(() => setCopiedTemplateId(null), 2000)
+        } else {
+            const textArea = document.createElement("textarea")
+            textArea.value = message
+            textArea.style.position = "fixed"
+            textArea.style.left = "-9999px"
+            document.body.appendChild(textArea)
+            textArea.focus()
+            textArea.select()
+            try { document.execCommand('copy'); setCopiedTemplateId(project.id); setTimeout(() => setCopiedTemplateId(null), 2000) } catch (err) { console.error('Failed to copy', err) }
+            document.body.removeChild(textArea)
+        }
     }
 
     const sendReminder = (project: Project) => {
@@ -907,6 +952,7 @@ export function ProjectList({
                                                     {!isSelectMode && (
                                                         <div className="flex items-center gap-1 w-full sm:w-auto justify-end pt-2 sm:pt-0 border-t sm:border-t-0 mt-2 sm:mt-0 border-border/50">
                                                             <Button size="icon" variant="ghost" onClick={() => copyLink(dynamicLink, project.id)} className="h-8 w-8 cursor-pointer" title={t('copyLink')}>{copiedId === project.id ? <span className="text-green-500 text-xs">✓</span> : <Copy className="h-4 w-4" />}</Button>
+                                                            <Button size="icon" variant="ghost" onClick={() => copyTemplateForProject(project)} className="h-8 w-8 cursor-pointer text-purple-600 hover:text-purple-700" disabled={expired} title={t('copyTemplate')}>{copiedTemplateId === project.id ? <span className="text-green-500 text-xs">✓</span> : <FileText className="h-4 w-4" />}</Button>
                                                             <Button size="icon" variant="ghost" onClick={() => sendToClient(project)} className="h-8 w-8 cursor-pointer text-green-600 hover:text-green-700" disabled={expired} title={t('sendToClient')}><MessageCircle className="h-4 w-4" /></Button>
                                                             <Button size="icon" variant="ghost" onClick={() => sendReminder(project)} className="h-8 w-8 cursor-pointer text-amber-600 hover:text-amber-700" disabled={expired || !project.expiresAt} title={t('sendReminder')}><Bell className="h-4 w-4" /></Button>
                                                             <Button size="icon" variant="ghost" onClick={() => openLink(dynamicLink)} className="h-8 w-8 cursor-pointer" disabled={expired} title={t('openLink')}><ExternalLink className="h-4 w-4" /></Button>
@@ -981,35 +1027,43 @@ export function ProjectList({
                                     <Button onClick={copyExtraLink} variant="outline" className="flex-1 cursor-pointer"><Copy className="h-4 w-4 mr-2" />{t('copyLink')}</Button>
                                     <Button onClick={() => window.open(generatedExtraLink, '_blank')} variant="outline" className="flex-1 cursor-pointer"><ExternalLink className="h-4 w-4 mr-2" />{t('openLink')}</Button>
                                 </div>
-                                <Button onClick={() => {
-                                    const clientWa = extraPhotosProject?.clientWhatsapp || ''
-                                    if (!clientWa) { setToastMessage(tc('noWhatsapp')); setShowToast(true); return }
-                                    const extraCount = parseInt(extraPhotosCount) || 5
-
-                                    // Build variables with conditional password and duration
-                                    const variables: Record<string, string> = {
-                                        client_name: extraPhotosProject?.clientName || '',
-                                        link: generatedExtraLink,
-                                        count: extraCount.toString()
+                                {(() => {
+                                    const buildExtraTemplateMessage = () => {
+                                        const extraCount = parseInt(extraPhotosCount) || 5
+                                        const variables: Record<string, string> = {
+                                            client_name: extraPhotosProject?.clientName || '',
+                                            link: generatedExtraLink!,
+                                            count: extraCount.toString()
+                                        }
+                                        if (extraPhotosProject?.password) {
+                                            variables.password = extraPhotosProject.password
+                                        }
+                                        const days = parseInt(extraExpiryDays)
+                                        if (days > 0) {
+                                            variables.duration = `${days} ${t('days')}`
+                                        }
+                                        return compileMessage(templates.extraLink, variables, true)
                                     }
 
-                                    // Add password only if set
-                                    if (extraPhotosProject?.password) {
-                                        variables.password = extraPhotosProject.password
-                                    }
-
-                                    // Add duration based on extra expiry
-                                    const expiryMs = parseInt(extraExpiryDays) * 24 * 60 * 60 * 1000
-                                    const expiryDate = Date.now() + expiryMs
-                                    const days = parseInt(extraExpiryDays)
-                                    if (days > 0) {
-                                        variables.duration = `${days} ${t('days')}`
-                                    }
-
-                                    const message = compileMessage(templates.extraLink, variables, true)
-
-                                    window.open(`https://wa.me/${clientWa}?text=${encodeURIComponent(message)}`, '_blank')
-                                }} className="w-full bg-green-600 hover:bg-green-700 text-white cursor-pointer"><MessageCircle className="h-4 w-4 mr-2" />{t('sendToClientWa')}</Button>
+                                    return (
+                                        <div className="flex flex-col sm:flex-row gap-2">
+                                            <Button onClick={() => {
+                                                const clientWa = extraPhotosProject?.clientWhatsapp || ''
+                                                if (!clientWa) { setToastMessage(tc('noWhatsapp')); setShowToast(true); return }
+                                                const message = buildExtraTemplateMessage()
+                                                window.open(`https://wa.me/${clientWa}?text=${encodeURIComponent(message)}`, '_blank')
+                                            }} className="flex-1 bg-green-600 hover:bg-green-700 text-white cursor-pointer"><MessageCircle className="h-4 w-4 mr-2" />{t('sendToClientWa')}</Button>
+                                            <Button variant="outline" className="flex-1 cursor-pointer" onClick={() => {
+                                                const message = buildExtraTemplateMessage()
+                                                if (navigator.clipboard && window.isSecureContext) {
+                                                    navigator.clipboard.writeText(message)
+                                                    setToastMessage(t('templateCopied'))
+                                                    setShowToast(true)
+                                                }
+                                            }}><Copy className="h-4 w-4 mr-2" />{t('copyTemplate')}</Button>
+                                        </div>
+                                    )
+                                })()}
                             </div>
                         )}
                     </motion.div>

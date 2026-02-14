@@ -59,6 +59,7 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
     const supabase = createClient()
     const [generatedLink, setGeneratedLink] = useState<string | null>(null)
     const [copied, setCopied] = useState(false)
+    const [copiedTemplate, setCopiedTemplate] = useState(false)
     const [currentProject, setCurrentProject] = useState<Project | null>(null)
     const [showPassword, setShowPassword] = useState(false)
     const [isSubmitting, setIsSubmitting] = useState(false)
@@ -242,6 +243,27 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
         if (generatedLink && currentProject) {
             const message = tc('waClientMessage', { name: currentProject.clientName, link: generatedLink, max: currentProject.maxPhotos.toString() })
             window.open(`https://wa.me/${currentProject.clientWhatsapp}?text=${encodeURIComponent(message)}`, '_blank')
+        }
+    }
+
+    const copyTemplate = () => {
+        if (generatedLink && currentProject) {
+            const message = tc('waClientMessage', { name: currentProject.clientName, link: generatedLink, max: currentProject.maxPhotos.toString() })
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(message)
+                setCopiedTemplate(true)
+                setTimeout(() => setCopiedTemplate(false), 2000)
+            } else {
+                const textArea = document.createElement("textarea")
+                textArea.value = message
+                textArea.style.position = "fixed"
+                textArea.style.left = "-9999px"
+                document.body.appendChild(textArea)
+                textArea.focus()
+                textArea.select()
+                try { document.execCommand('copy'); setCopiedTemplate(true); setTimeout(() => setCopiedTemplate(false), 2000) } catch (err) { console.error('Failed to copy', err) }
+                document.body.removeChild(textArea)
+            }
         }
     }
 
@@ -432,11 +454,17 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
 
                         {/* Action Buttons */}
                         <div className="mt-4 space-y-2">
-                            {/* 1. WhatsApp to Client - Always full width */}
-                            <Button onClick={sendToClient} className="w-full bg-green-600 hover:bg-green-700 text-white gap-2 cursor-pointer">
-                                <MessageCircle className="h-4 w-4" />
-                                {t('sendToClient')}
-                            </Button>
+                            {/* 1. WhatsApp to Client & Copy Template - Side by side */}
+                            <div className="flex flex-col sm:flex-row gap-2">
+                                <Button onClick={sendToClient} className="flex-1 bg-green-600 hover:bg-green-700 text-white gap-2 cursor-pointer">
+                                    <MessageCircle className="h-4 w-4" />
+                                    {t('sendToClient')}
+                                </Button>
+                                <Button variant="outline" className="flex-1 gap-2 cursor-pointer" onClick={copyTemplate}>
+                                    {copiedTemplate ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                                    {copiedTemplate ? t('templateCopied') : t('copyTemplate')}
+                                </Button>
+                            </div>
 
                             {/* 2. Open Link & Copy Link - Side by side on desktop, stacked on mobile */}
                             <div className="flex flex-col sm:flex-row gap-2">

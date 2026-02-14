@@ -127,6 +127,8 @@
         "customPlaceholder": "Masukkan angka",
         "generatingExtraLink": "Membuat...",
         "sendToClientWa": "Kirim ke WhatsApp Klien",
+        "copyTemplate": "Salin Template",
+        "templateCopied": "Template Tersalin!",
         "waExtraMessage": "Halo {name},\n\nSilakan pilih {count} foto tambahan di link berikut:\n{link}\n\nFoto yang telah Anda pilih sebelumnya sudah terkunci dan tidak dapat diubah.\n\nTerima kasih!",
         "searchPlaceholder": "Cari nama klien...",
         "extraPhotosBadge": "Tambahan Foto",

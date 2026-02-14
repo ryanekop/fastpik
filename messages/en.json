@@ -127,6 +127,8 @@
         "customPlaceholder": "Enter number",
         "generatingExtraLink": "Generating...",
         "sendToClientWa": "Send to Client WhatsApp",
+        "copyTemplate": "Copy Template",
+        "templateCopied": "Template Copied!",
         "waExtraMessage": "Hello {name},\n\nPlease select {count} additional photos at the following link:\n{link}\n\nYour previously selected photos are locked and cannot be changed.\n\nThank you!",
         "searchPlaceholder": "Search client name...",
         "extraPhotosBadge": "Extra Photos",
