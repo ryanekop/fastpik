@@ -134,7 +134,7 @@
         "customMonthsLabel": "Months",
         "customPlaceholder": "Enter number",
         "generatingExtraLink": "Generating...",
-        "sendToClientWa": "Send to Client WhatsApp",
+        "sendToClientWa": "Send to Client WA",
         "copyTemplate": "Copy Template",
         "templateCopied": "Template Copied!",
         "waExtraMessage": "Hello {name},\n\nPlease select {count} additional photos at the following link:\n{link}\n\nYour previously selected photos are locked and cannot be changed.\n\nThank you!",

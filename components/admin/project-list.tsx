@@ -361,19 +361,51 @@ export function ProjectList({
         }
 
         const dynamicLink = buildProjectLink(project.id)
-        const duration = formatExpiry(project.expiresAt)
 
         const variables: Record<string, string> = {
             client_name: project.clientName,
             link: dynamicLink,
             count: project.maxPhotos.toString(),
-            max_photos: project.maxPhotos.toString(), // backward compatibility
-            duration: duration
+            max_photos: project.maxPhotos.toString() // backward compatibility
         }
 
         // Add password only if set
         if (project.password) {
             variables.password = project.password
+        }
+
+        // Add duration only if expiry is set
+        if (project.expiresAt) {
+            const now = Date.now()
+            const diff = project.expiresAt - now
+            if (diff > 0) {
+                const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+                if (days > 0) {
+                    variables.duration = `${days} ${t('days')}`
+                } else if (hours > 0) {
+                    variables.duration = `${hours} ${t('hours')}`
+                } else {
+                    variables.duration = t('lessThanHour')
+                }
+            }
+        }
+
+        // Add download duration if set
+        if (project.downloadExpiresAt) {
+            const now = Date.now()
+            const diff = project.downloadExpiresAt - now
+            if (diff > 0) {
+                const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+                if (days > 0) {
+                    variables.download_duration = `${days} ${t('days')}`
+                } else if (hours > 0) {
+                    variables.download_duration = `${hours} ${t('hours')}`
+                } else {
+                    variables.download_duration = t('lessThanHour')
+                }
+            }
         }
 
         const message = compileMessage(templates.reminderLink, variables, false)
@@ -382,7 +414,7 @@ export function ProjectList({
             const fallbackMessage = t('waReminderMessage', {
                 name: project.clientName,
                 link: dynamicLink,
-                duration: duration
+                duration: variables.duration || formatExpiry(project.expiresAt)
             })
             window.open(`https://wa.me/${clientWa}?text=${encodeURIComponent(fallbackMessage)}`, '_blank')
         } else {
