@@ -426,11 +426,7 @@ export function ProjectList({
             if (variables.password) {
                 fallbackMessage += `\n\n🔐 Password: ${variables.password}`
             }
-            // Append selection duration if available
-            if (variables.duration) {
-                fallbackMessage += `\n⏰ ${locale === 'id' ? 'Berlaku pilih foto' : 'Selection valid for'}: ${variables.duration}`
-            }
-            // Append download duration if available
+            // Append download duration if available (selection duration already in template as "Sisa waktu")
             if (variables.download_duration) {
                 fallbackMessage += `\n📥 ${locale === 'id' ? 'Berlaku download' : 'Download valid for'}: ${variables.download_duration}`
             }
