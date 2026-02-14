@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, DragEvent } from "react"
+import { useState, useEffect, useRef, DragEvent } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useTranslations, useLocale } from "next-intl"
 import { Plus, Trash2, ExternalLink, Copy, Clock, Users, MessageCircle, Edit, CheckSquare, Square, X, PlusCircle, Search, Loader2, Bell, FolderOpen, ArrowUpDown, Move, ChevronRight, Home, FolderPlus } from "lucide-react"
@@ -62,6 +62,17 @@ export function ProjectList({
 
     useEffect(() => {
         loadSettings()
+    }, [])
+
+    // Close sort menu on click outside
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (sortMenuRef.current && !sortMenuRef.current.contains(e.target as Node)) {
+                setShowSortMenu(false)
+            }
+        }
+        document.addEventListener('mousedown', handleClickOutside)
+        return () => document.removeEventListener('mousedown', handleClickOutside)
     }, [])
 
     const loadSettings = async () => {
@@ -146,7 +157,9 @@ export function ProjectList({
     const [customExtraExpiryLabel, setCustomExtraExpiryLabel] = useState<string | null>(null)
 
     // Folder states
-    const [sortByExpiry, setSortByExpiry] = useState(false)
+    const [sortByExpiry, setSortByExpiry] = useState<{ type: 'selection' | 'download'; direction: 'asc' | 'desc' } | null>(null)
+    const [showSortMenu, setShowSortMenu] = useState(false)
+    const sortMenuRef = useRef<HTMLDivElement>(null)
     const [selectedFolderIds, setSelectedFolderIds] = useState<string[]>([])
     const [showMoveDialog, setShowMoveDialog] = useState(false)
     const [showNewFolderDialog, setShowNewFolderDialog] = useState(false)
@@ -452,9 +465,12 @@ export function ProjectList({
 
         if (sortByExpiry) {
             result = [...result].sort((a, b) => {
-                const aExp = a.expiresAt ?? Infinity
-                const bExp = b.expiresAt ?? Infinity
-                return bExp - aExp // longest remaining first
+                const getExp = (p: Project) => sortByExpiry.type === 'download'
+                    ? (p.downloadExpiresAt ?? p.expiresAt ?? Infinity)
+                    : (p.expiresAt ?? Infinity)
+                const aExp = getExp(a)
+                const bExp = getExp(b)
+                return sortByExpiry.direction === 'asc' ? aExp - bExp : bExp - aExp
             })
         }
         return result
@@ -697,10 +713,33 @@ export function ProjectList({
                         </>
                     ) : (
                         <>
-                            <Button onClick={() => setSortByExpiry(!sortByExpiry)} size="sm" variant={sortByExpiry ? "default" : "outline"} className="gap-2 cursor-pointer">
-                                <ArrowUpDown className="h-4 w-4" />
-                                {t('sortByExpiry')}
-                            </Button>
+                            <div className="relative" ref={sortMenuRef}>
+                                <Button onClick={() => sortByExpiry ? setSortByExpiry(null) : setShowSortMenu(!showSortMenu)} size="sm" variant={sortByExpiry ? "default" : "outline"} className="gap-2 cursor-pointer">
+                                    <ArrowUpDown className="h-4 w-4" />
+                                    {sortByExpiry
+                                        ? `${sortByExpiry.type === 'download' ? t('downloadDuration') : t('selectionDuration')} ${sortByExpiry.direction === 'asc' ? '↑' : '↓'}`
+                                        : t('sortByExpiry')}
+                                </Button>
+                                {showSortMenu && (
+                                    <div className="absolute top-full mt-1 left-0 z-50 bg-popover border border-border rounded-lg shadow-lg p-1 min-w-[220px]">
+                                        <p className="px-3 py-1.5 text-xs font-medium text-muted-foreground">{t('selectionDuration')}</p>
+                                        <button className="w-full text-left px-3 py-2 text-sm rounded-md hover:bg-accent cursor-pointer flex items-center gap-2" onClick={() => { setSortByExpiry({ type: 'selection', direction: 'asc' }); setShowSortMenu(false) }}>
+                                            ↑ {t('sortAscending')}
+                                        </button>
+                                        <button className="w-full text-left px-3 py-2 text-sm rounded-md hover:bg-accent cursor-pointer flex items-center gap-2" onClick={() => { setSortByExpiry({ type: 'selection', direction: 'desc' }); setShowSortMenu(false) }}>
+                                            ↓ {t('sortDescending')}
+                                        </button>
+                                        <div className="border-t border-border my-1" />
+                                        <p className="px-3 py-1.5 text-xs font-medium text-muted-foreground">{t('downloadDuration')}</p>
+                                        <button className="w-full text-left px-3 py-2 text-sm rounded-md hover:bg-accent cursor-pointer flex items-center gap-2" onClick={() => { setSortByExpiry({ type: 'download', direction: 'asc' }); setShowSortMenu(false) }}>
+                                            ↑ {t('sortAscending')}
+                                        </button>
+                                        <button className="w-full text-left px-3 py-2 text-sm rounded-md hover:bg-accent cursor-pointer flex items-center gap-2" onClick={() => { setSortByExpiry({ type: 'download', direction: 'desc' }); setShowSortMenu(false) }}>
+                                            ↓ {t('sortDescending')}
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
                             <Button onClick={() => setIsSelectMode(true)} size="sm" variant="outline" className="gap-2 cursor-pointer">
                                 <CheckSquare className="h-4 w-4" />
                                 {t('manage')}

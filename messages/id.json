@@ -139,6 +139,8 @@
         "moveToFolder": "Pindah ke Folder",
         "rootFolder": "Beranda",
         "sortByExpiry": "Urutkan Expired",
+        "sortAscending": "Terdekat dulu",
+        "sortDescending": "Terjauh dulu",
         "projectCount": "{count} project",
         "generalTab": "Umum",
         "templatesTab": "Template Pesan",

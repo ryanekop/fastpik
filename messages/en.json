@@ -139,6 +139,8 @@
         "moveToFolder": "Move to Folder",
         "rootFolder": "Home",
         "sortByExpiry": "Sort by Expiry",
+        "sortAscending": "Nearest first",
+        "sortDescending": "Farthest first",
         "projectCount": "{count} projects",
         "generalTab": "General",
         "templatesTab": "Message Templates",

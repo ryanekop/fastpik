@@ -85,8 +85,8 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
             maxPhotos: editProject?.maxPhotos?.toString() || "",
             password: editProject?.password || "",
             detectSubfolders: editProject?.detectSubfolders || false,
-            expiryDays: "",
-            downloadExpiryDays: "",
+            expiryDays: isEditing ? "__keep__" : "",
+            downloadExpiryDays: isEditing ? "__keep__" : "",
             lockedPhotos: editProject?.lockedPhotos?.join("\n") || "",
         },
     })
@@ -154,8 +154,6 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
         setUpgradeRequired(false)
         try {
             const maxPhotosNum = parseInt(values.maxPhotos) || 1
-            const expiryDaysNum = values.expiryDays ? parseInt(values.expiryDays) : undefined
-            const downloadExpiryDaysNum = values.downloadExpiryDays ? parseInt(values.downloadExpiryDays) : undefined
             const lockedPhotosArray = values.lockedPhotos.split('\n').map(l => l.trim()).filter(l => l.length > 0)
 
             const projectId = isEditing && editProject ? editProject.id : generateShortId()
@@ -166,7 +164,7 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
                 ? `${origin}/${locale}/client/${vendorSlug}/${projectId}`
                 : `${origin}/${locale}/client/${projectId}`
 
-            const projectPayload: Project = {
+            const projectPayload: any = {
                 id: projectId,
                 clientName: values.clientName,
                 gdriveLink: values.gdriveLink,
@@ -178,10 +176,18 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
                 detectSubfolders: values.detectSubfolders,
                 lockedPhotos: lockedPhotosArray.length > 0 ? lockedPhotosArray : undefined,
                 createdAt: isEditing && editProject ? editProject.createdAt : Date.now(),
-                expiresAt: expiryDaysNum ? Date.now() + (expiryDaysNum * 24 * 60 * 60 * 1000) : null,
-                downloadExpiresAt: downloadExpiryDaysNum ? Date.now() + (downloadExpiryDaysNum * 24 * 60 * 60 * 1000) : null,
                 link: link,
                 folderId: isEditing && editProject ? editProject.folderId : (currentFolderId || null)
+            }
+
+            // Only include expiry fields if user actually changed them (not '__keep__')
+            if (values.expiryDays !== '__keep__') {
+                const expiryDaysNum = values.expiryDays ? parseInt(values.expiryDays) : undefined
+                projectPayload.expiresAt = expiryDaysNum ? Date.now() + (expiryDaysNum * 24 * 60 * 60 * 1000) : null
+            }
+            if (values.downloadExpiryDays !== '__keep__') {
+                const downloadExpiryDaysNum = values.downloadExpiryDays ? parseInt(values.downloadExpiryDays) : undefined
+                projectPayload.downloadExpiresAt = downloadExpiryDaysNum ? Date.now() + (downloadExpiryDaysNum * 24 * 60 * 60 * 1000) : null
             }
 
             if (isEditing && editProject) {
@@ -247,7 +253,20 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
         loadDefaultSettings()
     }
 
+    const getKeepLabel = (fieldName: 'expiryDays' | 'downloadExpiryDays') => {
+        if (fieldName === 'expiryDays') {
+            if (!editProject?.expiresAt) return `⏸️ ${t('forever')}`
+            const days = Math.max(0, Math.ceil((editProject.expiresAt - Date.now()) / (24 * 60 * 60 * 1000)))
+            return `⏸️ ${t('remainingTime')}: ${days} ${t('days')}`
+        } else {
+            if (!editProject?.downloadExpiresAt) return `⏸️ ${t('forever')}`
+            const days = Math.max(0, Math.ceil((editProject.downloadExpiresAt - Date.now()) / (24 * 60 * 60 * 1000)))
+            return `⏸️ ${t('remainingTime')}: ${days} ${t('days')}`
+        }
+    }
+
     const expiryOptions = [
+        ...(isEditing ? [{ value: "__keep__", label: `⏸️ — ${t('remainingTime')} —` }] : []),
         { value: "", label: `♾️ ${t('forever')}` },
         { value: "1", label: `1 ${t('days')}` },
         { value: "3", label: `3 ${t('days')}` },
@@ -324,7 +343,8 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
                                                 </div>
                                             )}
                                             <select className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer ${customExpiryLabel ? 'hidden' : ''}`} value={customExpiryLabel ? 'custom' : field.value} onChange={(e) => handleExpiryChange(e.target.value, 'expiryDays')}>
-                                                {expiryOptions.map(opt => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
+                                                {isEditing && <option value="__keep__">{getKeepLabel('expiryDays')}</option>}
+                                                {expiryOptions.filter(o => o.value !== '__keep__').map(opt => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
                                             </select>
                                         </div>
                                     </FormControl>
@@ -346,7 +366,8 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
                                                 </div>
                                             )}
                                             <select className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer ${customDownloadExpiryLabel ? 'hidden' : ''}`} value={customDownloadExpiryLabel ? 'custom' : field.value} onChange={(e) => handleExpiryChange(e.target.value, 'downloadExpiryDays')}>
-                                                {expiryOptions.map(opt => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
+                                                {isEditing && <option value="__keep__">{getKeepLabel('downloadExpiryDays')}</option>}
+                                                {expiryOptions.filter(o => o.value !== '__keep__').map(opt => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
                                             </select>
                                         </div>
                                     </FormControl>
