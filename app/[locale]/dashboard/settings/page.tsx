@@ -23,6 +23,7 @@ export default function SettingsPage() {
 
     const [defaultAdminWhatsapp, setDefaultAdminWhatsapp] = useState("")
     const [vendorName, setVendorName] = useState("")
+    const [dashboardDurationDisplay, setDashboardDurationDisplay] = useState<'selection' | 'download'>('selection')
 
     // Message Templates State
     const [tmplLinkInitial, setTmplLinkInitial] = useState({ id: "", en: "" })
@@ -54,6 +55,7 @@ export default function SettingsPage() {
             if (data) {
                 setDefaultAdminWhatsapp(data.default_admin_whatsapp || "")
                 setVendorName(data.vendor_name || "")
+                setDashboardDurationDisplay(data.dashboard_duration_display || 'selection')
                 if (data.msg_tmpl_link_initial) setTmplLinkInitial(data.msg_tmpl_link_initial)
                 if (data.msg_tmpl_link_extra) setTmplLinkExtra(data.msg_tmpl_link_extra)
                 if (data.msg_tmpl_result_initial) setTmplResultInitial(data.msg_tmpl_result_initial)
@@ -83,6 +85,7 @@ export default function SettingsPage() {
                     user_id: user.id,
                     default_admin_whatsapp: defaultAdminWhatsapp,
                     vendor_name: vendorName || null,
+                    dashboard_duration_display: dashboardDurationDisplay,
                     msg_tmpl_link_initial: tmplLinkInitial,
                     msg_tmpl_link_extra: tmplLinkExtra,
                     msg_tmpl_result_initial: tmplResultInitial,
@@ -175,6 +178,36 @@ export default function SettingsPage() {
                                                 …/client/<span className="font-bold">{vendorName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}</span>/xxxxx
                                             </p>
                                         )}
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>⏱️ {t('dashboardDurationDisplay')}</Label>
+                                        <div className="flex gap-4">
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    name="dashboardDuration"
+                                                    value="selection"
+                                                    checked={dashboardDurationDisplay === 'selection'}
+                                                    onChange={() => setDashboardDurationDisplay('selection')}
+                                                    className="accent-primary cursor-pointer"
+                                                />
+                                                <span className="text-sm">🖼️ {t('dashboardDurationSelection')}</span>
+                                            </label>
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    name="dashboardDuration"
+                                                    value="download"
+                                                    checked={dashboardDurationDisplay === 'download'}
+                                                    onChange={() => setDashboardDurationDisplay('download')}
+                                                    className="accent-primary cursor-pointer"
+                                                />
+                                                <span className="text-sm">📥 {t('dashboardDurationDownload')}</span>
+                                            </label>
+                                        </div>
+                                        <p className="text-xs text-muted-foreground">
+                                            {t('dashboardDurationHint')}
+                                        </p>
                                     </div>
                                 </CardContent>
                             </Card>

@@ -5,6 +5,7 @@ export interface Settings {
     defaultMaxPhotos: number
     defaultCountryCode: string
     defaultExpiryDays: number
+    dashboardDurationDisplay: 'selection' | 'download'
 }
 
 export async function getSettings(): Promise<Settings> {
@@ -20,14 +21,16 @@ export async function getSettings(): Promise<Settings> {
         return {
             defaultMaxPhotos: 10,
             defaultCountryCode: '+62',
-            defaultExpiryDays: 7
+            defaultExpiryDays: 7,
+            dashboardDurationDisplay: 'selection'
         }
     }
 
     return {
         defaultMaxPhotos: data.default_max_photos,
         defaultCountryCode: data.default_country_code,
-        defaultExpiryDays: data.default_expiry_days
+        defaultExpiryDays: data.default_expiry_days,
+        dashboardDurationDisplay: data.dashboard_duration_display || 'selection'
     }
 }
 
@@ -48,6 +51,7 @@ export async function updateSettings(settings: Partial<Settings>) {
     if (settings.defaultMaxPhotos !== undefined) dbData.default_max_photos = settings.defaultMaxPhotos
     if (settings.defaultCountryCode !== undefined) dbData.default_country_code = settings.defaultCountryCode
     if (settings.defaultExpiryDays !== undefined) dbData.default_expiry_days = settings.defaultExpiryDays
+    if (settings.dashboardDurationDisplay !== undefined) dbData.dashboard_duration_display = settings.dashboardDurationDisplay
 
     let error;
     if (count === 0) {

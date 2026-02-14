@@ -58,6 +58,7 @@ export function ProjectList({
         reminderLink: { id: string, en: string } | null
     }>({ initialLink: null, extraLink: null, reminderLink: null })
     const [vendorSlug, setVendorSlug] = useState<string | null>(null)
+    const [dashboardDurationDisplay, setDashboardDurationDisplay] = useState<'selection' | 'download'>('selection')
 
     useEffect(() => {
         loadSettings()
@@ -70,7 +71,7 @@ export function ProjectList({
 
             const { data } = await supabase
                 .from('settings')
-                .select('msg_tmpl_link_initial, msg_tmpl_link_extra, msg_tmpl_reminder, vendor_name')
+                .select('msg_tmpl_link_initial, msg_tmpl_link_extra, msg_tmpl_reminder, vendor_name, dashboard_duration_display')
                 .eq('user_id', user.id)
                 .maybeSingle()
 
@@ -84,6 +85,7 @@ export function ProjectList({
                     const slug = data.vendor_name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
                     setVendorSlug(slug)
                 }
+                setDashboardDurationDisplay(data.dashboard_duration_display || 'selection')
             }
         } catch (err) {
             console.error("Failed to load templates", err)
@@ -859,7 +861,7 @@ export function ProjectList({
                                                         </div>
                                                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
                                                             <span className="flex items-center gap-1 shrink-0">📸 {project.maxPhotos} {t('photo')}</span>
-                                                            <span className="flex items-center gap-1 shrink-0"><Clock className="h-3 w-3" /><ExpiryDisplay expiresAt={project.expiresAt} /></span>
+                                                            <span className="flex items-center gap-1 shrink-0"><Clock className="h-3 w-3" /><ExpiryDisplay expiresAt={dashboardDurationDisplay === 'download' ? (project.downloadExpiresAt ?? project.expiresAt) : project.expiresAt} /></span>
                                                         </div>
                                                         <p className="text-xs text-muted-foreground overflow-hidden text-ellipsis whitespace-nowrap block" style={{ maxWidth: 'min(100%, calc(100vw - 100px))' }}>🔗 {dynamicLink}</p>
                                                     </div>
