@@ -44,6 +44,13 @@ export function LoginForm() {
                 return
             }
 
+            // Remember Me: if NOT checked, mark session as browser-only
+            if (rememberMe) {
+                sessionStorage.removeItem('fastpik_session_only')
+            } else {
+                sessionStorage.setItem('fastpik_session_only', 'true')
+            }
+
             // Check device limit
             await checkDeviceLimit()
 

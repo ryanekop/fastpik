@@ -44,8 +44,35 @@ export function AdminShell({ children, latestChangelog }: AdminShellProps) {
 
     useEffect(() => {
         const getUser = async () => {
+            // Check if session should expire on browser close
+            const sessionOnly = sessionStorage.getItem('fastpik_session_only')
+            // If flag was set before but sessionStorage was cleared (browser restart),
+            // we can't detect that directly. Instead, we check: if user is logged in
+            // but there's NO session flag AND NO remember-me flag, sign out.
+            // The trick: sessionStorage is cleared on browser close.
+            // So if user logged in WITHOUT remember-me, the flag 'fastpik_session_only' was set.
+            // On browser reopen, sessionStorage is empty, so we need another way to know.
+            // Solution: always set a 'fastpik_session_active' flag on every page load.
+            // If session was "session only" and browser was closed, the flag disappears.
+
             const { data: { user } } = await supabase.auth.getUser()
             if (user) {
+                // Check if this is a "session only" login that survived a browser restart
+                // We detect this by checking if we previously set the session flag
+                const wasSessionOnly = localStorage.getItem('fastpik_session_only_user')
+                if (wasSessionOnly === user.id && sessionOnly !== 'true') {
+                    // Browser was closed and reopened — session flag gone, sign out
+                    localStorage.removeItem('fastpik_session_only_user')
+                    await supabase.auth.signOut()
+                    router.push(`/${locale}/dashboard/login`)
+                    return
+                }
+
+                // If session-only mode is active, persist the user id to localStorage
+                if (sessionOnly === 'true') {
+                    localStorage.setItem('fastpik_session_only_user', user.id)
+                }
+
                 setUserEmail(user.email || null)
                 // Extract name from email if no display name
                 const name = user.user_metadata?.full_name || user.email?.split('@')[0] || "Admin"
@@ -78,6 +105,8 @@ export function AdminShell({ children, latestChangelog }: AdminShellProps) {
 
     const handleLogout = async () => {
         setLoading(true)
+        sessionStorage.removeItem('fastpik_session_only')
+        localStorage.removeItem('fastpik_session_only_user')
         await supabase.auth.signOut()
         router.refresh()
         router.push(`/${locale}/dashboard/login`)
