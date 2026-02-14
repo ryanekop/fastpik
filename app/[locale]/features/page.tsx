@@ -11,7 +11,7 @@ import Image from 'next/image'
 import { motion } from "framer-motion"
 import {
     Link2, Zap, Smartphone, Moon, Lock, ArrowLeft, ArrowRight, Sparkles,
-    Download, ZoomIn, Hash, ImagePlus, Timer, Bell, Globe
+    Download, ZoomIn, Hash, ImagePlus, Timer, Bell, Globe, FolderOpen, GripVertical, MessageSquare
 } from "lucide-react"
 
 const coreFeatures = [
@@ -29,6 +29,9 @@ const additionalFeatures = [
     { icon: ImagePlus, titleKey: 'feature10Title', descKey: 'feature10Desc', color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
     { icon: Bell, titleKey: 'feature12Title', descKey: 'feature12Desc', color: 'text-rose-500', bg: 'bg-rose-500/10' },
     { icon: Globe, titleKey: 'feature13Title', descKey: 'feature13Desc', color: 'text-teal-500', bg: 'bg-teal-500/10' },
+    { icon: FolderOpen, titleKey: 'feature14Title', descKey: 'feature14Desc', color: 'text-sky-500', bg: 'bg-sky-500/10' },
+    { icon: GripVertical, titleKey: 'feature15Title', descKey: 'feature15Desc', color: 'text-violet-500', bg: 'bg-violet-500/10' },
+    { icon: MessageSquare, titleKey: 'feature16Title', descKey: 'feature16Desc', color: 'text-green-500', bg: 'bg-green-500/10' },
     { icon: Moon, titleKey: 'feature5Title', descKey: 'feature5Desc', color: 'text-indigo-500', bg: 'bg-indigo-500/10' },
 ]
 
@@ -88,7 +91,7 @@ export default function FeaturesPage() {
                         </Button>
                         <Badge variant="secondary">
                             <Sparkles className="h-3 w-3 mr-1" />
-                            12 {t('pageTitle').includes('Fitur') ? 'Fitur' : 'Features'}
+                            15 {t('pageTitle').includes('Fitur') ? 'Fitur' : 'Features'}
                         </Badge>
                         <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight">
                             {t('pageTitle')}
