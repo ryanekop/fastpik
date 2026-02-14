@@ -44,31 +44,28 @@ export function AdminShell({ children, latestChangelog }: AdminShellProps) {
 
     useEffect(() => {
         const getUser = async () => {
-            // Check if session should expire on browser close
-            const sessionOnly = sessionStorage.getItem('fastpik_session_only')
-            // If flag was set before but sessionStorage was cleared (browser restart),
-            // we can't detect that directly. Instead, we check: if user is logged in
-            // but there's NO session flag AND NO remember-me flag, sign out.
-            // The trick: sessionStorage is cleared on browser close.
-            // So if user logged in WITHOUT remember-me, the flag 'fastpik_session_only' was set.
-            // On browser reopen, sessionStorage is empty, so we need another way to know.
-            // Solution: always set a 'fastpik_session_active' flag on every page load.
-            // If session was "session only" and browser was closed, the flag disappears.
-
             const { data: { user } } = await supabase.auth.getUser()
             if (user) {
-                // Check if this is a "session only" login that survived a browser restart
-                // We detect this by checking if we previously set the session flag
+                // Check if this is a non-remembered session
                 const wasSessionOnly = localStorage.getItem('fastpik_session_only_user')
-                if (wasSessionOnly === user.id && sessionOnly !== 'true') {
-                    // Browser was closed and reopened — session flag gone, sign out
-                    localStorage.removeItem('fastpik_session_only_user')
-                    await supabase.auth.signOut()
-                    router.push(`/${locale}/dashboard/login`)
-                    return
+                if (wasSessionOnly === user.id) {
+                    const sessionFlag = sessionStorage.getItem('fastpik_session_only')
+                    const loginTime = parseInt(localStorage.getItem('fastpik_session_login_time') || '0')
+                    const twoHours = 2 * 60 * 60 * 1000
+
+                    // Sign out if: browser was closed (sessionFlag gone) OR 2 hours passed
+                    if (sessionFlag !== 'true' || (loginTime > 0 && Date.now() - loginTime > twoHours)) {
+                        localStorage.removeItem('fastpik_session_only_user')
+                        localStorage.removeItem('fastpik_session_login_time')
+                        sessionStorage.removeItem('fastpik_session_only')
+                        await supabase.auth.signOut()
+                        router.push(`/${locale}/dashboard/login`)
+                        return
+                    }
                 }
 
-                // If session-only mode is active, persist the user id to localStorage
+                // If session-only mode is active, persist the user id
+                const sessionOnly = sessionStorage.getItem('fastpik_session_only')
                 if (sessionOnly === 'true') {
                     localStorage.setItem('fastpik_session_only_user', user.id)
                 }
@@ -107,6 +104,7 @@ export function AdminShell({ children, latestChangelog }: AdminShellProps) {
         setLoading(true)
         sessionStorage.removeItem('fastpik_session_only')
         localStorage.removeItem('fastpik_session_only_user')
+        localStorage.removeItem('fastpik_session_login_time')
         await supabase.auth.signOut()
         router.refresh()
         router.push(`/${locale}/dashboard/login`)

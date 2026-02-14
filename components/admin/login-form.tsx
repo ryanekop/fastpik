@@ -44,11 +44,14 @@ export function LoginForm() {
                 return
             }
 
-            // Remember Me: if NOT checked, mark session as browser-only
+            // Remember Me: if NOT checked, mark session as temporary (2 hours)
             if (rememberMe) {
                 sessionStorage.removeItem('fastpik_session_only')
+                localStorage.removeItem('fastpik_session_only_user')
+                localStorage.removeItem('fastpik_session_login_time')
             } else {
                 sessionStorage.setItem('fastpik_session_only', 'true')
+                localStorage.setItem('fastpik_session_login_time', Date.now().toString())
             }
 
             // Check device limit
