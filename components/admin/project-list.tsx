@@ -127,8 +127,8 @@ export function ProjectList({
     const [extraExpiryDays, setExtraExpiryDays] = useState("7")
     const [isGeneratingExtra, setIsGeneratingExtra] = useState(false)
     const [showCustomExtraExpiryDialog, setShowCustomExtraExpiryDialog] = useState(false)
-    const [customExtraAmount, setCustomExtraAmount] = useState("")
-    const [customExtraUnit, setCustomExtraUnit] = useState<'days' | 'months'>('days')
+    const [customExtraMonths, setCustomExtraMonths] = useState("")
+    const [customExtraDays, setCustomExtraDays] = useState("")
     const [customExtraExpiryLabel, setCustomExtraExpiryLabel] = useState<string | null>(null)
 
     const formatExpiry = (expiresAt: number | null | undefined): string => {
@@ -541,8 +541,8 @@ export function ProjectList({
                             <label className="text-sm font-medium">⏰ {t('extraLinkDuration')}</label>
                             <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer" value={extraExpiryDays} onChange={(e) => {
                                 if (e.target.value === 'custom') {
-                                    setCustomExtraAmount('')
-                                    setCustomExtraUnit('days')
+                                    setCustomExtraMonths('')
+                                    setCustomExtraDays('')
                                     setShowCustomExtraExpiryDialog(true)
                                 } else {
                                     setExtraExpiryDays(e.target.value)
@@ -612,43 +612,43 @@ export function ProjectList({
                 <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
                     <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-background rounded-xl shadow-xl max-w-sm w-full p-6 space-y-4">
                         <h3 className="text-lg font-semibold">✏️ {t('customDuration')}</h3>
-                        <div className="space-y-3">
-                            <Input
-                                type="number"
-                                min="1"
-                                value={customExtraAmount}
-                                onChange={(e) => setCustomExtraAmount(e.target.value)}
-                                placeholder={t('customPlaceholder')}
-                                autoFocus
-                            />
-                            <div className="flex gap-2">
-                                <button
-                                    type="button"
-                                    className={`flex-1 py-2 px-3 rounded-md border text-sm font-medium transition-colors cursor-pointer ${customExtraUnit === 'days' ? 'bg-primary text-primary-foreground border-primary' : 'bg-background border-input hover:bg-accent'}`}
-                                    onClick={() => setCustomExtraUnit('days')}
-                                >
-                                    📅 {t('customDaysLabel')}
-                                </button>
-                                <button
-                                    type="button"
-                                    className={`flex-1 py-2 px-3 rounded-md border text-sm font-medium transition-colors cursor-pointer ${customExtraUnit === 'months' ? 'bg-primary text-primary-foreground border-primary' : 'bg-background border-input hover:bg-accent'}`}
-                                    onClick={() => setCustomExtraUnit('months')}
-                                >
-                                    🗓️ {t('customMonthsLabel')}
-                                </button>
+                        <div className="flex gap-3">
+                            <div className="flex-1 space-y-1">
+                                <label className="text-sm font-medium">🗓️ {t('customMonthsLabel')}</label>
+                                <Input
+                                    type="number"
+                                    min="0"
+                                    value={customExtraMonths}
+                                    onChange={(e) => setCustomExtraMonths(e.target.value)}
+                                    placeholder="0"
+                                    autoFocus
+                                />
+                            </div>
+                            <div className="flex-1 space-y-1">
+                                <label className="text-sm font-medium">📅 {t('customDaysLabel')}</label>
+                                <Input
+                                    type="number"
+                                    min="0"
+                                    value={customExtraDays}
+                                    onChange={(e) => setCustomExtraDays(e.target.value)}
+                                    placeholder="0"
+                                />
                             </div>
                         </div>
                         <div className="flex gap-2">
                             <Button variant="outline" className="flex-1 cursor-pointer" onClick={() => setShowCustomExtraExpiryDialog(false)}>{t('cancel')}</Button>
                             <Button className="flex-1 cursor-pointer" onClick={() => {
-                                const num = parseInt(customExtraAmount)
-                                if (!num || num <= 0) return
-                                const totalDays = customExtraUnit === 'months' ? num * 30 : num
-                                const label = `${num} ${customExtraUnit === 'months' ? t('customMonthsLabel') : t('customDaysLabel')}`
+                                const months = parseInt(customExtraMonths) || 0
+                                const days = parseInt(customExtraDays) || 0
+                                if (months <= 0 && days <= 0) return
+                                const totalDays = (months * 30) + days
+                                const parts: string[] = []
+                                if (months > 0) parts.push(`${months} ${t('customMonthsLabel')}`)
+                                if (days > 0) parts.push(`${days} ${t('customDaysLabel')}`)
                                 setExtraExpiryDays(totalDays.toString())
-                                setCustomExtraExpiryLabel(label)
+                                setCustomExtraExpiryLabel(parts.join(' '))
                                 setShowCustomExtraExpiryDialog(false)
-                            }} disabled={!customExtraAmount || parseInt(customExtraAmount) <= 0}>✓ OK</Button>
+                            }} disabled={(parseInt(customExtraMonths) || 0) <= 0 && (parseInt(customExtraDays) || 0) <= 0}>✓ OK</Button>
                         </div>
                     </motion.div>
                 </div>

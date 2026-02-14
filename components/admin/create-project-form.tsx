@@ -66,8 +66,8 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
     // Custom duration dialog states
     const [showCustomExpiryDialog, setShowCustomExpiryDialog] = useState(false)
     const [customExpiryTarget, setCustomExpiryTarget] = useState<'expiryDays' | 'downloadExpiryDays'>('expiryDays')
-    const [customAmount, setCustomAmount] = useState("")
-    const [customUnit, setCustomUnit] = useState<'days' | 'months'>('days')
+    const [customMonths, setCustomMonths] = useState("")
+    const [customDays, setCustomDays] = useState("")
     const [customExpiryLabel, setCustomExpiryLabel] = useState<string | null>(null)
     const [customDownloadExpiryLabel, setCustomDownloadExpiryLabel] = useState<string | null>(null)
 
@@ -259,8 +259,8 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
     const handleExpiryChange = (value: string, fieldName: 'expiryDays' | 'downloadExpiryDays') => {
         if (value === 'custom') {
             setCustomExpiryTarget(fieldName)
-            setCustomAmount("")
-            setCustomUnit('days')
+            setCustomMonths("")
+            setCustomDays("")
             setShowCustomExpiryDialog(true)
         } else {
             form.setValue(fieldName, value)
@@ -270,20 +270,18 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
     }
 
     const confirmCustomExpiry = () => {
-        const num = parseInt(customAmount)
-        if (!num || num <= 0) return
-        const totalDays = customUnit === 'months' ? num * 30 : num
-        const label = `${num} ${customUnit === 'months' ? t('customMonthsLabel') : t('customDaysLabel')}`
+        const months = parseInt(customMonths) || 0
+        const days = parseInt(customDays) || 0
+        if (months <= 0 && days <= 0) return
+        const totalDays = (months * 30) + days
+        const parts: string[] = []
+        if (months > 0) parts.push(`${months} ${t('customMonthsLabel')}`)
+        if (days > 0) parts.push(`${days} ${t('customDaysLabel')}`)
+        const label = parts.join(' ')
         form.setValue(customExpiryTarget, totalDays.toString())
         if (customExpiryTarget === 'expiryDays') setCustomExpiryLabel(label)
         else setCustomDownloadExpiryLabel(label)
         setShowCustomExpiryDialog(false)
-    }
-
-    const getDisplayLabel = (fieldName: 'expiryDays' | 'downloadExpiryDays', value: string) => {
-        const customLabel = fieldName === 'expiryDays' ? customExpiryLabel : customDownloadExpiryLabel
-        if (customLabel) return customLabel
-        return null
     }
 
     return (
@@ -318,7 +316,7 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
                                     <FormControl>
                                         <div className="relative">
                                             {customExpiryLabel && (
-                                                <div className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer" onClick={() => { setCustomExpiryTarget('expiryDays'); setCustomAmount(''); setCustomUnit('days'); setShowCustomExpiryDialog(true) }}>
+                                                <div className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer" onClick={() => { setCustomExpiryTarget('expiryDays'); setCustomMonths(''); setCustomDays(''); setShowCustomExpiryDialog(true) }}>
                                                     <span>✏️ {customExpiryLabel}</span>
                                                     <button type="button" className="text-muted-foreground hover:text-foreground ml-2" onClick={(e) => { e.stopPropagation(); form.setValue('expiryDays', ''); setCustomExpiryLabel(null) }}>✕</button>
                                                 </div>
@@ -340,7 +338,7 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
                                     <FormControl>
                                         <div className="relative">
                                             {customDownloadExpiryLabel && (
-                                                <div className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer" onClick={() => { setCustomExpiryTarget('downloadExpiryDays'); setCustomAmount(''); setCustomUnit('days'); setShowCustomExpiryDialog(true) }}>
+                                                <div className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer" onClick={() => { setCustomExpiryTarget('downloadExpiryDays'); setCustomMonths(''); setCustomDays(''); setShowCustomExpiryDialog(true) }}>
                                                     <span>✏️ {customDownloadExpiryLabel}</span>
                                                     <button type="button" className="text-muted-foreground hover:text-foreground ml-2" onClick={(e) => { e.stopPropagation(); form.setValue('downloadExpiryDays', ''); setCustomDownloadExpiryLabel(null) }}>✕</button>
                                                 </div>
@@ -450,35 +448,32 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
                     <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-background rounded-xl shadow-xl max-w-sm w-full p-6 space-y-4">
                         <h3 className="text-lg font-semibold">✏️ {t('customDuration')}</h3>
-                        <div className="space-y-3">
-                            <Input
-                                type="number"
-                                min="1"
-                                value={customAmount}
-                                onChange={(e) => setCustomAmount(e.target.value)}
-                                placeholder={t('customPlaceholder')}
-                                autoFocus
-                            />
-                            <div className="flex gap-2">
-                                <button
-                                    type="button"
-                                    className={`flex-1 py-2 px-3 rounded-md border text-sm font-medium transition-colors cursor-pointer ${customUnit === 'days' ? 'bg-primary text-primary-foreground border-primary' : 'bg-background border-input hover:bg-accent'}`}
-                                    onClick={() => setCustomUnit('days')}
-                                >
-                                    📅 {t('customDaysLabel')}
-                                </button>
-                                <button
-                                    type="button"
-                                    className={`flex-1 py-2 px-3 rounded-md border text-sm font-medium transition-colors cursor-pointer ${customUnit === 'months' ? 'bg-primary text-primary-foreground border-primary' : 'bg-background border-input hover:bg-accent'}`}
-                                    onClick={() => setCustomUnit('months')}
-                                >
-                                    🗓️ {t('customMonthsLabel')}
-                                </button>
+                        <div className="flex gap-3">
+                            <div className="flex-1 space-y-1">
+                                <label className="text-sm font-medium">🗓️ {t('customMonthsLabel')}</label>
+                                <Input
+                                    type="number"
+                                    min="0"
+                                    value={customMonths}
+                                    onChange={(e) => setCustomMonths(e.target.value)}
+                                    placeholder="0"
+                                    autoFocus
+                                />
+                            </div>
+                            <div className="flex-1 space-y-1">
+                                <label className="text-sm font-medium">📅 {t('customDaysLabel')}</label>
+                                <Input
+                                    type="number"
+                                    min="0"
+                                    value={customDays}
+                                    onChange={(e) => setCustomDays(e.target.value)}
+                                    placeholder="0"
+                                />
                             </div>
                         </div>
                         <div className="flex gap-2">
                             <Button type="button" variant="outline" className="flex-1 cursor-pointer" onClick={() => setShowCustomExpiryDialog(false)}>{t('cancel')}</Button>
-                            <Button type="button" className="flex-1 cursor-pointer" onClick={confirmCustomExpiry} disabled={!customAmount || parseInt(customAmount) <= 0}>✓ OK</Button>
+                            <Button type="button" className="flex-1 cursor-pointer" onClick={confirmCustomExpiry} disabled={(parseInt(customMonths) || 0) <= 0 && (parseInt(customDays) || 0) <= 0}>✓ OK</Button>
                         </div>
                     </motion.div>
                 </div>
