@@ -163,9 +163,11 @@ export function ProjectList({
     const [extraDownloadExpiryDays, setExtraDownloadExpiryDays] = useState("14")
     const [isGeneratingExtra, setIsGeneratingExtra] = useState(false)
     const [showCustomExtraExpiryDialog, setShowCustomExtraExpiryDialog] = useState(false)
+    const [customExtraTarget, setCustomExtraTarget] = useState<'selection' | 'download'>('selection')
     const [customExtraMonths, setCustomExtraMonths] = useState("")
     const [customExtraDays, setCustomExtraDays] = useState("")
     const [customExtraExpiryLabel, setCustomExtraExpiryLabel] = useState<string | null>(null)
+    const [customExtraDownloadExpiryLabel, setCustomExtraDownloadExpiryLabel] = useState<string | null>(null)
 
     // Folder states
     const [sortByExpiry, setSortByExpiry] = useState<{ type: 'selection' | 'download'; direction: 'asc' | 'desc' } | null>(null)
@@ -1081,39 +1083,65 @@ export function ProjectList({
                         </div>
                         <div className="space-y-2">
                             <label className="text-sm font-medium">⏰ {t('extraLinkDuration')}</label>
-                            <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer" value={extraExpiryDays} onChange={(e) => {
-                                if (e.target.value === 'custom') {
-                                    setCustomExtraMonths('')
-                                    setCustomExtraDays('')
-                                    setShowCustomExtraExpiryDialog(true)
-                                } else {
-                                    setExtraExpiryDays(e.target.value)
-                                    setCustomExtraExpiryLabel(null)
-                                }
-                            }}>
-                                <option value="1">1 {t('days')}</option>
-                                <option value="3">3 {t('days')}</option>
-                                <option value="5">5 {t('days')}</option>
-                                <option value="7">7 {t('days')}</option>
-                                <option value="14">14 {t('days')}</option>
-                                <option value="30">30 {t('days')}</option>
-                                <option value="custom">✏️ {t('custom')}</option>
-                            </select>
-                            {customExtraExpiryLabel && (
-                                <p className="text-xs text-muted-foreground mt-1">✏️ {t('custom')}: {customExtraExpiryLabel}</p>
-                            )}
+                            <div className="relative">
+                                {customExtraExpiryLabel && (
+                                    <div className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer" onClick={() => { setCustomExtraTarget('selection'); setCustomExtraMonths(''); setCustomExtraDays(''); setShowCustomExtraExpiryDialog(true) }}>
+                                        <span>✏️ {customExtraExpiryLabel}</span>
+                                        <button type="button" className="text-muted-foreground hover:text-foreground ml-2" onClick={(e) => { e.stopPropagation(); setExtraExpiryDays(''); setCustomExtraExpiryLabel(null) }}>✕</button>
+                                    </div>
+                                )}
+                                <select className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer ${customExtraExpiryLabel ? 'hidden' : ''}`} value={customExtraExpiryLabel ? 'custom' : extraExpiryDays} onChange={(e) => {
+                                    if (e.target.value === 'custom') {
+                                        setCustomExtraTarget('selection')
+                                        setCustomExtraMonths('')
+                                        setCustomExtraDays('')
+                                        setShowCustomExtraExpiryDialog(true)
+                                    } else {
+                                        setExtraExpiryDays(e.target.value)
+                                        setCustomExtraExpiryLabel(null)
+                                    }
+                                }}>
+                                    <option value="">♾️ {t('forever')}</option>
+                                    <option value="1">1 {t('days')}</option>
+                                    <option value="3">3 {t('days')}</option>
+                                    <option value="5">5 {t('days')}</option>
+                                    <option value="7">7 {t('days')}</option>
+                                    <option value="14">14 {t('days')}</option>
+                                    <option value="30">30 {t('days')}</option>
+                                    <option value="custom">✏️ {t('custom')}</option>
+                                </select>
+                            </div>
                         </div>
                         <div className="space-y-2">
                             <label className="text-sm font-medium">📥 {t('extraDownloadDuration')}</label>
-                            <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer" value={extraDownloadExpiryDays} onChange={(e) => setExtraDownloadExpiryDays(e.target.value)}>
-                                <option value="1">1 {t('days')}</option>
-                                <option value="3">3 {t('days')}</option>
-                                <option value="5">5 {t('days')}</option>
-                                <option value="7">7 {t('days')}</option>
-                                <option value="14">14 {t('days')}</option>
-                                <option value="30">30 {t('days')}</option>
-                                <option value="90">90 {t('days')}</option>
-                            </select>
+                            <div className="relative">
+                                {customExtraDownloadExpiryLabel && (
+                                    <div className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer" onClick={() => { setCustomExtraTarget('download'); setCustomExtraMonths(''); setCustomExtraDays(''); setShowCustomExtraExpiryDialog(true) }}>
+                                        <span>✏️ {customExtraDownloadExpiryLabel}</span>
+                                        <button type="button" className="text-muted-foreground hover:text-foreground ml-2" onClick={(e) => { e.stopPropagation(); setExtraDownloadExpiryDays(''); setCustomExtraDownloadExpiryLabel(null) }}>✕</button>
+                                    </div>
+                                )}
+                                <select className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer ${customExtraDownloadExpiryLabel ? 'hidden' : ''}`} value={customExtraDownloadExpiryLabel ? 'custom' : extraDownloadExpiryDays} onChange={(e) => {
+                                    if (e.target.value === 'custom') {
+                                        setCustomExtraTarget('download')
+                                        setCustomExtraMonths('')
+                                        setCustomExtraDays('')
+                                        setShowCustomExtraExpiryDialog(true)
+                                    } else {
+                                        setExtraDownloadExpiryDays(e.target.value)
+                                        setCustomExtraDownloadExpiryLabel(null)
+                                    }
+                                }}>
+                                    <option value="">♾️ {t('forever')}</option>
+                                    <option value="1">1 {t('days')}</option>
+                                    <option value="3">3 {t('days')}</option>
+                                    <option value="5">5 {t('days')}</option>
+                                    <option value="7">7 {t('days')}</option>
+                                    <option value="14">14 {t('days')}</option>
+                                    <option value="30">30 {t('days')}</option>
+                                    <option value="custom">✏️ {t('custom')}</option>
+                                </select>
+                            </div>
                         </div>
                         {!generatedExtraLink ? (
                             <Button onClick={generateExtraLink} className="w-full cursor-pointer" disabled={!extraPhotosCount || isGeneratingExtra}>
@@ -1222,8 +1250,13 @@ export function ProjectList({
                                 const parts: string[] = []
                                 if (months > 0) parts.push(`${months} ${t('customMonthsLabel')}`)
                                 if (days > 0) parts.push(`${days} ${t('customDaysLabel')}`)
-                                setExtraExpiryDays(totalDays.toString())
-                                setCustomExtraExpiryLabel(parts.join(' '))
+                                if (customExtraTarget === 'selection') {
+                                    setExtraExpiryDays(totalDays.toString())
+                                    setCustomExtraExpiryLabel(parts.join(' '))
+                                } else {
+                                    setExtraDownloadExpiryDays(totalDays.toString())
+                                    setCustomExtraDownloadExpiryLabel(parts.join(' '))
+                                }
                                 setShowCustomExtraExpiryDialog(false)
                             }} disabled={(parseInt(customExtraMonths) || 0) <= 0 && (parseInt(customExtraDays) || 0) <= 0}>✓ OK</Button>
                         </div>
