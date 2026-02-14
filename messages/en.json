@@ -96,6 +96,8 @@
         "copyLink": "Copy Link",
         "openLink": "Open Link",
         "sendToClient": "Send to Client WhatsApp",
+        "selectionValidFor": "Selection valid for",
+        "downloadValidFor": "Download valid for",
         "createNew": "Create New Project",
         "waClientLabel": "Client WhatsApp (for sending link)",
         "waAdminLabel": "Admin WhatsApp (for receiving results)",

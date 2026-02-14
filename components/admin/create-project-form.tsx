@@ -239,16 +239,44 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
         }
     }
 
+    const buildClientMessage = () => {
+        if (!generatedLink || !currentProject) return ''
+        let message = tc('waClientMessage', { name: currentProject.clientName, link: generatedLink, max: currentProject.maxPhotos.toString() })
+
+        if (currentProject.password) {
+            message += `\n\n🔐 Password: ${currentProject.password}`
+        }
+        if (currentProject.expiresAt) {
+            const diff = currentProject.expiresAt - Date.now()
+            if (diff > 0) {
+                const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+                const durationText = days > 0 ? `${days} ${t('days')}` : hours > 0 ? `${hours} ${t('hours')}` : t('lessThanHour')
+                message += `\n⏰ ${t('selectionValidFor')}: ${durationText}`
+            }
+        }
+        if (currentProject.downloadExpiresAt) {
+            const diff = currentProject.downloadExpiresAt - Date.now()
+            if (diff > 0) {
+                const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+                const durationText = days > 0 ? `${days} ${t('days')}` : hours > 0 ? `${hours} ${t('hours')}` : t('lessThanHour')
+                message += `\n📥 ${t('downloadValidFor')}: ${durationText}`
+            }
+        }
+        return message
+    }
+
     const sendToClient = () => {
         if (generatedLink && currentProject) {
-            const message = tc('waClientMessage', { name: currentProject.clientName, link: generatedLink, max: currentProject.maxPhotos.toString() })
+            const message = buildClientMessage()
             window.open(`https://wa.me/${currentProject.clientWhatsapp}?text=${encodeURIComponent(message)}`, '_blank')
         }
     }
 
     const copyTemplate = () => {
         if (generatedLink && currentProject) {
-            const message = tc('waClientMessage', { name: currentProject.clientName, link: generatedLink, max: currentProject.maxPhotos.toString() })
+            const message = buildClientMessage()
             if (navigator.clipboard && window.isSecureContext) {
                 navigator.clipboard.writeText(message)
                 setCopiedTemplate(true)

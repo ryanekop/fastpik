@@ -96,6 +96,8 @@
         "copyLink": "Salin Link",
         "openLink": "Buka Link",
         "sendToClient": "Kirim ke WhatsApp Klien",
+        "selectionValidFor": "Berlaku pilih foto",
+        "downloadValidFor": "Berlaku download",
         "createNew": "Buat Project Baru",
         "waClientLabel": "WhatsApp Klien (untuk kirim link)",
         "waAdminLabel": "WhatsApp Admin (untuk terima hasil)",
