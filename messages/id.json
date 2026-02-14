@@ -201,7 +201,8 @@
         "dashboardDurationDisplay": "Tampilan Durasi di Dashboard",
         "dashboardDurationSelection": "Durasi Link Pilih Foto",
         "dashboardDurationDownload": "Durasi Link Download",
-        "dashboardDurationHint": "Pilih durasi mana yang ditampilkan di setiap project card"
+        "dashboardDurationHint": "Pilih durasi mana yang ditampilkan di setiap project card",
+        "templateEmojiNotice": "Saat ini, pengiriman link yang mengandung emoji tidak didukung di WhatsApp Desktop. Gunakan aplikasi WhatsApp di iOS/Android untuk mengirim link, atau hindari penggunaan emoji pada template jika Anda menggunakan WhatsApp Desktop."
     },
     "Client": {
         "select": "Pilih",

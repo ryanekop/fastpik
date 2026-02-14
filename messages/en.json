@@ -201,7 +201,8 @@
         "dashboardDurationDisplay": "Dashboard Duration Display",
         "dashboardDurationSelection": "Selection Link Duration",
         "dashboardDurationDownload": "Download Link Duration",
-        "dashboardDurationHint": "Choose which duration to display on each project card"
+        "dashboardDurationHint": "Choose which duration to display on each project card",
+        "templateEmojiNotice": "Currently, sending links containing emojis is not supported on WhatsApp Desktop. Please use the WhatsApp app on iOS/Android to send links, or avoid using emojis in your templates if you are using WhatsApp Desktop."
     },
     "Client": {
         "select": "Select",

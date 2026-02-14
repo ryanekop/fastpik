@@ -15,6 +15,37 @@ export interface Changelog {
 
 const FALLBACK_CHANGELOGS = [
     {
+        id: 'v123',
+        version: '1.2.3',
+        release_date: '2026-02-14T00:00:00.000Z',
+        changes_en: [
+            {
+                category: "Features", items: [
+                    "Added \"Copy Template\" button next to WhatsApp send buttons — quickly copy the message template to clipboard",
+                    "Drag and drop folders into breadcrumbs to reorganize",
+                ]
+            },
+            {
+                category: "Improvements", items: [
+                    "\"Select All\" button now selects both projects and folders in manage mode",
+                ]
+            }
+        ],
+        changes_id: [
+            {
+                category: "Fitur", items: [
+                    "Menambahkan tombol \"Salin Template\" di samping tombol kirim WhatsApp — salin teks template pesan ke clipboard dengan cepat",
+                    "Drag and drop folder ke breadcrumb untuk mengorganisir",
+                ]
+            },
+            {
+                category: "Peningkatan", items: [
+                    "Tombol \"Pilih Semua\" sekarang memilih project dan folder sekaligus di mode kelola",
+                ]
+            }
+        ]
+    },
+    {
         id: 'v122',
         version: '1.2.2',
         release_date: '2026-02-13T00:00:00.000Z',
