@@ -118,6 +118,7 @@ function transformProjectFromDB(db: any): Project {
         createdAt: new Date(db.created_at).getTime(),
         link: db.link,
         lockedPhotos: db.locked_photos || [],
+        folderId: db.folder_id || null,
     }
 }
 
@@ -138,5 +139,6 @@ function transformProjectToDB(project: Project, userId: string) {
         created_at: new Date(project.createdAt).toISOString(),
         link: project.link,
         locked_photos: project.lockedPhotos || [],
+        folder_id: project.folderId || null,
     }
 }

@@ -17,9 +17,23 @@ CREATE TABLE IF NOT EXISTS projects (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   link TEXT NOT NULL,
   locked_photos TEXT[] DEFAULT '{}',
+  folder_id UUID REFERENCES folders(id) ON DELETE SET NULL,
   -- Legacy support columns (optional, kept for structure consistency with old local interface if needed)
   whatsapp TEXT
 );
+
+-- 1b. Create `folders` table for project organization (5-level nesting)
+CREATE TABLE IF NOT EXISTS folders (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  parent_id UUID REFERENCES folders(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_folders_user ON folders(user_id);
+CREATE INDEX IF NOT EXISTS idx_folders_parent ON folders(parent_id);
+CREATE INDEX IF NOT EXISTS idx_projects_folder ON projects(folder_id);
 
 -- 2. Create `settings` table
 CREATE TABLE IF NOT EXISTS settings (

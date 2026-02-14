@@ -50,9 +50,10 @@ interface CreateProjectFormProps {
     onProjectCreated?: (project: Project) => void
     editProject?: Project | null
     onEditComplete?: () => void
+    currentFolderId?: string | null
 }
 
-export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEditComplete }: CreateProjectFormProps) {
+export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEditComplete, currentFolderId }: CreateProjectFormProps) {
     const t = useTranslations('Admin')
     const tc = useTranslations('Client')
     const supabase = createClient()
@@ -179,7 +180,8 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
                 createdAt: isEditing && editProject ? editProject.createdAt : Date.now(),
                 expiresAt: expiryDaysNum ? Date.now() + (expiryDaysNum * 24 * 60 * 60 * 1000) : null,
                 downloadExpiresAt: downloadExpiryDaysNum ? Date.now() + (downloadExpiryDaysNum * 24 * 60 * 60 * 1000) : null,
-                link: link
+                link: link,
+                folderId: isEditing && editProject ? editProject.folderId : (currentFolderId || null)
             }
 
             if (isEditing && editProject) {

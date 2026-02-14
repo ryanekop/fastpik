@@ -2,6 +2,7 @@
 import { Suspense } from "react"
 import { getTranslations } from "next-intl/server"
 import { getProjects } from "@/lib/supabase/projects"
+import { getFolders } from "@/lib/supabase/folders"
 import { AdminShell } from "@/components/admin/admin-shell"
 import { ProjectListWrapper } from "@/components/admin/project-list-wrapper"
 import { Loader2 } from "lucide-react"
@@ -20,6 +21,7 @@ export default async function DashboardPage() {
     const t = await getTranslations('Admin')
     const locale = await getLocale()
     const projects = await getProjects()
+    const folders = await getFolders()
     const latestChangelog = await getLatestChangelog(locale)
 
     return (
@@ -33,7 +35,7 @@ export default async function DashboardPage() {
                 </div>
 
                 <Suspense fallback={<div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>}>
-                    <ProjectListWrapper initialProjects={projects} />
+                    <ProjectListWrapper initialProjects={projects} initialFolders={folders} />
                 </Suspense>
 
                 <div className="mt-8 pt-6 border-t text-center text-sm text-muted-foreground">

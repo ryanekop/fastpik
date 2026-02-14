@@ -16,6 +16,7 @@ export interface Project {
     createdAt: number
     link: string
     lockedPhotos?: string[] // List of previously selected photo filenames
+    folderId?: string | null // Folder ID for organization
     // Legacy support for old projects
     whatsapp?: string
 }
