@@ -113,6 +113,8 @@ export function ProjectList({
             Object.entries(variables).forEach(([key, val]) => {
                 msg = msg.replace(new RegExp(`{{${key}}}`, 'g'), val)
             })
+            // Remove any unreplaced variables (e.g. {{download_duration}} when not set)
+            msg = msg.replace(/{{(\w+)}}/g, '').replace(/\n{3,}/g, '\n\n').trim()
             return msg
         }
 
