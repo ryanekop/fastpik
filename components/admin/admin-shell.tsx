@@ -167,7 +167,7 @@ export function AdminShell({ children, latestChangelog }: AdminShellProps) {
                 </div>
             </header>
             <main className="flex-1 p-6 md:p-8 bg-muted/20">
-                <div className="mx-auto max-w-3xl">
+                <div className="mx-auto max-w-5xl">
                     {children}
                 </div>
             </main>
