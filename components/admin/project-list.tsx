@@ -145,8 +145,7 @@ export function ProjectList({
 
     // Folder states
     const [sortByExpiry, setSortByExpiry] = useState(false)
-    const [isMoveMode, setIsMoveMode] = useState(false)
-    const [moveSelectedIds, setMoveSelectedIds] = useState<string[]>([])
+    const [selectedFolderIds, setSelectedFolderIds] = useState<string[]>([])
     const [showMoveDialog, setShowMoveDialog] = useState(false)
     const [showNewFolderDialog, setShowNewFolderDialog] = useState(false)
     const [newFolderName, setNewFolderName] = useState("")
@@ -355,6 +354,13 @@ export function ProjectList({
     const cancelSelectMode = () => {
         setIsSelectMode(false)
         setSelectedIds([])
+        setSelectedFolderIds([])
+    }
+
+    const toggleSelectFolder = (folderId: string) => {
+        setSelectedFolderIds(prev =>
+            prev.includes(folderId) ? prev.filter(id => id !== folderId) : [...prev, folderId]
+        )
     }
 
     const openExtraPhotosDialog = (project: Project) => {
@@ -515,16 +521,17 @@ export function ProjectList({
 
     // Move projects to folder
     const handleMoveProjects = async (targetFolderId: string | null) => {
-        if (moveSelectedIds.length === 0) return
+        if (selectedIds.length === 0) return
         setIsFolderLoading(true)
         try {
             await fetch('/api/folders/move', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ projectIds: moveSelectedIds, folderId: targetFolderId })
+                body: JSON.stringify({ projectIds: selectedIds, folderId: targetFolderId })
             })
-            setMoveSelectedIds([])
-            setIsMoveMode(false)
+            setSelectedIds([])
+            setSelectedFolderIds([])
+            setIsSelectMode(false)
             setShowMoveDialog(false)
             onFoldersChanged()
         } catch (err) {
@@ -603,11 +610,7 @@ export function ProjectList({
         }
     }
 
-    const toggleMoveSelect = (projectId: string) => {
-        setMoveSelectedIds(prev =>
-            prev.includes(projectId) ? prev.filter(id => id !== projectId) : [...prev, projectId]
-        )
-    }
+    const totalSelected = selectedIds.length + selectedFolderIds.length
 
     // Build folder tree for move dialog
     const buildFolderTree = (parentId: string | null, depth: number): { id: string | null; name: string; depth: number }[] => {
@@ -644,26 +647,20 @@ export function ProjectList({
                 <h3 className="text-lg font-semibold flex items-center gap-2">
                     📋 {t('projectList')} ({projects.length})
                 </h3>
-                <div className="flex items-center gap-1.5 flex-wrap">
-                    {isMoveMode ? (
-                        <>
-                            <Button onClick={() => { if (moveSelectedIds.length > 0) setShowMoveDialog(true) }} size="sm" className="gap-2 cursor-pointer" disabled={moveSelectedIds.length === 0}>
-                                <Move className="h-4 w-4" />
-                                {t('moveToFolder')} ({moveSelectedIds.length})
-                            </Button>
-                            <Button onClick={() => { setIsMoveMode(false); setMoveSelectedIds([]) }} size="sm" variant="ghost" className="cursor-pointer">
-                                <X className="h-4 w-4" />
-                            </Button>
-                        </>
-                    ) : isSelectMode ? (
+                <div className="flex items-center gap-1.5 flex-wrap ml-auto">
+                    {isSelectMode ? (
                         <>
                             <Button onClick={toggleSelectAll} size="sm" variant="outline" className="gap-2 cursor-pointer">
-                                {selectedIds.length === projects.length ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
-                                {selectedIds.length === projects.length ? tc('clearSelection') : t('manage')}
+                                {selectedIds.length === filteredProjects.length ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
+                                {selectedIds.length === filteredProjects.length ? tc('clearSelection') : t('manage')}
                             </Button>
-                            <Button onClick={handleBatchDeleteClick} size="sm" variant="destructive" className="gap-2 cursor-pointer" disabled={selectedIds.length === 0}>
+                            <Button onClick={() => { if (selectedIds.length > 0) setShowMoveDialog(true) }} size="sm" variant="outline" className="gap-2 cursor-pointer" disabled={selectedIds.length === 0}>
+                                <Move className="h-4 w-4" />
+                                {t('moveProject')} ({selectedIds.length})
+                            </Button>
+                            <Button onClick={handleBatchDeleteClick} size="sm" variant="destructive" className="gap-2 cursor-pointer" disabled={totalSelected === 0}>
                                 <Trash2 className="h-4 w-4" />
-                                {t('delete')} ({selectedIds.length})
+                                {t('delete')} ({totalSelected})
                             </Button>
                             <Button onClick={cancelSelectMode} size="sm" variant="ghost" className="cursor-pointer">
                                 <X className="h-4 w-4" />
@@ -674,10 +671,6 @@ export function ProjectList({
                             <Button onClick={() => setSortByExpiry(!sortByExpiry)} size="sm" variant={sortByExpiry ? "default" : "outline"} className="gap-2 cursor-pointer">
                                 <ArrowUpDown className="h-4 w-4" />
                                 {t('sortByExpiry')}
-                            </Button>
-                            <Button onClick={() => setIsMoveMode(true)} size="sm" variant="outline" className="gap-2 cursor-pointer">
-                                <Move className="h-4 w-4" />
-                                {t('moveProject')}
                             </Button>
                             <Button onClick={() => setIsSelectMode(true)} size="sm" variant="outline" className="gap-2 cursor-pointer">
                                 <CheckSquare className="h-4 w-4" />
@@ -735,39 +728,6 @@ export function ProjectList({
                 </div>
             )}
 
-            {/* Folder Cards */}
-            {currentSubfolders.length > 0 && !searchQuery.trim() && (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                    {currentSubfolders.map((folder) => (
-                        <div
-                            key={folder.id}
-                            onDragOver={(e) => handleFolderDragOver(e, folder.id)}
-                            onDragLeave={handleFolderDragLeave}
-                            onDrop={(e) => handleFolderDrop(e, folder.id)}
-                            className={cn(
-                                "group relative flex items-center gap-2 p-3 rounded-lg border cursor-pointer hover:shadow-md transition-all bg-card",
-                                dragOverFolder === folder.id && "ring-2 ring-primary bg-primary/10"
-                            )}
-                            onClick={() => onNavigateToFolder(folder.id)}
-                        >
-                            <FolderOpen className="h-5 w-5 text-amber-500 shrink-0" />
-                            <div className="min-w-0 flex-1">
-                                <p className="font-medium truncate text-sm">{folder.name}</p>
-                                <p className="text-xs text-muted-foreground">{t('projectCount', { count: countProjectsInFolder(folder.id) })}</p>
-                            </div>
-                            <div className="absolute right-1 top-1 hidden group-hover:flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
-                                <Button size="icon" variant="ghost" className="h-6 w-6 cursor-pointer" title={t('renameFolder')} onClick={() => { setRenameFolderId(folder.id); setRenameFolderName(folder.name); setShowRenameFolderDialog(true) }}>
-                                    <Edit className="h-3 w-3" />
-                                </Button>
-                                <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive cursor-pointer" title={t('deleteFolder')} onClick={() => { setDeleteFolderId(folder.id); setShowDeleteFolderDialog(true) }}>
-                                    <Trash2 className="h-3 w-3" />
-                                </Button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )}
-
             {/* Search Bar */}
             <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -779,62 +739,122 @@ export function ProjectList({
                 />
             </div>
 
-            <div className="grid gap-3 overflow-hidden max-w-full">
-                <AnimatePresence mode="popLayout">
-                    {filteredProjects.map((project, index) => {
-                        const expired = isProjectExpired(project)
-                        const isSelected = selectedIds.includes(project.id)
-                        const isMoveSelected = moveSelectedIds.includes(project.id)
-                        const dynamicLink = buildProjectLink(project.id)
-                        return (
-                            <motion.div key={project.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -100 }} transition={{ delay: index * 0.05 }} className="overflow-hidden max-w-full" draggable={!isSelectMode && !isMoveMode} onDragStart={(e) => handleDragStart(e as any, project.id)}>
-                                <Card className={cn("overflow-hidden transition-all hover:shadow-md", expired && "opacity-60 border-destructive/30", isSelected && "border-primary bg-primary/5", isMoveSelected && "border-blue-500 bg-blue-50 dark:bg-blue-950/20", !isSelected && !isMoveSelected && !expired && project.lockedPhotos && project.lockedPhotos.length > 0 && "border-amber-400 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-600")}>
-                                    <CardContent className="p-4 overflow-hidden">
-                                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 w-full overflow-hidden">
-                                            {isMoveMode && (
-                                                <button onClick={() => toggleMoveSelect(project.id)} className="mt-1 cursor-pointer">
-                                                    {isMoveSelected ? <CheckSquare className="h-5 w-5 text-blue-500" /> : <Square className="h-5 w-5 text-muted-foreground" />}
-                                                </button>
-                                            )}
+            {/* Folder Section */}
+            {currentSubfolders.length > 0 && !searchQuery.trim() && (
+                <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                        <FolderOpen className="h-4 w-4" />
+                        <span>Folder</span>
+                        <div className="flex-1 border-t border-border/50" />
+                    </div>
+                    <div className="grid gap-3 overflow-hidden max-w-full">
+                        {currentSubfolders.map((folder) => (
+                            <div
+                                key={folder.id}
+                                onDragOver={(e) => handleFolderDragOver(e, folder.id)}
+                                onDragLeave={handleFolderDragLeave}
+                                onDrop={(e) => handleFolderDrop(e, folder.id)}
+                            >
+                                <Card className={cn(
+                                    "overflow-hidden transition-all hover:shadow-md cursor-pointer",
+                                    selectedFolderIds.includes(folder.id) && "border-primary bg-primary/5",
+                                    dragOverFolder === folder.id && "ring-2 ring-primary bg-primary/10"
+                                )}>
+                                    <CardContent className="p-4">
+                                        <div className="flex items-center gap-4 w-full">
                                             {isSelectMode && (
-                                                <button onClick={() => toggleSelect(project.id)} className="mt-1 cursor-pointer">
-                                                    {isSelected ? <CheckSquare className="h-5 w-5 text-primary" /> : <Square className="h-5 w-5 text-muted-foreground" />}
+                                                <button onClick={(e) => { e.stopPropagation(); toggleSelectFolder(folder.id) }} className="cursor-pointer">
+                                                    {selectedFolderIds.includes(folder.id) ? <CheckSquare className="h-5 w-5 text-primary" /> : <Square className="h-5 w-5 text-muted-foreground" />}
                                                 </button>
                                             )}
-                                            <div className="flex-1 min-w-0 space-y-1 overflow-hidden max-w-full">
-                                                <div className="flex items-center gap-2 overflow-hidden">
-                                                    <Users className="h-4 w-4 text-muted-foreground shrink-0" />
-                                                    <h4 className="font-semibold truncate flex-1 min-w-0 cursor-pointer hover:text-primary hover:underline transition-colors" onClick={() => onEditProject(project)} title={`Edit ${project.clientName}`}>{project.clientName}</h4>
-                                                    {project.lockedPhotos && project.lockedPhotos.length > 0 && (
-                                                        <span className="text-xs bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded shrink-0">📷 {t('extraPhotosBadge')}</span>
-                                                    )}
-                                                    {expired && <span className="text-xs bg-destructive/20 text-destructive px-2 py-0.5 rounded shrink-0">{t('expired')}</span>}
+                                            <div className="flex-1 min-w-0 flex items-center gap-3" onClick={() => onNavigateToFolder(folder.id)}>
+                                                <FolderOpen className="h-5 w-5 text-amber-500 shrink-0" />
+                                                <div className="min-w-0 flex-1">
+                                                    <h4 className="font-semibold truncate">{folder.name}</h4>
+                                                    <p className="text-sm text-muted-foreground">{t('projectCount', { count: countProjectsInFolder(folder.id) })}</p>
                                                 </div>
-                                                <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                                                    <span className="flex items-center gap-1 shrink-0">📸 {project.maxPhotos} {t('photo')}</span>
-                                                    <span className="flex items-center gap-1 shrink-0"><Clock className="h-3 w-3" /><ExpiryDisplay expiresAt={project.expiresAt} /></span>
-                                                </div>
-                                                <p className="text-xs text-muted-foreground overflow-hidden text-ellipsis whitespace-nowrap block" style={{ maxWidth: 'min(100%, calc(100vw - 100px))' }}>🔗 {dynamicLink}</p>
                                             </div>
-                                            {!isSelectMode && !isMoveMode && (
-                                                <div className="flex items-center gap-1 w-full sm:w-auto justify-end pt-2 sm:pt-0 border-t sm:border-t-0 mt-2 sm:mt-0 border-border/50">
-                                                    <Button size="icon" variant="ghost" onClick={() => copyLink(dynamicLink, project.id)} className="h-8 w-8 cursor-pointer" title={t('copyLink')}>{copiedId === project.id ? <span className="text-green-500 text-xs">✓</span> : <Copy className="h-4 w-4" />}</Button>
-                                                    <Button size="icon" variant="ghost" onClick={() => sendToClient(project)} className="h-8 w-8 cursor-pointer text-green-600 hover:text-green-700" disabled={expired} title={t('sendToClient')}><MessageCircle className="h-4 w-4" /></Button>
-                                                    <Button size="icon" variant="ghost" onClick={() => sendReminder(project)} className="h-8 w-8 cursor-pointer text-amber-600 hover:text-amber-700" disabled={expired || !project.expiresAt} title={t('sendReminder')}><Bell className="h-4 w-4" /></Button>
-                                                    <Button size="icon" variant="ghost" onClick={() => openLink(dynamicLink)} className="h-8 w-8 cursor-pointer" disabled={expired} title={t('openLink')}><ExternalLink className="h-4 w-4" /></Button>
-                                                    <Button size="icon" variant="ghost" onClick={() => onEditProject(project)} className="h-8 w-8 cursor-pointer text-blue-600 hover:text-blue-700" title={t('editProject')}><Edit className="h-4 w-4" /></Button>
-                                                    <Button size="icon" variant="ghost" onClick={() => openExtraPhotosDialog(project)} className="h-8 w-8 cursor-pointer text-amber-600 hover:text-amber-700" disabled={expired} title={t('addExtraPhotos')}><PlusCircle className="h-4 w-4" /></Button>
-                                                    <Button size="icon" variant="ghost" onClick={() => handleDeleteClick(project.id)} className="h-8 w-8 text-destructive hover:text-destructive cursor-pointer" title={t('delete')}><Trash2 className="h-4 w-4" /></Button>
+                                            {!isSelectMode && (
+                                                <div className="flex items-center gap-1">
+                                                    <Button size="icon" variant="ghost" className="h-8 w-8 cursor-pointer" title={t('renameFolder')} onClick={(e) => { e.stopPropagation(); setRenameFolderId(folder.id); setRenameFolderName(folder.name); setShowRenameFolderDialog(true) }}>
+                                                        <Edit className="h-4 w-4" />
+                                                    </Button>
+                                                    <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:text-destructive cursor-pointer" title={t('deleteFolder')} onClick={(e) => { e.stopPropagation(); setDeleteFolderId(folder.id); setShowDeleteFolderDialog(true) }}>
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
                                                 </div>
                                             )}
                                         </div>
                                     </CardContent>
                                 </Card>
-                            </motion.div>
-                        )
-                    })}
-                </AnimatePresence>
-            </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Project Section */}
+            {filteredProjects.length > 0 && (
+                <div className="space-y-2">
+                    {currentSubfolders.length > 0 && !searchQuery.trim() && (
+                        <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                            <Users className="h-4 w-4" />
+                            <span>Proyek</span>
+                            <div className="flex-1 border-t border-border/50" />
+                        </div>
+                    )}
+                    <div className="grid gap-3 overflow-hidden max-w-full">
+                        <AnimatePresence mode="popLayout">
+                            {filteredProjects.map((project, index) => {
+                                const expired = isProjectExpired(project)
+                                const isSelected = selectedIds.includes(project.id)
+                                const dynamicLink = buildProjectLink(project.id)
+                                return (
+                                    <motion.div key={project.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -100 }} transition={{ delay: index * 0.05 }} className="overflow-hidden max-w-full" draggable={!isSelectMode} onDragStart={(e) => handleDragStart(e as any, project.id)}>
+                                        <Card className={cn("overflow-hidden transition-all hover:shadow-md", expired && "opacity-60 border-destructive/30", isSelected && "border-primary bg-primary/5", !isSelected && !expired && project.lockedPhotos && project.lockedPhotos.length > 0 && "border-amber-400 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-600")}>
+                                            <CardContent className="p-4 overflow-hidden">
+                                                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 w-full overflow-hidden">
+                                                    {isSelectMode && (
+                                                        <button onClick={() => toggleSelect(project.id)} className="mt-1 cursor-pointer">
+                                                            {isSelected ? <CheckSquare className="h-5 w-5 text-primary" /> : <Square className="h-5 w-5 text-muted-foreground" />}
+                                                        </button>
+                                                    )}
+                                                    <div className="flex-1 min-w-0 space-y-1 overflow-hidden max-w-full">
+                                                        <div className="flex items-center gap-2 overflow-hidden">
+                                                            <Users className="h-4 w-4 text-muted-foreground shrink-0" />
+                                                            <h4 className="font-semibold truncate flex-1 min-w-0 cursor-pointer hover:text-primary hover:underline transition-colors" onClick={() => onEditProject(project)} title={`Edit ${project.clientName}`}>{project.clientName}</h4>
+                                                            {project.lockedPhotos && project.lockedPhotos.length > 0 && (
+                                                                <span className="text-xs bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded shrink-0">📷 {t('extraPhotosBadge')}</span>
+                                                            )}
+                                                            {expired && <span className="text-xs bg-destructive/20 text-destructive px-2 py-0.5 rounded shrink-0">{t('expired')}</span>}
+                                                        </div>
+                                                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                                            <span className="flex items-center gap-1 shrink-0">📸 {project.maxPhotos} {t('photo')}</span>
+                                                            <span className="flex items-center gap-1 shrink-0"><Clock className="h-3 w-3" /><ExpiryDisplay expiresAt={project.expiresAt} /></span>
+                                                        </div>
+                                                        <p className="text-xs text-muted-foreground overflow-hidden text-ellipsis whitespace-nowrap block" style={{ maxWidth: 'min(100%, calc(100vw - 100px))' }}>🔗 {dynamicLink}</p>
+                                                    </div>
+                                                    {!isSelectMode && (
+                                                        <div className="flex items-center gap-1 w-full sm:w-auto justify-end pt-2 sm:pt-0 border-t sm:border-t-0 mt-2 sm:mt-0 border-border/50">
+                                                            <Button size="icon" variant="ghost" onClick={() => copyLink(dynamicLink, project.id)} className="h-8 w-8 cursor-pointer" title={t('copyLink')}>{copiedId === project.id ? <span className="text-green-500 text-xs">✓</span> : <Copy className="h-4 w-4" />}</Button>
+                                                            <Button size="icon" variant="ghost" onClick={() => sendToClient(project)} className="h-8 w-8 cursor-pointer text-green-600 hover:text-green-700" disabled={expired} title={t('sendToClient')}><MessageCircle className="h-4 w-4" /></Button>
+                                                            <Button size="icon" variant="ghost" onClick={() => sendReminder(project)} className="h-8 w-8 cursor-pointer text-amber-600 hover:text-amber-700" disabled={expired || !project.expiresAt} title={t('sendReminder')}><Bell className="h-4 w-4" /></Button>
+                                                            <Button size="icon" variant="ghost" onClick={() => openLink(dynamicLink)} className="h-8 w-8 cursor-pointer" disabled={expired} title={t('openLink')}><ExternalLink className="h-4 w-4" /></Button>
+                                                            <Button size="icon" variant="ghost" onClick={() => onEditProject(project)} className="h-8 w-8 cursor-pointer text-blue-600 hover:text-blue-700" title={t('editProject')}><Edit className="h-4 w-4" /></Button>
+                                                            <Button size="icon" variant="ghost" onClick={() => openExtraPhotosDialog(project)} className="h-8 w-8 cursor-pointer text-amber-600 hover:text-amber-700" disabled={expired} title={t('addExtraPhotos')}><PlusCircle className="h-4 w-4" /></Button>
+                                                            <Button size="icon" variant="ghost" onClick={() => handleDeleteClick(project.id)} className="h-8 w-8 text-destructive hover:text-destructive cursor-pointer" title={t('delete')}><Trash2 className="h-4 w-4" /></Button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    </motion.div>
+                                )
+                            })}
+                        </AnimatePresence>
+                    </div>
+                </div>
+            )}
 
             <PopupDialog isOpen={showDeleteDialog} onClose={() => setShowDeleteDialog(false)} onConfirm={confirmDelete} title={t('confirmDelete')} message={t('confirmDeleteSingle')} type="danger" confirmText={isDeleting ? "Deleting..." : t('delete')} cancelText={t('cancel')} />
             <PopupDialog isOpen={showBatchDeleteDialog} onClose={() => setShowBatchDeleteDialog(false)} onConfirm={confirmBatchDelete} title={t('confirmDelete')} message={t('confirmDeleteMsg', { count: selectedIds.length })} type="danger" confirmText={isDeleting ? "Deleting..." : t('deleteSelected')} cancelText={t('cancel')} />
@@ -1033,7 +1053,7 @@ export function ProjectList({
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
                     <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-background rounded-xl shadow-xl max-w-sm w-full p-6 space-y-4">
                         <h3 className="text-lg font-semibold flex items-center gap-2"><Move className="h-5 w-5" /> {t('moveToFolder')}</h3>
-                        <p className="text-sm text-muted-foreground">{moveSelectedIds.length} project</p>
+                        <p className="text-sm text-muted-foreground">{selectedIds.length} project</p>
                         <div className="max-h-60 overflow-y-auto border rounded-lg">
                             {allFolderTree.map((item) => (
                                 <button
