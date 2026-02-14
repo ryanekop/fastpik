@@ -411,11 +411,23 @@ export function ProjectList({
         const message = compileMessage(templates.reminderLink, variables, false)
         if (!message || !templates.reminderLink?.id) {
             // Fallback to default if no custom template
-            const fallbackMessage = t('waReminderMessage', {
+            let fallbackMessage = t('waReminderMessage', {
                 name: project.clientName,
                 link: dynamicLink,
                 duration: variables.duration || formatExpiry(project.expiresAt)
             })
+            // Append password info if available
+            if (variables.password) {
+                fallbackMessage += `\n\n🔐 Password: ${variables.password}`
+            }
+            // Append selection duration if available
+            if (variables.duration) {
+                fallbackMessage += `\n⏰ ${locale === 'id' ? 'Berlaku pilih foto' : 'Selection valid for'}: ${variables.duration}`
+            }
+            // Append download duration if available
+            if (variables.download_duration) {
+                fallbackMessage += `\n📥 ${locale === 'id' ? 'Berlaku download' : 'Download valid for'}: ${variables.download_duration}`
+            }
             window.open(`https://wa.me/${clientWa}?text=${encodeURIComponent(fallbackMessage)}`, '_blank')
         } else {
             window.open(`https://wa.me/${clientWa}?text=${encodeURIComponent(message)}`, '_blank')
