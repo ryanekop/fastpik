@@ -1078,6 +1078,21 @@ export function ProjectList({
                                         if (days > 0) {
                                             variables.duration = `${days} ${t('days')}`
                                         }
+                                        if (extraPhotosProject?.downloadExpiresAt) {
+                                            const now = Date.now()
+                                            const diff = extraPhotosProject.downloadExpiresAt - now
+                                            if (diff > 0) {
+                                                const dlDays = Math.floor(diff / (1000 * 60 * 60 * 24))
+                                                const dlHours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+                                                if (dlDays > 0) {
+                                                    variables.download_duration = `${dlDays} ${t('days')}`
+                                                } else if (dlHours > 0) {
+                                                    variables.download_duration = `${dlHours} ${t('hours')}`
+                                                } else {
+                                                    variables.download_duration = t('lessThanHour')
+                                                }
+                                            }
+                                        }
                                         return compileMessage(templates.extraLink, variables, true)
                                     }
 

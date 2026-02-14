@@ -243,7 +243,8 @@ export default function SettingsPage() {
                                         { key: "link", label: t('varLink') },
                                         { key: "count", label: t('varExtraCount') },
                                         { key: "password", label: t('varPassword') },
-                                        { key: "duration", label: t('varDuration') }
+                                        { key: "duration", label: t('varDuration') },
+                                        { key: "download_duration", label: t('varDownloadDuration') }
                                     ]}
                                     value={tmplLinkExtra}
                                     onChange={setTmplLinkExtra}

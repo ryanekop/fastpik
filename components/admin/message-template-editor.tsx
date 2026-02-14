@@ -114,7 +114,8 @@ export function MessageTemplateEditor({
                             count: "50",
                             list: "IMG_001.jpg, IMG_002.jpg...",
                             password: "secret123",
-                            duration: "7 hari"
+                            duration: "7 hari",
+                            download_duration: "14 hari"
                         }
                         return mockData[key] || match
                     }) || "(Empty message)"}
