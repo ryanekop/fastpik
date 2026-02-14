@@ -228,7 +228,8 @@ export default function SettingsPage() {
                                         { key: "link", label: t('varLink') },
                                         { key: "count", label: t('varMaxPhotos') },
                                         { key: "password", label: t('varPassword') },
-                                        { key: "duration", label: t('varDuration') }
+                                        { key: "duration", label: t('varDuration') },
+                                        { key: "download_duration", label: t('varDownloadDuration') }
                                     ]}
                                     value={tmplLinkInitial}
                                     onChange={setTmplLinkInitial}
@@ -280,7 +281,8 @@ export default function SettingsPage() {
                                         { key: "link", label: t('varLink') },
                                         { key: "count", label: t('varMaxPhotos') },
                                         { key: "password", label: t('varPassword') },
-                                        { key: "duration", label: t('varDuration') }
+                                        { key: "duration", label: t('varDuration') },
+                                        { key: "download_duration", label: t('varDownloadDuration') }
                                     ]}
                                     value={tmplReminder}
                                     onChange={setTmplReminder}

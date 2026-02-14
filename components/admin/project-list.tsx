@@ -131,7 +131,11 @@ export function ProjectList({
         }
         // Append duration info if available
         if (variables.duration) {
-            fallback += `\n⏰ ${locale === 'id' ? 'Berlaku' : 'Valid for'}: ${variables.duration}`
+            fallback += `\n⏰ ${locale === 'id' ? 'Berlaku pilih foto' : 'Selection valid for'}: ${variables.duration}`
+        }
+        // Append download duration if available
+        if (variables.download_duration) {
+            fallback += `\n📥 ${locale === 'id' ? 'Berlaku download' : 'Download valid for'}: ${variables.download_duration}`
         }
         return fallback
     }
@@ -266,6 +270,23 @@ export function ProjectList({
             }
         }
 
+        // Add download duration if set
+        if (project.downloadExpiresAt) {
+            const now = Date.now()
+            const diff = project.downloadExpiresAt - now
+            if (diff > 0) {
+                const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+                if (days > 0) {
+                    variables.download_duration = `${days} ${t('days')}`
+                } else if (hours > 0) {
+                    variables.download_duration = `${hours} ${t('hours')}`
+                } else {
+                    variables.download_duration = t('lessThanHour')
+                }
+            }
+        }
+
         const message = compileMessage(templates.initialLink, variables, false)
         window.open(`https://wa.me/${clientWa}?text=${encodeURIComponent(message)}`, '_blank')
     }
@@ -293,6 +314,21 @@ export function ProjectList({
                     variables.duration = `${hours} ${t('hours')}`
                 } else {
                     variables.duration = t('lessThanHour')
+                }
+            }
+        }
+        if (project.downloadExpiresAt) {
+            const now = Date.now()
+            const diff = project.downloadExpiresAt - now
+            if (diff > 0) {
+                const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+                if (days > 0) {
+                    variables.download_duration = `${days} ${t('days')}`
+                } else if (hours > 0) {
+                    variables.download_duration = `${hours} ${t('hours')}`
+                } else {
+                    variables.download_duration = t('lessThanHour')
                 }
             }
         }
