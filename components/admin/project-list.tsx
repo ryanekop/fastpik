@@ -83,7 +83,7 @@ export function ProjectList({
 
             const { data } = await supabase
                 .from('settings')
-                .select('msg_tmpl_link_initial, msg_tmpl_link_extra, msg_tmpl_reminder, vendor_name, dashboard_duration_display')
+                .select('msg_tmpl_link_initial, msg_tmpl_link_extra, msg_tmpl_reminder, vendor_name, dashboard_duration_display, default_expiry_days, default_download_expiry_days')
                 .eq('user_id', user.id)
                 .maybeSingle()
 
@@ -98,6 +98,9 @@ export function ProjectList({
                     setVendorSlug(slug)
                 }
                 setDashboardDurationDisplay(data.dashboard_duration_display || 'selection')
+                // Load defaults for extra photos popup
+                if (data.default_expiry_days) setExtraExpiryDays(data.default_expiry_days.toString())
+                if (data.default_download_expiry_days) setExtraDownloadExpiryDays(data.default_download_expiry_days.toString())
             }
         } catch (err) {
             console.error("Failed to load templates", err)
@@ -157,6 +160,7 @@ export function ProjectList({
     const [lockedPhotosInput, setLockedPhotosInput] = useState("")
     const [generatedExtraLink, setGeneratedExtraLink] = useState<string | null>(null)
     const [extraExpiryDays, setExtraExpiryDays] = useState("7")
+    const [extraDownloadExpiryDays, setExtraDownloadExpiryDays] = useState("14")
     const [isGeneratingExtra, setIsGeneratingExtra] = useState(false)
     const [showCustomExtraExpiryDialog, setShowCustomExtraExpiryDialog] = useState(false)
     const [customExtraMonths, setCustomExtraMonths] = useState("")
@@ -542,6 +546,7 @@ export function ProjectList({
                 lockedPhotos: lockedPhotosArray.length > 0 ? lockedPhotosArray : undefined,
                 createdAt: Date.now(),
                 expiresAt: expiryDaysNum ? Date.now() + (expiryDaysNum * 24 * 60 * 60 * 1000) : undefined,
+                downloadExpiresAt: extraDownloadExpiryDays ? Date.now() + (parseInt(extraDownloadExpiryDays) * 24 * 60 * 60 * 1000) : undefined,
                 link: newLink
             }
 
@@ -1097,6 +1102,18 @@ export function ProjectList({
                             {customExtraExpiryLabel && (
                                 <p className="text-xs text-muted-foreground mt-1">✏️ {t('custom')}: {customExtraExpiryLabel}</p>
                             )}
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">📥 {t('extraDownloadDuration')}</label>
+                            <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer" value={extraDownloadExpiryDays} onChange={(e) => setExtraDownloadExpiryDays(e.target.value)}>
+                                <option value="1">1 {t('days')}</option>
+                                <option value="3">3 {t('days')}</option>
+                                <option value="5">5 {t('days')}</option>
+                                <option value="7">7 {t('days')}</option>
+                                <option value="14">14 {t('days')}</option>
+                                <option value="30">30 {t('days')}</option>
+                                <option value="90">90 {t('days')}</option>
+                            </select>
                         </div>
                         {!generatedExtraLink ? (
                             <Button onClick={generateExtraLink} className="w-full cursor-pointer" disabled={!extraPhotosCount || isGeneratingExtra}>

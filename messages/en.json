@@ -128,6 +128,7 @@
         "previouslySelectedHint": "Paste list of photo filenames (one per line)",
         "generateExtraLink": "Generate Extra Link",
         "extraLinkDuration": "Link Duration",
+        "extraDownloadDuration": "Download Link Duration",
         "custom": "Custom",
         "customDuration": "Custom Duration",
         "customDaysLabel": "Days",
