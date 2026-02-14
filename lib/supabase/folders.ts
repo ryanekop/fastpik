@@ -91,3 +91,13 @@ export async function moveProjectsToFolder(projectIds: string[], folderId: strin
 
     if (error) throw error
 }
+
+export async function moveFolder(id: string, newParentId: string | null): Promise<void> {
+    const supabase = await createClient()
+    const { error } = await supabase
+        .from('folders')
+        .update({ parent_id: newParentId })
+        .eq('id', id)
+
+    if (error) throw error
+}

@@ -322,10 +322,14 @@ export function ProjectList({
     }
 
     const toggleSelectAll = () => {
-        if (selectedIds.length === projects.length) {
+        const allProjectIds = filteredProjects.map(p => p.id)
+        const allFolderIds = currentSubfolders.map(f => f.id)
+        if (selectedIds.length === allProjectIds.length && selectedFolderIds.length === allFolderIds.length) {
             setSelectedIds([])
+            setSelectedFolderIds([])
         } else {
-            setSelectedIds(projects.map(p => p.id))
+            setSelectedIds(allProjectIds)
+            setSelectedFolderIds(allFolderIds)
         }
     }
 
@@ -560,9 +564,32 @@ export function ProjectList({
     const handleBreadcrumbDrop = async (e: DragEvent<HTMLButtonElement>, targetFolderId: string | null) => {
         e.preventDefault()
         setDragOverBreadcrumb(null)
-        const projectId = e.dataTransfer.getData('text/plain')
-        if (!projectId) return
-        // Don't move if already in this folder
+        const data = e.dataTransfer.getData('text/plain')
+        if (!data) return
+
+        // Check if dragging a folder
+        if (data.startsWith('folder:')) {
+            const folderId = data.replace('folder:', '')
+            // Don't move folder into itself
+            if (folderId === targetFolderId) return
+            setIsFolderLoading(true)
+            try {
+                await fetch(`/api/folders/${folderId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ parentId: targetFolderId })
+                })
+                onFoldersChanged()
+            } catch (err) {
+                console.error('Failed to move folder:', err)
+            } finally {
+                setIsFolderLoading(false)
+            }
+            return
+        }
+
+        // Otherwise it's a project
+        const projectId = data
         const project = projects.find(p => p.id === projectId)
         if (project && (project.folderId || null) === targetFolderId) return
         setIsFolderLoading(true)
@@ -651,8 +678,8 @@ export function ProjectList({
                     {isSelectMode ? (
                         <>
                             <Button onClick={toggleSelectAll} size="sm" variant="outline" className="gap-2 cursor-pointer">
-                                {selectedIds.length === filteredProjects.length ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
-                                {selectedIds.length === filteredProjects.length ? tc('clearSelection') : t('manage')}
+                                {(selectedIds.length === filteredProjects.length && selectedFolderIds.length === currentSubfolders.length && totalSelected > 0) ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
+                                {(selectedIds.length === filteredProjects.length && selectedFolderIds.length === currentSubfolders.length && totalSelected > 0) ? tc('clearSelection') : t('selectAll')}
                             </Button>
                             <Button onClick={() => { if (selectedIds.length > 0) setShowMoveDialog(true) }} size="sm" variant="outline" className="gap-2 cursor-pointer" disabled={selectedIds.length === 0}>
                                 <Move className="h-4 w-4" />
@@ -751,6 +778,8 @@ export function ProjectList({
                         {currentSubfolders.map((folder) => (
                             <div
                                 key={folder.id}
+                                draggable={!isSelectMode}
+                                onDragStart={(e) => { e.dataTransfer.setData('text/plain', `folder:${folder.id}`); e.dataTransfer.effectAllowed = 'move' }}
                                 onDragOver={(e) => handleFolderDragOver(e, folder.id)}
                                 onDragLeave={handleFolderDragLeave}
                                 onDrop={(e) => handleFolderDrop(e, folder.id)}

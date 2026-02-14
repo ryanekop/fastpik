@@ -135,6 +135,7 @@
         "deleteFolder": "Hapus Folder",
         "confirmDeleteFolder": "Hapus folder ini? Project di dalamnya akan dipindah ke folder induk.",
         "moveProject": "Pindahkan",
+        "selectAll": "Pilih Semua",
         "moveToFolder": "Pindah ke Folder",
         "rootFolder": "Beranda",
         "sortByExpiry": "Urutkan Expired",

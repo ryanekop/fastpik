@@ -135,6 +135,7 @@
         "deleteFolder": "Delete Folder",
         "confirmDeleteFolder": "Delete this folder? Projects inside will be moved to the parent.",
         "moveProject": "Move",
+        "selectAll": "Select All",
         "moveToFolder": "Move to Folder",
         "rootFolder": "Home",
         "sortByExpiry": "Sort by Expiry",

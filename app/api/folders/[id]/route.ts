@@ -1,18 +1,23 @@
 import { NextResponse } from 'next/server'
-import { renameFolder, deleteFolder } from '@/lib/supabase/folders'
+import { renameFolder, deleteFolder, moveFolder } from '@/lib/supabase/folders'
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
     try {
         const { id } = await params
-        const { name } = await request.json()
-        if (!name?.trim()) {
-            return NextResponse.json({ error: 'Folder name is required' }, { status: 400 })
+        const body = await request.json()
+
+        // Support both rename and move operations
+        if (body.name?.trim()) {
+            await renameFolder(id, body.name.trim())
         }
-        await renameFolder(id, name.trim())
+        if ('parentId' in body) {
+            await moveFolder(id, body.parentId)
+        }
+
         return NextResponse.json({ success: true })
     } catch (error) {
-        console.error('Failed to rename folder:', error)
-        return NextResponse.json({ error: 'Failed to rename folder' }, { status: 500 })
+        console.error('Failed to update folder:', error)
+        return NextResponse.json({ error: 'Failed to update folder' }, { status: 500 })
     }
 }
 
