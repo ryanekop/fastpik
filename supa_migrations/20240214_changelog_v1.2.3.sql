@@ -1,8 +1,8 @@
--- Changelog v1.2.1
+-- Changelog v1.2.3
 INSERT INTO changelogs (version, release_date, changes_en, changes_id)
 VALUES
 (
-    '1.2.1',
+    '1.2.3',
     NOW(),
     '[
         {"category": "Features", "items": [
