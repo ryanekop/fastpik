@@ -28,6 +28,12 @@ export default function SettingsPage() {
     const [defaultExpiryDays, setDefaultExpiryDays] = useState("")
     const [defaultDownloadExpiryDays, setDefaultDownloadExpiryDays] = useState("")
     const [defaultPassword, setDefaultPassword] = useState("")
+    const [showCustomDefaultExpiryDialog, setShowCustomDefaultExpiryDialog] = useState(false)
+    const [customDefaultExpiryTarget, setCustomDefaultExpiryTarget] = useState<'selection' | 'download'>('selection')
+    const [customDefaultMonths, setCustomDefaultMonths] = useState("")
+    const [customDefaultDays, setCustomDefaultDays] = useState("")
+    const [customDefaultExpiryLabel, setCustomDefaultExpiryLabel] = useState<string | null>(null)
+    const [customDefaultDownloadExpiryLabel, setCustomDefaultDownloadExpiryLabel] = useState<string | null>(null)
 
     // Message Templates State
     const [tmplLinkInitial, setTmplLinkInitial] = useState({ id: "", en: "" })
@@ -254,37 +260,73 @@ export default function SettingsPage() {
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div className="space-y-2">
                                             <Label>⏰ {t('defaultSelectionDuration')}</Label>
-                                            <select
-                                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer"
-                                                value={defaultExpiryDays}
-                                                onChange={(e) => setDefaultExpiryDays(e.target.value)}
-                                            >
-                                                <option value="">{t('defaultDurationNone')}</option>
-                                                <option value="1">1 {t('days')}</option>
-                                                <option value="3">3 {t('days')}</option>
-                                                <option value="5">5 {t('days')}</option>
-                                                <option value="7">7 {t('days')}</option>
-                                                <option value="14">14 {t('days')}</option>
-                                                <option value="30">30 {t('days')}</option>
-                                                <option value="90">90 {t('days')}</option>
-                                            </select>
+                                            <div className="relative">
+                                                {customDefaultExpiryLabel && (
+                                                    <div className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer" onClick={() => { setCustomDefaultExpiryTarget('selection'); setCustomDefaultMonths(''); setCustomDefaultDays(''); setShowCustomDefaultExpiryDialog(true) }}>
+                                                        <span>✏️ {customDefaultExpiryLabel}</span>
+                                                        <button type="button" className="text-muted-foreground hover:text-foreground ml-2" onClick={(e) => { e.stopPropagation(); setDefaultExpiryDays(''); setCustomDefaultExpiryLabel(null) }}>✕</button>
+                                                    </div>
+                                                )}
+                                                <select
+                                                    className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer ${customDefaultExpiryLabel ? 'hidden' : ''}`}
+                                                    value={customDefaultExpiryLabel ? 'custom' : defaultExpiryDays}
+                                                    onChange={(e) => {
+                                                        if (e.target.value === 'custom') {
+                                                            setCustomDefaultExpiryTarget('selection')
+                                                            setCustomDefaultMonths('')
+                                                            setCustomDefaultDays('')
+                                                            setShowCustomDefaultExpiryDialog(true)
+                                                        } else {
+                                                            setDefaultExpiryDays(e.target.value)
+                                                            setCustomDefaultExpiryLabel(null)
+                                                        }
+                                                    }}
+                                                >
+                                                    <option value="">♾️ {t('forever')}</option>
+                                                    <option value="1">1 {t('days')}</option>
+                                                    <option value="3">3 {t('days')}</option>
+                                                    <option value="5">5 {t('days')}</option>
+                                                    <option value="7">7 {t('days')}</option>
+                                                    <option value="14">14 {t('days')}</option>
+                                                    <option value="30">30 {t('days')}</option>
+                                                    <option value="custom">✏️ {t('custom')}</option>
+                                                </select>
+                                            </div>
                                         </div>
                                         <div className="space-y-2">
                                             <Label>📥 {t('defaultDownloadDuration')}</Label>
-                                            <select
-                                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer"
-                                                value={defaultDownloadExpiryDays}
-                                                onChange={(e) => setDefaultDownloadExpiryDays(e.target.value)}
-                                            >
-                                                <option value="">{t('defaultDurationNone')}</option>
-                                                <option value="1">1 {t('days')}</option>
-                                                <option value="3">3 {t('days')}</option>
-                                                <option value="5">5 {t('days')}</option>
-                                                <option value="7">7 {t('days')}</option>
-                                                <option value="14">14 {t('days')}</option>
-                                                <option value="30">30 {t('days')}</option>
-                                                <option value="90">90 {t('days')}</option>
-                                            </select>
+                                            <div className="relative">
+                                                {customDefaultDownloadExpiryLabel && (
+                                                    <div className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer" onClick={() => { setCustomDefaultExpiryTarget('download'); setCustomDefaultMonths(''); setCustomDefaultDays(''); setShowCustomDefaultExpiryDialog(true) }}>
+                                                        <span>✏️ {customDefaultDownloadExpiryLabel}</span>
+                                                        <button type="button" className="text-muted-foreground hover:text-foreground ml-2" onClick={(e) => { e.stopPropagation(); setDefaultDownloadExpiryDays(''); setCustomDefaultDownloadExpiryLabel(null) }}>✕</button>
+                                                    </div>
+                                                )}
+                                                <select
+                                                    className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer ${customDefaultDownloadExpiryLabel ? 'hidden' : ''}`}
+                                                    value={customDefaultDownloadExpiryLabel ? 'custom' : defaultDownloadExpiryDays}
+                                                    onChange={(e) => {
+                                                        if (e.target.value === 'custom') {
+                                                            setCustomDefaultExpiryTarget('download')
+                                                            setCustomDefaultMonths('')
+                                                            setCustomDefaultDays('')
+                                                            setShowCustomDefaultExpiryDialog(true)
+                                                        } else {
+                                                            setDefaultDownloadExpiryDays(e.target.value)
+                                                            setCustomDefaultDownloadExpiryLabel(null)
+                                                        }
+                                                    }}
+                                                >
+                                                    <option value="">♾️ {t('forever')}</option>
+                                                    <option value="1">1 {t('days')}</option>
+                                                    <option value="3">3 {t('days')}</option>
+                                                    <option value="5">5 {t('days')}</option>
+                                                    <option value="7">7 {t('days')}</option>
+                                                    <option value="14">14 {t('days')}</option>
+                                                    <option value="30">30 {t('days')}</option>
+                                                    <option value="custom">✏️ {t('custom')}</option>
+                                                </select>
+                                            </div>
                                         </div>
                                     </div>
                                     <p className="text-xs text-muted-foreground">{t('defaultProjectHint')}</p>
@@ -402,6 +444,57 @@ export default function SettingsPage() {
                     <p>{t('footer')} <a href="https://instagram.com/ryanekopram" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">@ryanekopram</a> & <a href="https://instagram.com/ryaneko.apps" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">@ryaneko.apps</a></p>
                 </div>
             </div>
+
+            {showCustomDefaultExpiryDialog && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                    <div className="bg-background rounded-xl shadow-xl max-w-sm w-full p-6 space-y-4">
+                        <h3 className="text-lg font-semibold">✏️ {t('customDuration')}</h3>
+                        <div className="flex gap-3">
+                            <div className="flex-1 space-y-1">
+                                <label className="text-sm font-medium">🗓️ {t('customMonthsLabel')}</label>
+                                <Input
+                                    type="number"
+                                    min="0"
+                                    value={customDefaultMonths}
+                                    onChange={(e) => setCustomDefaultMonths(e.target.value)}
+                                    placeholder="0"
+                                    autoFocus
+                                />
+                            </div>
+                            <div className="flex-1 space-y-1">
+                                <label className="text-sm font-medium">📅 {t('customDaysLabel')}</label>
+                                <Input
+                                    type="number"
+                                    min="0"
+                                    value={customDefaultDays}
+                                    onChange={(e) => setCustomDefaultDays(e.target.value)}
+                                    placeholder="0"
+                                />
+                            </div>
+                        </div>
+                        <div className="flex gap-2">
+                            <Button variant="outline" className="flex-1 cursor-pointer" onClick={() => setShowCustomDefaultExpiryDialog(false)}>{t('cancel')}</Button>
+                            <Button className="flex-1 cursor-pointer" onClick={() => {
+                                const months = parseInt(customDefaultMonths) || 0
+                                const days = parseInt(customDefaultDays) || 0
+                                if (months <= 0 && days <= 0) return
+                                const totalDays = (months * 30) + days
+                                const parts: string[] = []
+                                if (months > 0) parts.push(`${months} ${t('customMonthsLabel')}`)
+                                if (days > 0) parts.push(`${days} ${t('customDaysLabel')}`)
+                                if (customDefaultExpiryTarget === 'selection') {
+                                    setDefaultExpiryDays(totalDays.toString())
+                                    setCustomDefaultExpiryLabel(parts.join(' '))
+                                } else {
+                                    setDefaultDownloadExpiryDays(totalDays.toString())
+                                    setCustomDefaultDownloadExpiryLabel(parts.join(' '))
+                                }
+                                setShowCustomDefaultExpiryDialog(false)
+                            }} disabled={(parseInt(customDefaultMonths) || 0) <= 0 && (parseInt(customDefaultDays) || 0) <= 0}>✓ OK</Button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </AdminShell>
     )
 }
