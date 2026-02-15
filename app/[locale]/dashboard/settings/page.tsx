@@ -67,8 +67,29 @@ export default function SettingsPage() {
                 setVendorName(data.vendor_name || "")
                 setDashboardDurationDisplay(data.dashboard_duration_display || 'selection')
                 setDefaultMaxPhotos(data.default_max_photos?.toString() || "")
-                setDefaultExpiryDays(data.default_expiry_days?.toString() || "")
-                setDefaultDownloadExpiryDays(data.default_download_expiry_days?.toString() || "")
+                const standardOptions = ['', '1', '3', '5', '7', '14', '30']
+                const expiryVal = data.default_expiry_days?.toString() || ""
+                setDefaultExpiryDays(expiryVal)
+                if (expiryVal && !standardOptions.includes(expiryVal)) {
+                    const days = data.default_expiry_days
+                    const months = Math.floor(days / 30)
+                    const remainDays = days % 30
+                    const parts: string[] = []
+                    if (months > 0) parts.push(`${months} ${t('customMonthsLabel')}`)
+                    if (remainDays > 0 || parts.length === 0) parts.push(`${remainDays > 0 ? remainDays : days} ${t('customDaysLabel')}`)
+                    setCustomDefaultExpiryLabel(parts.join(' '))
+                }
+                const dlExpiryVal = data.default_download_expiry_days?.toString() || ""
+                setDefaultDownloadExpiryDays(dlExpiryVal)
+                if (dlExpiryVal && !standardOptions.includes(dlExpiryVal)) {
+                    const days = data.default_download_expiry_days
+                    const months = Math.floor(days / 30)
+                    const remainDays = days % 30
+                    const parts: string[] = []
+                    if (months > 0) parts.push(`${months} ${t('customMonthsLabel')}`)
+                    if (remainDays > 0 || parts.length === 0) parts.push(`${remainDays > 0 ? remainDays : days} ${t('customDaysLabel')}`)
+                    setCustomDefaultDownloadExpiryLabel(parts.join(' '))
+                }
                 setDefaultPassword(data.default_password || "")
                 if (data.msg_tmpl_link_initial) setTmplLinkInitial(data.msg_tmpl_link_initial)
                 if (data.msg_tmpl_link_extra) setTmplLinkExtra(data.msg_tmpl_link_extra)

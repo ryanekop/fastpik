@@ -120,11 +120,33 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
             if (data?.default_max_photos) {
                 form.setValue('maxPhotos', data.default_max_photos.toString())
             }
+            const standardOptions = ['', '1', '3', '5', '7', '14', '30']
             if (data?.default_expiry_days) {
-                form.setValue('expiryDays', data.default_expiry_days.toString())
+                const val = data.default_expiry_days.toString()
+                form.setValue('expiryDays', val)
+                if (!standardOptions.includes(val)) {
+                    // Non-standard value = custom, generate label
+                    const days = data.default_expiry_days
+                    const months = Math.floor(days / 30)
+                    const remainDays = days % 30
+                    const parts: string[] = []
+                    if (months > 0) parts.push(`${months} ${t('customMonthsLabel')}`)
+                    if (remainDays > 0 || parts.length === 0) parts.push(`${remainDays > 0 ? remainDays : days} ${t('customDaysLabel')}`)
+                    setCustomExpiryLabel(parts.join(' '))
+                }
             }
             if (data?.default_download_expiry_days) {
-                form.setValue('downloadExpiryDays', data.default_download_expiry_days.toString())
+                const val = data.default_download_expiry_days.toString()
+                form.setValue('downloadExpiryDays', val)
+                if (!standardOptions.includes(val)) {
+                    const days = data.default_download_expiry_days
+                    const months = Math.floor(days / 30)
+                    const remainDays = days % 30
+                    const parts: string[] = []
+                    if (months > 0) parts.push(`${months} ${t('customMonthsLabel')}`)
+                    if (remainDays > 0 || parts.length === 0) parts.push(`${remainDays > 0 ? remainDays : days} ${t('customDaysLabel')}`)
+                    setCustomDownloadExpiryLabel(parts.join(' '))
+                }
             }
             if (data?.default_password) {
                 form.setValue('password', data.default_password)

@@ -99,8 +99,33 @@ export function ProjectList({
                 }
                 setDashboardDurationDisplay(data.dashboard_duration_display || 'selection')
                 // Load defaults for extra photos popup
-                if (data.default_expiry_days) setExtraExpiryDays(data.default_expiry_days.toString())
-                if (data.default_download_expiry_days) setExtraDownloadExpiryDays(data.default_download_expiry_days.toString())
+                const standardOptions = ['', '1', '3', '5', '7', '14', '30']
+                if (data.default_expiry_days) {
+                    const val = data.default_expiry_days.toString()
+                    setExtraExpiryDays(val)
+                    if (!standardOptions.includes(val)) {
+                        const days = data.default_expiry_days
+                        const months = Math.floor(days / 30)
+                        const remainDays = days % 30
+                        const parts: string[] = []
+                        if (months > 0) parts.push(`${months} ${t('customMonthsLabel')}`)
+                        if (remainDays > 0 || parts.length === 0) parts.push(`${remainDays > 0 ? remainDays : days} ${t('customDaysLabel')}`)
+                        setCustomExtraExpiryLabel(parts.join(' '))
+                    }
+                }
+                if (data.default_download_expiry_days) {
+                    const val = data.default_download_expiry_days.toString()
+                    setExtraDownloadExpiryDays(val)
+                    if (!standardOptions.includes(val)) {
+                        const days = data.default_download_expiry_days
+                        const months = Math.floor(days / 30)
+                        const remainDays = days % 30
+                        const parts: string[] = []
+                        if (months > 0) parts.push(`${months} ${t('customMonthsLabel')}`)
+                        if (remainDays > 0 || parts.length === 0) parts.push(`${remainDays > 0 ? remainDays : days} ${t('customDaysLabel')}`)
+                        setCustomExtraDownloadExpiryLabel(parts.join(' '))
+                    }
+                }
             }
         } catch (err) {
             console.error("Failed to load templates", err)
