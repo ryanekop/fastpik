@@ -155,7 +155,7 @@ export function LoginForm() {
                 <div className="mt-6 pt-6 border-t text-center space-y-3">
                     <p className="text-sm text-muted-foreground">{t('noAccount')}</p>
                     <Button variant="outline" className="w-full gap-2" asChild>
-                        <a href="https://instagram.com/ryaneko.apps/" target="_blank" rel="noopener noreferrer">
+                        <a href="https://instagram.com/ryanekoapps/" target="_blank" rel="noopener noreferrer">
                             <Instagram className="h-4 w-4" />
                             {t('contactAdmin')}
                         </a>
