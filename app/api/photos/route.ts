@@ -1,3 +1,5 @@
+export const runtime = 'edge';
+
 import { NextRequest, NextResponse } from 'next/server'
 import { photoCache, generateCacheKey } from '@/lib/cache'
 import { fetchDrivePhotos, extractFolderId, getThumbnailUrl, getDirectImageUrl } from '@/lib/gdrive-service'
