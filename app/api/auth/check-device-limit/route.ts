@@ -1,4 +1,5 @@
 
+export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server'
 import { checkDeviceLimit } from '@/lib/supabase/sessions'
 

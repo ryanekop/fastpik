@@ -1,4 +1,5 @@
 
+export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server'
 import { getProjectById, updateProject, deleteProject } from '@/lib/supabase/projects'
 

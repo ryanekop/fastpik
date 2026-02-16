@@ -1,4 +1,5 @@
 
+export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server'
 import { renameFolder, deleteFolder, moveFolder } from '@/lib/supabase/folders'
 

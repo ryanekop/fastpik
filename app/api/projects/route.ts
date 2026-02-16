@@ -1,4 +1,5 @@
 
+export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server'
 import { getProjects, createProject, getUserId } from '@/lib/supabase/projects'
 import { checkSubscriptionStatus } from '@/lib/subscription-service'
