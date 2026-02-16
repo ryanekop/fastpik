@@ -1,4 +1,5 @@
 name = "fastpik"
+main = ".open-next/worker.js"
 compatibility_date = "2025-09-15"
 compatibility_flags = ["nodejs_compat", "enable_nodejs_process_v2", "nodejs_compat_populate_process_env"]
 pages_build_output_dir = ".open-next/assets"
