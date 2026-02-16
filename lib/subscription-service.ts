@@ -1,16 +1,18 @@
 import { createClient } from '@supabase/supabase-js'
 
 // Service Role Client - bypasses RLS, use only server-side
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-        auth: {
-            autoRefreshToken: false,
-            persistSession: false
+function getSupabaseAdmin() {
+    return createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        {
+            auth: {
+                autoRefreshToken: false,
+                persistSession: false
+            }
         }
-    }
-)
+    )
+}
 
 export type SubscriptionTier = 'free' | 'pro_monthly' | 'pro_quarterly' | 'pro_yearly' | 'lifetime'
 export type SubscriptionStatus = 'active' | 'expired' | 'trial'
@@ -44,6 +46,7 @@ const FREE_PROJECT_LIMIT = 3
 const TRIAL_DAYS = 3
 
 export async function getSubscription(userId: string): Promise<Subscription | null> {
+    const supabaseAdmin = getSupabaseAdmin()
     const { data, error } = await supabaseAdmin
         .from('subscriptions')
         .select('*')
@@ -58,6 +61,7 @@ export async function getSubscription(userId: string): Promise<Subscription | nu
 }
 
 export async function getProjectCount(userId: string): Promise<number> {
+    const supabaseAdmin = getSupabaseAdmin()
     const { count, error } = await supabaseAdmin
         .from('projects')
         .select('*', { count: 'exact', head: true })
@@ -193,6 +197,7 @@ export async function createTrialSubscription(userId: string): Promise<boolean> 
     const trialEndDate = new Date()
     trialEndDate.setDate(trialEndDate.getDate() + TRIAL_DAYS)
 
+    const supabaseAdmin = getSupabaseAdmin()
     const { error } = await supabaseAdmin
         .from('subscriptions')
         .insert({
