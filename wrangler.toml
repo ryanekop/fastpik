@@ -2,3 +2,9 @@ name = "fastpik"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = ".open-next/assets"
+
+[vars]
+NEXT_PUBLIC_SUPABASE_URL = "https://rtsmzeyyefnglrnanlwk.supabase.co"
+NEXT_PUBLIC_SUPABASE_ANON_KEY = "sb_publishable_XwizVBoAwRcOxYMochJjtw_86-itWlL"
+NEXT_PUBLIC_GOOGLE_API_KEY = "AIzaSyA3ouzN4rqExCIavKGE0yBVYnrM1wsherk"
+NEXT_PUBLIC_SITE_URL = "https://fastpik.pages.dev"
