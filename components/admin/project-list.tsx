@@ -843,11 +843,11 @@ export function ProjectList({
     return (
         <div className="space-y-4">
             {/* Toolbar */}
-            <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                 <h3 className="text-lg font-semibold flex items-center gap-2">
                     📋 {t('projectList')} ({projects.length})
                 </h3>
-                <div className="flex items-center gap-1.5 flex-wrap ml-auto">
+                <div className="flex items-center gap-1.5 flex-wrap">
                     {isSelectMode ? (
                         <>
                             <Button onClick={toggleSelectAll} size="sm" variant="outline" className="gap-2 cursor-pointer">
