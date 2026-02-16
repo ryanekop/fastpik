@@ -3,18 +3,22 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-// Create Supabase admin client
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-)
+function getSupabaseAdmin() {
+    return createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        { auth: { autoRefreshToken: false, persistSession: false } }
+    )
+}
 
-// Secret key for admin access (same as ryaneko-license admin)
-const ADMIN_SECRET = process.env.ADMIN_PASSWORD || process.env.ADMIN_SECRET_KEY || 'fastpik-ryan-2024-secret'
+function getAdminSecret() {
+    return process.env.ADMIN_PASSWORD || process.env.ADMIN_SECRET_KEY || 'fastpik-ryan-2024-secret'
+}
 
 export async function POST(req: NextRequest) {
     try {
+        const supabaseAdmin = getSupabaseAdmin()
+        const ADMIN_SECRET = getAdminSecret()
         const body = await req.json()
         const { name, email, secretKey, trialDays = 3 } = body
 

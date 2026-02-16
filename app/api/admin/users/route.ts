@@ -3,17 +3,21 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-// Create Supabase admin client
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-)
+function getSupabaseAdmin() {
+    return createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        { auth: { autoRefreshToken: false, persistSession: false } }
+    )
+}
 
-// Secret key for admin access (same as ryaneko-license admin)
-const ADMIN_SECRET = process.env.ADMIN_PASSWORD || process.env.ADMIN_SECRET_KEY || 'fastpik-ryan-2024-secret'
+function getAdminSecret() {
+    return process.env.ADMIN_PASSWORD || process.env.ADMIN_SECRET_KEY || 'fastpik-ryan-2024-secret'
+}
 
 export async function GET(req: NextRequest) {
+    const supabaseAdmin = getSupabaseAdmin()
+    const ADMIN_SECRET = getAdminSecret()
     const secretKey = req.headers.get('x-admin-secret')
 
     if (secretKey !== ADMIN_SECRET) {
@@ -83,6 +87,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+    const supabaseAdmin = getSupabaseAdmin()
+    const ADMIN_SECRET = getAdminSecret()
     const secretKey = req.headers.get('x-admin-secret')
 
     if (secretKey !== ADMIN_SECRET) {
@@ -122,6 +128,8 @@ export async function DELETE(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
+    const supabaseAdmin = getSupabaseAdmin()
+    const ADMIN_SECRET = getAdminSecret()
     const secretKey = req.headers.get('x-admin-secret')
 
     if (secretKey !== ADMIN_SECRET) {
