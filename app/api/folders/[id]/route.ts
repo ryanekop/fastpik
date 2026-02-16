@@ -1,4 +1,3 @@
-export const runtime = 'edge';
 
 import { NextResponse } from 'next/server'
 import { renameFolder, deleteFolder, moveFolder } from '@/lib/supabase/folders'
