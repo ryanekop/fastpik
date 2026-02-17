@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useTransition } from "react"
 import { Languages } from "lucide-react"
 import { useLocale } from "next-intl"
 import { usePathname, useRouter } from "@/i18n/routing"
@@ -17,9 +18,12 @@ export function LanguageToggle() {
     const locale = useLocale()
     const router = useRouter()
     const pathname = usePathname()
+    const [, startTransition] = useTransition()
 
     const handleLanguageChange = (newLocale: string) => {
-        router.replace(pathname, { locale: newLocale })
+        startTransition(() => {
+            router.replace(pathname, { locale: newLocale })
+        })
     }
 
     return (
