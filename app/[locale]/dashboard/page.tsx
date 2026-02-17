@@ -40,7 +40,7 @@ export default async function DashboardPage() {
 
                 <div className="mt-8 pt-6 border-t text-center text-sm text-muted-foreground">
                     <p>
-                        {t('footer')} <a href="https://instagram.com/ryanekopram" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">@ryanekopram</a> & <a href="https://instagram.com/ryaneko.apps" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">@ryaneko.apps</a>
+                        {t('footer')} <a href="https://instagram.com/ryanekopram" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">@ryanekopram</a> & <a href="https://instagram.com/ryanekoapps" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">@ryanekoapps</a>
                         <span className="mx-2 text-muted-foreground/50">•</span>
                         <a href={`/${locale}/dashboard/changelog`} className="text-muted-foreground hover:text-primary transition-colors text-xs">{t('changelog')} v{latestChangelog?.version || '1.0.0'}</a>
                     </p>
