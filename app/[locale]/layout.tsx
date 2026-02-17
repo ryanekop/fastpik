@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Script from "next/script";
 
 import "../globals.css";
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages } from 'next-intl/server';
 import { ThemeProvider } from "@/components/theme-provider"
-import { Analytics } from "@vercel/analytics/react"
-import { SpeedInsights } from "@vercel/speed-insights/next"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -58,8 +57,12 @@ export default async function LocaleLayout({
             {children}
           </ThemeProvider>
         </NextIntlClientProvider>
-        <Analytics />
-        <SpeedInsights />
+        <Script
+          defer
+          src="https://cloud.umami.is/script.js"
+          data-website-id="14ffd81f-07b2-4cc0-b72b-7b8aa4e864a0"
+          strategy="afterInteractive"
+        />
       </body>
     </html>
   );
