@@ -413,7 +413,7 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
                     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.3 }}>
                         <FormField control={form.control} name="maxPhotos" render={({ field }) => (<FormItem><FormLabel>📸 {t('maxPhotos')}</FormLabel><FormControl><Input type="number" min="1" placeholder="5" autoComplete="off" {...field} /></FormControl><FormMessage /></FormItem>)} />
                     </motion.div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.33 }}>
                             <FormField control={form.control} name="expiryDays" render={({ field }) => (
                                 <FormItem>
