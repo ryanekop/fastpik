@@ -64,7 +64,7 @@ export function WhatsNewPopup({ latestChangelog }: WhatsNewPopupProps) {
                 <DialogHeader>
                     <div className="flex items-center gap-2 mb-2">
                         <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">v{latestChangelog.version}</Badge>
-                        <span className="text-xs text-muted-foreground">{new Date(latestChangelog.releaseDate).toLocaleDateString()}</span>
+                        <span className="text-xs text-muted-foreground" suppressHydrationWarning>{new Date(latestChangelog.releaseDate).toLocaleDateString()}</span>
                     </div>
                     <DialogTitle className="text-xl flex items-center gap-2">
                         🎉 {t('whatsNew')}
