@@ -229,6 +229,7 @@ export function ProjectList({
 
     // Helper: generate dynamic link from project ID using current vendor slug
     const buildProjectLink = (projectId: string) => {
+        if (typeof window === 'undefined') return ''
         const origin = window.location.origin
         const pathParts = window.location.pathname.split('/')
         const loc = pathParts[1] || 'id'
@@ -1057,7 +1058,7 @@ export function ProjectList({
                                                             <span className="flex items-center gap-1 shrink-0">📸 {project.maxPhotos} {t('photo')}</span>
                                                             <span className="flex items-center gap-1 shrink-0"><Clock className="h-3 w-3" /><ExpiryDisplay expiresAt={dashboardDurationDisplay === 'download' ? (project.downloadExpiresAt ?? project.expiresAt) : project.expiresAt} /></span>
                                                         </div>
-                                                        <p className="text-xs text-muted-foreground overflow-hidden text-ellipsis whitespace-nowrap block" style={{ maxWidth: 'min(100%, calc(100vw - 100px))' }}>🔗 {dynamicLink}</p>
+                                                        <p className="text-xs text-muted-foreground overflow-hidden text-ellipsis whitespace-nowrap block" style={{ maxWidth: 'min(100%, calc(100vw - 100px))' }} suppressHydrationWarning>🔗 {dynamicLink}</p>
                                                     </div>
                                                     {!isSelectMode && (
                                                         <div className="flex items-center gap-1 flex-wrap w-full sm:w-auto justify-center sm:justify-end pt-2 sm:pt-0 border-t sm:border-t-0 mt-2 sm:mt-0 border-border/50">
