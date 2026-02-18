@@ -1056,7 +1056,7 @@ export function ProjectList({
                                                         </div>
                                                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
                                                             <span className="flex items-center gap-1 shrink-0">📸 {project.maxPhotos} {t('photo')}</span>
-                                                            <span className="flex items-center gap-1 shrink-0"><Clock className="h-3 w-3" /><ExpiryDisplay expiresAt={dashboardDurationDisplay === 'download' ? (project.downloadExpiresAt ?? project.expiresAt) : project.expiresAt} /></span>
+                                                            <span className="flex items-center gap-1 shrink-0"><Clock className="h-3 w-3" /><ExpiryDisplay expiresAt={dashboardDurationDisplay === 'download' ? project.downloadExpiresAt : project.expiresAt} /></span>
                                                         </div>
                                                         <p className="text-xs text-muted-foreground overflow-hidden text-ellipsis whitespace-nowrap block" style={{ maxWidth: 'min(100%, calc(100vw - 100px))' }} suppressHydrationWarning>🔗 {dynamicLink}</p>
                                                     </div>
