@@ -411,7 +411,7 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
                         <FormField control={form.control} name="adminWhatsapp" render={({ field }) => (<FormItem><FormLabel>📲 {t('waAdminLabel')}</FormLabel><FormControl><PhoneInput value={field.value} onChange={(fullNumber) => { field.onChange(fullNumber) }} placeholder="812xxxxxxxx" /></FormControl><FormMessage /></FormItem>)} />
                     </motion.div>
                     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.3 }}>
-                        <FormField control={form.control} name="maxPhotos" render={({ field }) => (<FormItem><FormLabel>📸 {t('maxPhotos')}</FormLabel><FormControl><Input type="number" min="1" placeholder="5" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                        <FormField control={form.control} name="maxPhotos" render={({ field }) => (<FormItem><FormLabel>📸 {t('maxPhotos')}</FormLabel><FormControl><Input type="number" min="1" placeholder="5" autoComplete="off" {...field} /></FormControl><FormMessage /></FormItem>)} />
                     </motion.div>
                     <div className="grid grid-cols-2 gap-4">
                         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.33 }}>
@@ -467,7 +467,7 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
                                 <FormLabel>🔐 {t('password')}</FormLabel>
                                 <FormControl>
                                     <div className="relative">
-                                        <Input type={showPassword ? "text" : "password"} placeholder={t('passwordPlaceholder')} {...field} />
+                                        <Input type={showPassword ? "text" : "password"} placeholder={t('passwordPlaceholder')} autoComplete="new-password" {...field} />
                                         <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer">{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button>
                                     </div>
                                 </FormControl>
