@@ -142,7 +142,7 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
     const [downloadTimeRemaining, setDownloadTimeRemaining] = useState<{ days: number, hours: number, minutes: number } | null>(null)
 
     useEffect(() => {
-        const downloadExpiry = config.downloadExpiresAt ?? config.expiresAt
+        const downloadExpiry = config.downloadExpiresAt
         setIsDownloadExpired(downloadExpiry ? Date.now() > downloadExpiry : false)
 
         if (downloadExpiry) {
