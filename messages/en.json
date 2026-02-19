@@ -264,6 +264,7 @@
         "passwordProtected": "This album is password protected",
         "enterPassword": "Enter password",
         "wrongPassword": "Wrong password",
+        "verifying": "Verifying...",
         "unlock": "Unlock",
         "restoreSession": "Continue Previous Session?",
         "restoreSessionMsg": "You have",

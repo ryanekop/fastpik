@@ -264,6 +264,7 @@
         "passwordProtected": "Halaman ini dilindungi kata sandi.",
         "enterPassword": "Masukkan kata sandi",
         "wrongPassword": "Kata sandi salah!",
+        "verifying": "Memverifikasi...",
         "unlock": "Buka Kunci",
         "restoreSession": "Lanjutkan Sesi Sebelumnya?",
         "restoreSessionMsg": "Anda memiliki",

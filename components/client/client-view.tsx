@@ -39,7 +39,8 @@ interface ClientViewProps {
         detectSubfolders: boolean
         expiresAt?: number
         downloadExpiresAt?: number
-        password?: string
+        hasPassword?: boolean
+        projectId?: string
         lockedPhotos?: string[] // Previously selected photo filenames
     }
     messageTemplates?: {
@@ -74,17 +75,18 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
     const currentProjectId = `${config.clientName}-${config.gdriveLink}`.replace(/[^a-zA-Z0-9]/g, '-').substring(0, 50)
 
     // Password protection state
-    const [isPasswordProtected] = useState(!!config.password)
+    const [isPasswordProtected] = useState(!!config.hasPassword)
     const [isAuthenticated, setIsAuthenticated] = useState(() => {
         // Check sessionStorage for existing auth (client-side only)
-        if (typeof window !== 'undefined' && config.password) {
+        if (typeof window !== 'undefined' && config.hasPassword) {
             const authKey = `fastpik-auth-${config.clientName}-${config.gdriveLink}`.replace(/[^a-zA-Z0-9-]/g, '-').substring(0, 60)
             return sessionStorage.getItem(authKey) === 'true'
         }
-        return !config.password
+        return !config.hasPassword
     })
     const [passwordInput, setPasswordInput] = useState("")
     const [passwordError, setPasswordError] = useState(false)
+    const [passwordLoading, setPasswordLoading] = useState(false)
     const [showPassword, setShowPassword] = useState(false)
 
     // Lightbox state
@@ -264,15 +266,27 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
         }
     }, [photos, viewMode])
 
-    const handlePasswordSubmit = (e: React.FormEvent) => {
+    const handlePasswordSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
-        if (passwordInput === config.password) {
-            setIsAuthenticated(true)
-            setPasswordError(false)
-            // Save auth state to sessionStorage
-            sessionStorage.setItem(authStorageKey, 'true')
-        } else {
+        setPasswordLoading(true)
+        setPasswordError(false)
+        try {
+            const res = await fetch('/api/projects/verify-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ projectId: config.projectId, password: passwordInput })
+            })
+            const data = await res.json()
+            if (data.success) {
+                setIsAuthenticated(true)
+                sessionStorage.setItem(authStorageKey, 'true')
+            } else {
+                setPasswordError(true)
+            }
+        } catch {
             setPasswordError(true)
+        } finally {
+            setPasswordLoading(false)
         }
     }
 
@@ -378,6 +392,7 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                                         setPasswordInput(e.target.value)
                                         setPasswordError(false)
                                     }}
+                                    disabled={passwordLoading}
                                     placeholder={t('enterPassword') || 'Enter password'}
                                     className={cn(
                                         "pr-10",
@@ -395,8 +410,9 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                             {passwordError && (
                                 <p className="text-red-500 text-sm">{t('wrongPassword') || 'Wrong password'}</p>
                             )}
-                            <Button type="submit" className="w-full cursor-pointer">
-                                {t('unlock') || 'Unlock'} 🔓
+                            <Button type="submit" className="w-full cursor-pointer" disabled={passwordLoading || !passwordInput}>
+                                {passwordLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                                {passwordLoading ? (t('verifying') || 'Verifying...') : `${t('unlock') || 'Unlock'} 🔓`}
                             </Button>
                         </form>
                         <div className="flex justify-center gap-2">

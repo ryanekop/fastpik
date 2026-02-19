@@ -81,5 +81,13 @@ export default async function ClientPage({ params }: { params: Promise<{ slug: s
         }
     }
 
-    return <ClientView config={config} messageTemplates={templates} />;
+    // Strip password from config before sending to client — verify server-side only
+    const { password: _password, ...safeConfig } = config
+    const clientConfig = {
+        ...safeConfig,
+        hasPassword: !!_password,
+        projectId: config.id || projectId,
+    }
+
+    return <ClientView config={clientConfig} messageTemplates={templates} />;
 }
