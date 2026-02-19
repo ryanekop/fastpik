@@ -393,7 +393,7 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                                         setPasswordError(false)
                                     }}
                                     disabled={passwordLoading}
-                                    autoComplete="off"
+                                    autoComplete="new-password"
                                     placeholder={t('enterPassword') || 'Enter password'}
                                     className={cn(
                                         "pr-10",
