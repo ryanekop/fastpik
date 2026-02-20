@@ -305,6 +305,9 @@ export default function PricingPage() {
                                     <CardDescription>
                                         {plan.isLifetime ? t('billingOnce') : t('billingAuto')}
                                     </CardDescription>
+                                    {plan.nameKey === 'plan1Month' && (
+                                        <p className="text-sm text-muted-foreground mt-1">{t('coffeePrice')}</p>
+                                    )}
                                 </CardHeader>
                                 <CardContent className="flex-1">
                                     <ul className="space-y-3">

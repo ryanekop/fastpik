@@ -345,12 +345,13 @@
         "featureSave15": "Only 13k/month",
         "featureSave50": "Only ~10k/month",
         "featurePayOnce": "Pay Once, Access Forever",
+        "coffeePrice": "Just the price of a cup of coffee ☕",
         "billingAuto": "Auto-renewing subscription",
         "billingOnce": "One-time payment",
         "selectPlan": "Select Plan",
         "currentPlan": "Current Plan",
         "paymentNote": "Payments are securely processed by Mayar.id.",
-        "paymentMethods": "Supports QRIS, Virtual Account, E-Wallet, and Credit Card."
+        "paymentMethods": "Supports QRIS, Virtual Account, and E-Wallet."
     },
     "Profile": {
         "title": "My Profile",

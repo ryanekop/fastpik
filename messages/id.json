@@ -345,12 +345,13 @@
         "featureSave15": "Hanya 13rb/bulan",
         "featureSave50": "Hanya ~10rb/bulan",
         "featurePayOnce": "Bayar Sekali, Akses Selamanya",
+        "coffeePrice": "Seharga 1 gelas kopi ☕",
         "billingAuto": "Tagihan otomatis diperbarui",
         "billingOnce": "Tagihan sekali bayar",
         "selectPlan": "Pilih Paket",
         "currentPlan": "Paket Saat Ini",
         "paymentNote": "Pembayaran diproses dengan aman oleh Mayar.id.",
-        "paymentMethods": "Mendukung QRIS, Virtual Account, E-Wallet, dan Kartu Kredit."
+        "paymentMethods": "Mendukung QRIS, Virtual Account, dan E-Wallet."
     },
     "Profile": {
         "title": "Profil Saya",
