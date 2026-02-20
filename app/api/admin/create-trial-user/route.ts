@@ -2,6 +2,7 @@
 export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { createRateLimiter, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
 
 function getSupabaseAdmin() {
     return createClient(
@@ -15,8 +16,18 @@ function getAdminSecret() {
     return process.env.ADMIN_PASSWORD || process.env.ADMIN_SECRET_KEY || 'fastpik-ryan-2024-secret'
 }
 
+// 5 requests per minute per IP (strict — admin action)
+const createUserLimiter = createRateLimiter({ limit: 5, windowMs: 60_000 });
+
 export async function POST(req: NextRequest) {
     try {
+        // Rate limit check
+        const ip = getClientIp(req);
+        const { allowed, retryAfterMs } = createUserLimiter.check(ip);
+        if (!allowed) {
+            return rateLimitResponse(retryAfterMs);
+        }
+
         const supabaseAdmin = getSupabaseAdmin()
         const ADMIN_SECRET = getAdminSecret()
         const body = await req.json()

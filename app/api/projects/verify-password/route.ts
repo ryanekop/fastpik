@@ -1,9 +1,20 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
+import { createRateLimiter, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
+
+// 10 requests per minute per IP (brute force prevention)
+const passwordLimiter = createRateLimiter({ limit: 10, windowMs: 60_000 });
 
 export async function POST(request: Request) {
     try {
+        // Rate limit check
+        const ip = getClientIp(request);
+        const { allowed, retryAfterMs } = passwordLimiter.check(ip);
+        if (!allowed) {
+            return rateLimitResponse(retryAfterMs);
+        }
+
         const { projectId, password } = await request.json()
 
         if (!projectId || typeof password !== 'string') {
