@@ -23,6 +23,7 @@ const FALLBACK_CHANGELOGS = [
                 category: "Features", items: [
                     "New \"Review Mode\" — review selected photos in a gallery view before sending to admin",
                     "New \"Client Status\" tab on dashboard — monitor client selection progress in real-time with auto-refresh",
+                    "New \"Telegram Bot\" auto-reminder — get notified when projects are nearing expiry via Telegram",
                     "Mark selections as \"Reviewed\" or undo review status, saved to database",
                     "Real-time photo selection sync between client and admin dashboard",
                     "Send reminder to client via WhatsApp directly from client status tab",
@@ -35,6 +36,7 @@ const FALLBACK_CHANGELOGS = [
                     "Client status cards colored by status — red (not selected), yellow (selecting), green (reviewed)",
                     "Dashboard tab icons replaced with SVG icons for cleaner UI",
                     "Review gallery matches photo grid style with 4:3 aspect ratio and zoom overlay",
+                    "New \"Bot Telegram\" tab in Settings with visual step-by-step setup guide",
                 ]
             },
             {
@@ -50,6 +52,7 @@ const FALLBACK_CHANGELOGS = [
                 category: "Fitur", items: [
                     "Mode \"Review Pilihan\" baru — review foto yang dipilih dalam tampilan galeri sebelum mengirim ke admin",
                     "Tab \"Status Klien\" baru di dashboard — pantau progres pemilihan klien secara real-time dengan auto-refresh",
+                    "Bot Telegram auto-reminder baru — dapatkan notifikasi saat project mendekati expired via Telegram",
                     "Tandai pilihan sebagai \"Sudah Ditinjau\" atau batalkan tinjauan, tersimpan ke database",
                     "Sinkronisasi pemilihan foto real-time antara klien dan dashboard admin",
                     "Kirim pengingat ke klien via WhatsApp langsung dari tab status klien",
@@ -62,6 +65,7 @@ const FALLBACK_CHANGELOGS = [
                     "Kartu status klien diwarnai sesuai status — merah (belum memilih), kuning (sedang memilih), hijau (sudah ditinjau)",
                     "Ikon tab dashboard diganti dengan ikon SVG yang lebih bersih",
                     "Galeri review mengikuti gaya grid foto dengan rasio 4:3 dan overlay zoom",
+                    "Tab \"Bot Telegram\" baru di Pengaturan dengan panduan setup visual langkah demi langkah",
                 ]
             },
             {
