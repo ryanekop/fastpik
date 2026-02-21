@@ -274,12 +274,13 @@ export function ProjectList({
 
         const dynamicLink = buildProjectLink(project.id)
 
-        // Build variables object with conditional password and duration
+        const isExtra = !!(project.lockedPhotos && project.lockedPhotos.length > 0)
+        const effectiveCount = isExtra ? project.maxPhotos - project.lockedPhotos!.length : project.maxPhotos
         const variables: Record<string, string> = {
             client_name: project.clientName,
             link: dynamicLink,
-            count: project.maxPhotos.toString(),
-            max_photos: project.maxPhotos.toString() // backward compatibility
+            count: effectiveCount.toString(),
+            max_photos: effectiveCount.toString() // backward compatibility
         }
 
         // Add password only if set
@@ -321,7 +322,6 @@ export function ProjectList({
             }
         }
 
-        const isExtra = !!(project.lockedPhotos && project.lockedPhotos.length > 0)
         const template = isExtra ? templates.extraLink : templates.initialLink
         const message = compileMessage(template, variables, isExtra)
         window.open(`https://wa.me/${clientWa}?text=${encodeURIComponent(message)}`, '_blank')
@@ -329,11 +329,13 @@ export function ProjectList({
 
     const copyTemplateForProject = (project: Project) => {
         const dynamicLink = buildProjectLink(project.id)
+        const isExtra = !!(project.lockedPhotos && project.lockedPhotos.length > 0)
+        const effectiveCount = isExtra ? project.maxPhotos - project.lockedPhotos!.length : project.maxPhotos
         const variables: Record<string, string> = {
             client_name: project.clientName,
             link: dynamicLink,
-            count: project.maxPhotos.toString(),
-            max_photos: project.maxPhotos.toString()
+            count: effectiveCount.toString(),
+            max_photos: effectiveCount.toString()
         }
         if (project.password) {
             variables.password = project.password
@@ -368,7 +370,6 @@ export function ProjectList({
                 }
             }
         }
-        const isExtra = !!(project.lockedPhotos && project.lockedPhotos.length > 0)
         const template = isExtra ? templates.extraLink : templates.initialLink
         const message = compileMessage(template, variables, isExtra)
         if (navigator.clipboard && window.isSecureContext) {
@@ -1059,7 +1060,7 @@ export function ProjectList({
                                                             {expired && <span className="text-xs bg-destructive/20 text-destructive px-2 py-0.5 rounded shrink-0">{t('expired')}</span>}
                                                         </div>
                                                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                                                            <span className="flex items-center gap-1 shrink-0">📸 {project.maxPhotos} {t('photo')}</span>
+                                                            <span className="flex items-center gap-1 shrink-0">📸 {(project.lockedPhotos && project.lockedPhotos.length > 0) ? (project.maxPhotos - project.lockedPhotos.length) : project.maxPhotos} {t('photo')}</span>
                                                             <span className="flex items-center gap-1 shrink-0"><Clock className="h-3 w-3" /><ExpiryDisplay expiresAt={dashboardDurationDisplay === 'download' ? project.downloadExpiresAt : project.expiresAt} /></span>
                                                         </div>
                                                         <p className="text-xs text-muted-foreground overflow-hidden text-ellipsis whitespace-nowrap block" style={{ maxWidth: 'min(100%, calc(100vw - 100px))' }} suppressHydrationWarning>🔗 {dynamicLink}</p>
