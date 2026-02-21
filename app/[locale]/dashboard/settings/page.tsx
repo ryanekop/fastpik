@@ -457,7 +457,7 @@ export default function SettingsPage() {
                                 </CardHeader>
                                 <CardContent className="space-y-6">
                                     {/* Setup Guide */}
-                                    <div className="rounded-lg border bg-muted/30 p-4 mb-2">
+                                    <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50/70 dark:bg-blue-950/20 p-4 mb-6">
                                         <p className="text-sm font-medium mb-4 text-center">Cara Setup Bot Telegram</p>
                                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                             {/* Step 1 */}
