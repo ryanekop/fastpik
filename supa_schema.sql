@@ -56,6 +56,9 @@ CREATE TABLE IF NOT EXISTS settings (
   msg_tmpl_result_initial JSONB DEFAULT '{"id": "", "en": ""}',
   msg_tmpl_result_extra JSONB DEFAULT '{"id": "", "en": ""}',
   msg_tmpl_reminder JSONB DEFAULT '{"id": "", "en": ""}',
+  telegram_chat_id TEXT,
+  telegram_reminder_days INTEGER[] DEFAULT '{7,3}',
+  telegram_reminder_type TEXT DEFAULT 'both' CHECK (telegram_reminder_type IN ('both', 'selection', 'download')),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );

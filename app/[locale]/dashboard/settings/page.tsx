@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { PhoneInput } from "@/components/ui/phone-input"
-import { Loader2, Save, ArrowLeft, MessageSquare } from "lucide-react"
+import { Loader2, Save, ArrowLeft, MessageSquare, Send } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import Link from "next/link"
 import { AdminShell } from "@/components/admin/admin-shell"
@@ -41,6 +41,13 @@ export default function SettingsPage() {
     const [tmplResultInitial, setTmplResultInitial] = useState({ id: "", en: "" })
     const [tmplResultExtra, setTmplResultExtra] = useState({ id: "", en: "" })
     const [tmplReminder, setTmplReminder] = useState({ id: "", en: "" })
+
+    // Telegram Bot State
+    const [telegramChatId, setTelegramChatId] = useState("")
+    const [telegramReminderDays, setTelegramReminderDays] = useState<number[]>([7, 3])
+    const [telegramReminderType, setTelegramReminderType] = useState<'both' | 'selection' | 'download'>('both')
+    const [testingSend, setTestingSend] = useState(false)
+    const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null)
 
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
@@ -96,6 +103,10 @@ export default function SettingsPage() {
                 if (data.msg_tmpl_result_initial) setTmplResultInitial(data.msg_tmpl_result_initial)
                 if (data.msg_tmpl_result_extra) setTmplResultExtra(data.msg_tmpl_result_extra)
                 if (data.msg_tmpl_reminder) setTmplReminder(data.msg_tmpl_reminder)
+                // Telegram
+                setTelegramChatId(data.telegram_chat_id || "")
+                if (data.telegram_reminder_days) setTelegramReminderDays(data.telegram_reminder_days)
+                if (data.telegram_reminder_type) setTelegramReminderType(data.telegram_reminder_type)
             }
         } catch (err) {
             console.error('Failed to load settings:', err)
@@ -130,6 +141,9 @@ export default function SettingsPage() {
                     msg_tmpl_result_initial: tmplResultInitial,
                     msg_tmpl_result_extra: tmplResultExtra,
                     msg_tmpl_reminder: tmplReminder,
+                    telegram_chat_id: telegramChatId || null,
+                    telegram_reminder_days: telegramReminderDays,
+                    telegram_reminder_type: telegramReminderType,
                     updated_at: new Date().toISOString()
                 }, {
                     onConflict: 'user_id'
@@ -180,6 +194,7 @@ export default function SettingsPage() {
                         <TabsList className="mb-6">
                             <TabsTrigger value="general">{t('generalTab')}</TabsTrigger>
                             <TabsTrigger value="templates">{t('templatesTab')}</TabsTrigger>
+                            <TabsTrigger value="telegram">{t('telegramTab')}</TabsTrigger>
                         </TabsList>
 
                         {/* General Settings Tab */}
@@ -431,6 +446,137 @@ export default function SettingsPage() {
                                     onChange={setTmplReminder}
                                 />
                             </div>
+                        </TabsContent>
+
+                        {/* Telegram Bot Tab */}
+                        <TabsContent value="telegram">
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>🤖 {t('telegramConfigTitle')}</CardTitle>
+                                    <CardDescription>{t('telegramConfigDesc')}</CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-6">
+                                    {/* Chat ID */}
+                                    <div className="space-y-2">
+                                        <Label htmlFor="telegramChatId">💬 {t('telegramChatId')}</Label>
+                                        <Input
+                                            id="telegramChatId"
+                                            value={telegramChatId}
+                                            onChange={(e) => setTelegramChatId(e.target.value)}
+                                            placeholder={t('telegramChatIdPlaceholder')}
+                                        />
+                                        <p className="text-xs text-muted-foreground">
+                                            {t('telegramChatIdHint')}
+                                        </p>
+                                    </div>
+
+                                    {/* Reminder Type */}
+                                    <div className="space-y-2">
+                                        <Label>🔔 {t('telegramReminderType')}</Label>
+                                        <div className="flex flex-col gap-2">
+                                            {(['both', 'selection', 'download'] as const).map((type) => (
+                                                <label key={type} className="flex items-center gap-2 cursor-pointer">
+                                                    <input
+                                                        type="radio"
+                                                        name="telegramReminderType"
+                                                        value={type}
+                                                        checked={telegramReminderType === type}
+                                                        onChange={() => setTelegramReminderType(type)}
+                                                        className="accent-primary cursor-pointer"
+                                                    />
+                                                    <span className="text-sm">
+                                                        {type === 'both' && `📸📥 ${t('telegramReminderBoth')}`}
+                                                        {type === 'selection' && `📸 ${t('telegramReminderSelection')}`}
+                                                        {type === 'download' && `📥 ${t('telegramReminderDownload')}`}
+                                                    </span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Reminder Days */}
+                                    <div className="space-y-2">
+                                        <Label>📅 {t('telegramReminderDays')}</Label>
+                                        <div className="flex flex-wrap gap-3">
+                                            {[1, 3, 5, 7, 14].map((day) => (
+                                                <label key={day} className="flex items-center gap-2 cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={telegramReminderDays.includes(day)}
+                                                        onChange={(e) => {
+                                                            if (e.target.checked) {
+                                                                setTelegramReminderDays([...telegramReminderDays, day].sort((a, b) => b - a))
+                                                            } else {
+                                                                setTelegramReminderDays(telegramReminderDays.filter(d => d !== day))
+                                                            }
+                                                        }}
+                                                        className="accent-primary cursor-pointer rounded"
+                                                    />
+                                                    <span className="text-sm font-medium">
+                                                        {t('telegramDaysBefore', { days: day })}
+                                                    </span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                        <p className="text-xs text-muted-foreground">
+                                            {t('telegramReminderDaysHint')}
+                                        </p>
+                                    </div>
+
+                                    {/* Test Send Button */}
+                                    <div className="pt-2 border-t">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            className="cursor-pointer"
+                                            disabled={testingSend || !telegramChatId}
+                                            onClick={async () => {
+                                                if (!telegramChatId) {
+                                                    setTestResult({ success: false, message: t('telegramNoChatId') })
+                                                    return
+                                                }
+                                                setTestingSend(true)
+                                                setTestResult(null)
+                                                try {
+                                                    const res = await fetch('/api/telegram/test', {
+                                                        method: 'POST',
+                                                        headers: { 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify({ chat_id: telegramChatId })
+                                                    })
+                                                    const data = await res.json()
+                                                    if (res.ok && data.success) {
+                                                        setTestResult({ success: true, message: t('telegramTestSuccess') })
+                                                    } else {
+                                                        setTestResult({ success: false, message: data.error || t('telegramTestError') })
+                                                    }
+                                                } catch {
+                                                    setTestResult({ success: false, message: t('telegramTestError') })
+                                                } finally {
+                                                    setTestingSend(false)
+                                                    setTimeout(() => setTestResult(null), 5000)
+                                                }
+                                            }}
+                                        >
+                                            {testingSend ? (
+                                                <>
+                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                    {t('telegramTestSending')}
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Send className="mr-2 h-4 w-4" />
+                                                    {t('telegramTestButton')}
+                                                </>
+                                            )}
+                                        </Button>
+                                        {testResult && (
+                                            <p className={`mt-2 text-sm font-medium ${testResult.success ? 'text-green-600' : 'text-destructive'}`}>
+                                                {testResult.message}
+                                            </p>
+                                        )}
+                                    </div>
+                                </CardContent>
+                            </Card>
                         </TabsContent>
                     </Tabs>
 
