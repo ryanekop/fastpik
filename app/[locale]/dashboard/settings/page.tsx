@@ -465,9 +465,11 @@ export default function SettingsPage() {
                                             onChange={(e) => setTelegramChatId(e.target.value)}
                                             placeholder={t('telegramChatIdPlaceholder')}
                                         />
-                                        <p className="text-xs text-muted-foreground">
-                                            {t('telegramChatIdHint')}
-                                        </p>
+                                        <div className="text-xs text-muted-foreground space-y-1 mt-1">
+                                            <p>1️⃣ Buka <a href="https://t.me/userinfo3bot" target="_blank" rel="noopener noreferrer" className="text-primary underline">@userinfo3bot</a> → klik <b>Start</b> → copy angka <b>Id</b></p>
+                                            <p>2️⃣ Buka <a href="https://t.me/FastpikReminder_bot" target="_blank" rel="noopener noreferrer" className="text-primary underline">@FastpikReminder_bot</a> → klik <b>Start</b> (wajib agar bot bisa kirim pesan)</p>
+                                            <p>3️⃣ Paste Chat ID di kolom di atas</p>
+                                        </div>
                                     </div>
 
                                     {/* Reminder Type */}

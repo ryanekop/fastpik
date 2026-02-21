@@ -248,7 +248,7 @@
         "telegramConfigTitle": "Telegram Bot Configuration",
         "telegramConfigDesc": "Set up automatic reminder notifications via Telegram when projects are nearing expiry",
         "telegramChatId": "Telegram Chat ID",
-        "telegramChatIdHint": "Get your Chat ID from @userinfobot on Telegram",
+        "telegramChatIdHint": "1. Open @userinfo3bot → click Start → copy your 'Id' number\n2. Open @FastpikReminder_bot → click Start (required so bot can send messages)\n3. Paste Chat ID above",
         "telegramChatIdPlaceholder": "Example: 123456789",
         "telegramReminderType": "Reminder Type",
         "telegramReminderBoth": "Both (Photo Selection & Download)",

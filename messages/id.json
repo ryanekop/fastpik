@@ -248,7 +248,7 @@
         "telegramConfigTitle": "Konfigurasi Bot Telegram",
         "telegramConfigDesc": "Atur notifikasi reminder otomatis via Telegram saat project mendekati expired",
         "telegramChatId": "Chat ID Telegram",
-        "telegramChatIdHint": "Dapatkan Chat ID Anda dari @userinfobot di Telegram",
+        "telegramChatIdHint": "1. Buka @userinfo3bot → klik Start → copy angka 'Id'\n2. Buka @FastpikReminder_bot → klik Start (wajib agar bot bisa kirim pesan)\n3. Paste Chat ID di atas",
         "telegramChatIdPlaceholder": "Contoh: 123456789",
         "telegramReminderType": "Jenis Reminder",
         "telegramReminderBoth": "Keduanya (Pilih Foto & Download)",
