@@ -1190,35 +1190,68 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                                 <ArrowLeft className="h-4 w-4 mr-2" />{t('backToSelect')}
                             </Button>
                         </div>
-                    ) : (
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                            {photos.filter(p => selected.includes(p.id)).map((photo) => (
-                                <div
-                                    key={photo.id}
-                                    className="relative group aspect-[4/3] rounded-lg overflow-hidden cursor-pointer border-2 border-primary bg-muted"
-                                    onClick={() => handleZoom(photo)}
-                                >
-                                    <img
-                                        src={photo.url}
-                                        alt={photo.name}
-                                        className="w-full h-full object-cover"
-                                        loading="lazy"
-                                    />
-                                    {/* Hover overlay with zoom */}
-                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-20">
-                                        <div className="p-2 bg-white/20 backdrop-blur-md rounded-full text-white">
-                                            <ZoomIn className="w-5 h-5" />
+                    ) : (() => {
+                        const selectedPhotos = photos.filter(p => selected.includes(p.id))
+                        const hasLockedPhotos = lockedPhotoNames.length > 0
+                        const lockedSelected = hasLockedPhotos ? selectedPhotos.filter(p => isPhotoLocked(p)) : []
+                        const extraSelected = hasLockedPhotos ? selectedPhotos.filter(p => !isPhotoLocked(p)) : selectedPhotos
+
+                        const renderPhotoGrid = (photoList: typeof photos) => (
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                                {photoList.map((photo) => (
+                                    <div
+                                        key={photo.id}
+                                        className="relative group aspect-[4/3] rounded-lg overflow-hidden cursor-pointer border-2 border-primary bg-muted"
+                                        onClick={() => handleZoom(photo)}
+                                    >
+                                        <img
+                                            src={photo.url}
+                                            alt={photo.name}
+                                            className="w-full h-full object-cover"
+                                            loading="lazy"
+                                        />
+                                        {/* Hover overlay with zoom */}
+                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-20">
+                                            <div className="p-2 bg-white/20 backdrop-blur-md rounded-full text-white">
+                                                <ZoomIn className="w-5 h-5" />
+                                            </div>
+                                        </div>
+                                        {/* Filename */}
+                                        <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs p-2 truncate z-20">
+                                            {photo.name}
                                         </div>
                                     </div>
+                                ))}
+                            </div>
+                        )
 
-                                    {/* Filename */}
-                                    <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs p-2 truncate z-20">
-                                        {photo.name}
+                        return hasLockedPhotos ? (
+                            <div className="space-y-6">
+                                {/* Previous/Original photos section */}
+                                {lockedSelected.length > 0 && (
+                                    <div className="space-y-2">
+                                        <div className="flex items-center gap-2">
+                                            <div className="h-px flex-1 bg-border" />
+                                            <span className="text-xs font-medium text-muted-foreground px-2">🔒 {t('previousPhotos')} ({lockedSelected.length})</span>
+                                            <div className="h-px flex-1 bg-border" />
+                                        </div>
+                                        {renderPhotoGrid(lockedSelected)}
                                     </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
+                                )}
+                                {/* Extra/New photos section */}
+                                {extraSelected.length > 0 && (
+                                    <div className="space-y-2">
+                                        <div className="flex items-center gap-2">
+                                            <div className="h-px flex-1 bg-border" />
+                                            <span className="text-xs font-medium text-amber-600 dark:text-amber-400 px-2">📸 {t('additionalPhotos')} ({extraSelected.length})</span>
+                                            <div className="h-px flex-1 bg-border" />
+                                        </div>
+                                        {renderPhotoGrid(extraSelected)}
+                                    </div>
+                                )}
+                            </div>
+                        ) : renderPhotoGrid(extraSelected)
+                    })()}
                 </div>
             ) : (
                 <PhotoGrid
