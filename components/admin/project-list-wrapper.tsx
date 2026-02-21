@@ -102,11 +102,11 @@ export function ProjectListWrapper({ initialProjects, initialFolders }: ProjectL
         <div className="bg-card text-card-foreground rounded-xl border shadow-sm p-6 sm:p-8 min-h-[500px]">
             {/* Tab Navigation */}
             {view === 'list' && (
-                <div className="flex items-center gap-1 mb-6 border-b">
+                <div className="flex items-center gap-1 mb-6 border-b overflow-x-auto scrollbar-none">
                     <button
                         onClick={() => setActiveTab('projects')}
                         className={cn(
-                            "px-4 py-2.5 text-sm font-medium transition-colors relative cursor-pointer flex items-center gap-2",
+                            "px-4 py-2.5 text-sm font-medium transition-colors relative cursor-pointer flex items-center gap-2 whitespace-nowrap",
                             activeTab === 'projects'
                                 ? "text-primary"
                                 : "text-muted-foreground hover:text-foreground"
@@ -121,7 +121,7 @@ export function ProjectListWrapper({ initialProjects, initialFolders }: ProjectL
                     <button
                         onClick={() => setActiveTab('status')}
                         className={cn(
-                            "px-4 py-2.5 text-sm font-medium transition-colors relative cursor-pointer flex items-center gap-2",
+                            "px-4 py-2.5 text-sm font-medium transition-colors relative cursor-pointer flex items-center gap-2 whitespace-nowrap",
                             activeTab === 'status'
                                 ? "text-primary"
                                 : "text-muted-foreground hover:text-foreground"

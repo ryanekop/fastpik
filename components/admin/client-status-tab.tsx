@@ -405,19 +405,20 @@ export function ClientStatusTab({ projects: initialProjects, folders }: ClientSt
                                             <div className="flex items-start gap-3">
                                                 {/* Main content */}
                                                 <div className="flex-1 min-w-0 space-y-2">
-                                                    {/* Name + status badge */}
-                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                    {/* Status badge */}
+                                                    <div className="flex items-center justify-between gap-2">
                                                         <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium", statusCfg.bg, statusCfg.color)}>
                                                             {status === 'in_progress' && <Clock className="h-3 w-3" />}
                                                             {status === 'reviewed' && <CheckCircle className="h-3 w-3" />}
                                                             {status === 'pending' && <XCircle className="h-3 w-3" />}
                                                             {t(`status_${status}`)}
                                                         </span>
-                                                        <h4 className="font-semibold truncate">{project.clientName}</h4>
-                                                        <span className="text-xs text-muted-foreground ml-auto whitespace-nowrap">
+                                                        <span className="text-xs text-muted-foreground whitespace-nowrap">
                                                             {formatRelativeTime(project.selectionLastSyncedAt)}
                                                         </span>
                                                     </div>
+                                                    {/* Client name */}
+                                                    <h4 className="font-semibold truncate text-base">{project.clientName}</h4>
 
                                                     {/* Folder info */}
                                                     {folderName && (
