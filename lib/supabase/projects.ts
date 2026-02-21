@@ -119,6 +119,10 @@ function transformProjectFromDB(db: any): Project {
         link: db.link,
         lockedPhotos: db.locked_photos || [],
         folderId: db.folder_id || null,
+        selectedPhotos: db.selected_photos || [],
+        selectionStatus: db.selection_status || 'pending',
+        selectionSubmittedAt: db.selection_submitted_at ? new Date(db.selection_submitted_at).getTime() : null,
+        selectionLastSyncedAt: db.selection_last_synced_at ? new Date(db.selection_last_synced_at).getTime() : null,
     }
 }
 

@@ -18,7 +18,13 @@ CREATE TABLE IF NOT EXISTS projects (
   link TEXT NOT NULL,
   locked_photos TEXT[] DEFAULT '{}',
   folder_id UUID REFERENCES folders(id) ON DELETE SET NULL,
-  -- Legacy support columns (optional, kept for structure consistency with old local interface if needed)
+  download_expires_at TIMESTAMPTZ,
+  -- Selection tracking (v1.3.0)
+  selected_photos TEXT[] DEFAULT '{}',
+  selection_status TEXT DEFAULT 'pending',
+  selection_submitted_at TIMESTAMPTZ,
+  selection_last_synced_at TIMESTAMPTZ,
+  -- Legacy support columns (optional)
   whatsapp TEXT
 );
 
@@ -34,6 +40,7 @@ CREATE TABLE IF NOT EXISTS folders (
 CREATE INDEX IF NOT EXISTS idx_folders_user ON folders(user_id);
 CREATE INDEX IF NOT EXISTS idx_folders_parent ON folders(parent_id);
 CREATE INDEX IF NOT EXISTS idx_projects_folder ON projects(folder_id);
+CREATE INDEX IF NOT EXISTS idx_projects_selection_status ON projects(selection_status);
 
 -- 2. Create `settings` table
 CREATE TABLE IF NOT EXISTS settings (

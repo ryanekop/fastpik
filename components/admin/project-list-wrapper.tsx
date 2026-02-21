@@ -4,10 +4,13 @@ import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { ProjectList } from "@/components/admin/project-list"
 import { CreateProjectForm } from "@/components/admin/create-project-form"
+import { ClientStatusTab } from "@/components/admin/client-status-tab"
 import type { Project } from "@/lib/project-store"
 import type { Folder } from "@/lib/supabase/folders"
 import { useRouter } from "next/navigation"
-
+import { useTranslations } from "next-intl"
+import { cn } from "@/lib/utils"
+import { LayoutList, Eye } from "lucide-react"
 interface ProjectListWrapperProps {
     initialProjects: Project[]
     initialFolders: Folder[]
@@ -15,6 +18,7 @@ interface ProjectListWrapperProps {
 
 export function ProjectListWrapper({ initialProjects, initialFolders }: ProjectListWrapperProps) {
     const router = useRouter()
+    const t = useTranslations('Admin')
     const [projects, setProjects] = useState<Project[]>(initialProjects)
     const [folders, setFolders] = useState<Folder[]>(initialFolders)
 
@@ -28,6 +32,7 @@ export function ProjectListWrapper({ initialProjects, initialFolders }: ProjectL
 
     const [view, setView] = useState<'list' | 'create' | 'edit'>('list')
     const [editingProject, setEditingProject] = useState<Project | null>(null)
+    const [activeTab, setActiveTab] = useState<'projects' | 'status'>('projects')
 
     // Folder navigation
     const [currentFolderId, setCurrentFolderId] = useState<string | null>(null)
@@ -88,10 +93,65 @@ export function ProjectListWrapper({ initialProjects, initialFolders }: ProjectL
         router.refresh()
     }
 
+    // Count active selections (in_progress)
+    const activeSelections = projects.filter(p =>
+        p.selectionStatus === 'in_progress'
+    ).length
+
     return (
         <div className="bg-card text-card-foreground rounded-xl border shadow-sm p-6 sm:p-8 min-h-[500px]">
+            {/* Tab Navigation */}
+            {view === 'list' && (
+                <div className="flex items-center gap-1 mb-6 border-b">
+                    <button
+                        onClick={() => setActiveTab('projects')}
+                        className={cn(
+                            "px-4 py-2.5 text-sm font-medium transition-colors relative cursor-pointer flex items-center gap-2",
+                            activeTab === 'projects'
+                                ? "text-primary"
+                                : "text-muted-foreground hover:text-foreground"
+                        )}
+                    >
+                        <LayoutList className="h-4 w-4" />
+                        {t('tabProjects')}
+                        {activeTab === 'projects' && (
+                            <motion.div layoutId="tab-indicator" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+                        )}
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('status')}
+                        className={cn(
+                            "px-4 py-2.5 text-sm font-medium transition-colors relative cursor-pointer flex items-center gap-2",
+                            activeTab === 'status'
+                                ? "text-primary"
+                                : "text-muted-foreground hover:text-foreground"
+                        )}
+                    >
+                        <Eye className="h-4 w-4" />
+                        {t('tabClientStatus')}
+                        {activeSelections > 0 && (
+                            <span className="inline-flex items-center justify-center h-5 min-w-5 px-1.5 text-xs font-bold bg-blue-500 text-white rounded-full">
+                                {activeSelections}
+                            </span>
+                        )}
+                        {activeTab === 'status' && (
+                            <motion.div layoutId="tab-indicator" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+                        )}
+                    </button>
+                </div>
+            )}
             <AnimatePresence mode="wait">
-                {view === 'list' ? (
+                {view === 'list' && activeTab === 'status' ? (
+                    <motion.div
+                        key="status"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{ duration: 0.15 }}
+                    >
+                        <ClientStatusTab projects={projects} folders={folders} />
+                    </motion.div>
+                ) : view === 'list' ? (
                     <motion.div
                         key="list"
                         initial={{ opacity: 0, x: -20 }}

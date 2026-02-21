@@ -17,6 +17,11 @@ export interface Project {
     link: string
     lockedPhotos?: string[] // List of previously selected photo filenames
     folderId?: string | null // Folder ID for organization
+    // Selection tracking
+    selectedPhotos?: string[] // Live-synced photo selections from client
+    selectionStatus?: string // 'pending' | 'in_progress' | 'submitted' | 'reviewed'
+    selectionSubmittedAt?: number | null // Unix timestamp
+    selectionLastSyncedAt?: number | null // Unix timestamp
     // Legacy support for old projects
     whatsapp?: string
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { useSelectionStore, useStoreHydration } from "@/lib/store"
 import { PhotoGrid } from "./photo-grid"
 import { PhotoLightbox } from "./photo-lightbox"
@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
 import { PopupDialog, Toast } from "@/components/ui/popup-dialog"
-import { Copy, Send, AlertCircle, Loader2, RefreshCw, ImageOff, Trash2, Lock, Eye, EyeOff, MessageCircle, Check, Download, MousePointerClick, ArrowLeft, Square } from "lucide-react"
+import { Copy, Send, AlertCircle, Loader2, RefreshCw, ImageOff, Trash2, Lock, Eye, EyeOff, MessageCircle, Check, Download, MousePointerClick, ArrowLeft, Square, ZoomIn } from "lucide-react"
 // jszip and file-saver are dynamically imported when needed (see handleDownloadPhotos)
 // This reduces the initial JS bundle by ~48KB
 import { generateMockPhotos } from "@/lib/mock-data"
@@ -60,8 +60,8 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
     const [alertMax, setAlertMax] = useState(false)
     const [copied, setCopied] = useState(false)
 
-    // View mode state: 'initial' = landing choice, 'culling' = select photos, 'download' = download mode
-    const [viewMode, setViewMode] = useState<'initial' | 'culling' | 'download'>('initial')
+    // View mode state: 'initial' = landing choice, 'culling' = select photos, 'download' = download mode, 'review' = review selected
+    const [viewMode, setViewMode] = useState<'initial' | 'culling' | 'download' | 'review'>('initial')
     // Download mode selection (separate from culling selection)
     const [downloadSelected, setDownloadSelected] = useState<string[]>([])
     const [isDownloading, setIsDownloading] = useState(false)
@@ -101,6 +101,10 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
     const [hasPendingSelection, setHasPendingSelection] = useState(false)
     const [showDownloadAllDialog, setShowDownloadAllDialog] = useState(false)
     const [showDownloadClearDialog, setShowDownloadClearDialog] = useState(false)
+
+    // Selection sync state
+    const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const lastSyncedRef = useRef<string>('')
 
     // Time remaining state for countdown
     const [timeRemaining, setTimeRemaining] = useState<{ days: number, hours: number, minutes: number } | null>(null)
@@ -265,6 +269,49 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
             }
         }
     }, [photos, viewMode])
+
+    // Debounced sync: auto-sync selections to server 2 seconds after last toggle
+    // MUST be before early returns to maintain consistent hook order
+    useEffect(() => {
+        // Only sync in culling mode with a valid project ID and loaded photos
+        if (viewMode !== 'culling' || !config.projectId || photos.length === 0) return
+
+        const getNameNoExt = (name: string | undefined) => {
+            if (!name) return ''
+            return name.replace(/\.[^/.]+$/, '')
+        }
+
+        // Build the list of selected photo names
+        const selectedNames = selected
+            .map(id => getNameNoExt(photos.find(p => p.id === id)?.name))
+            .filter(Boolean)
+
+        const serialized = JSON.stringify(selectedNames)
+
+        // Skip if nothing changed since last sync
+        if (serialized === lastSyncedRef.current) return
+
+        // Clear previous timer
+        if (syncTimerRef.current) clearTimeout(syncTimerRef.current)
+
+        // Set new debounce timer (2 seconds)
+        syncTimerRef.current = setTimeout(async () => {
+            try {
+                await fetch(`/api/projects/${config.projectId}/sync-selection`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ selectedPhotos: selectedNames })
+                })
+                lastSyncedRef.current = serialized
+            } catch (err) {
+                console.error('Failed to sync selection:', err)
+            }
+        }, 2000)
+
+        return () => {
+            if (syncTimerRef.current) clearTimeout(syncTimerRef.current)
+        }
+    }, [selected, viewMode, config.projectId, photos])
 
     const handlePasswordSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -1001,6 +1048,30 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                                 <LanguageToggle />
                             </div>
                         </>
+                    ) : viewMode === 'review' ? (
+                        <>
+                            {/* Review Mode Header */}
+                            <div className="flex items-center gap-3">
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => setViewMode('culling')}
+                                    className="cursor-pointer"
+                                >
+                                    <ArrowLeft className="h-5 w-5" />
+                                </Button>
+                                <div>
+                                    <h1 className="font-bold text-lg">{t('reviewTitle')}</h1>
+                                    <p className="text-xs text-muted-foreground">
+                                        {selected.length} / {config.maxPhotos} {t('selected')}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <ThemeToggle />
+                                <LanguageToggle />
+                            </div>
+                        </>
                     ) : (
                         <>
                             {/* Culling Mode Header */}
@@ -1103,6 +1174,52 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                     lockedPhotoNames={[]}
                     headerPortalRef={photoGridHeaderRef}
                 />
+            ) : viewMode === 'review' ? (
+                // Review Mode: show only selected photos
+                <div className="p-4 space-y-4">
+                    <div className="text-center space-y-1">
+                        <p className="text-sm text-muted-foreground">
+                            {selected.length} / {config.maxPhotos} {t('selected')}
+                        </p>
+                    </div>
+                    {selected.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-16 gap-4">
+                            <ImageOff className="h-12 w-12 text-muted-foreground" />
+                            <p className="text-muted-foreground">{t('noPhotosSelected')}</p>
+                            <Button onClick={() => setViewMode('culling')} variant="outline" className="cursor-pointer">
+                                <ArrowLeft className="h-4 w-4 mr-2" />{t('backToSelect')}
+                            </Button>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                            {photos.filter(p => selected.includes(p.id)).map((photo) => (
+                                <div
+                                    key={photo.id}
+                                    className="relative group aspect-[4/3] rounded-lg overflow-hidden cursor-pointer border-2 border-primary bg-muted"
+                                    onClick={() => handleZoom(photo)}
+                                >
+                                    <img
+                                        src={photo.url}
+                                        alt={photo.name}
+                                        className="w-full h-full object-cover"
+                                        loading="lazy"
+                                    />
+                                    {/* Hover overlay with zoom */}
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-20">
+                                        <div className="p-2 bg-white/20 backdrop-blur-md rounded-full text-white">
+                                            <ZoomIn className="w-5 h-5" />
+                                        </div>
+                                    </div>
+
+                                    {/* Filename */}
+                                    <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs p-2 truncate z-20">
+                                        {photo.name}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
             ) : (
                 <PhotoGrid
                     photos={photos}
@@ -1174,42 +1291,33 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                             )}
                         </div>
                     </div>
-                ) : (
-                    // Culling Mode Bottom Bar (original)
+                ) : viewMode === 'review' ? (
+                    // Review Mode Bottom Bar
                     <>
-                        {selected.length > 0 && (
-                            <div className="mb-2 text-xs text-muted-foreground text-center px-4 truncate">
-                                {t('chosenPhotos')}: {selectedPhotoNames.join(', ')}{selected.length > 5 && ` +${selected.length - 5} ${t('more')}`}
-                            </div>
-                        )}
                         <div className="flex flex-col md:flex-row gap-2 md:gap-3 w-full max-w-xl mx-auto md:max-w-none md:justify-center">
-                            <div className="flex gap-2 w-full md:w-auto md:contents">
-                                {/* Clear Selection Button */}
-                                <Button
-                                    variant="outline"
-                                    size="icon"
-                                    onClick={() => setShowClearDialog(true)}
-                                    disabled={selected.length === 0}
-                                    className="shrink-0 cursor-pointer text-red-500 border-red-200 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 md:order-1 md:w-auto md:px-4 md:aspect-auto"
-                                >
-                                    <Trash2 className="h-4 w-4 md:mr-2" />
-                                    <span className="hidden md:inline">{t('clearSelection')}</span>
-                                </Button>
+                            {/* Back to Edit */}
+                            <Button
+                                variant="outline"
+                                onClick={() => setViewMode('culling')}
+                                className="gap-2 cursor-pointer md:order-1"
+                            >
+                                <ArrowLeft className="h-4 w-4" />
+                                {t('editSelection')}
+                            </Button>
 
-                                {/* Copy List Button */}
-                                <Button
-                                    variant="outline"
-                                    onClick={copyList}
-                                    disabled={selected.length === 0}
-                                    className={cn(
-                                        "flex-1 md:flex-none gap-2 cursor-pointer md:order-2",
-                                        copied && "bg-green-100 text-green-700 border-green-200"
-                                    )}
-                                >
-                                    {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                                    {copied ? t('copied') : t('copyList')}
-                                </Button>
-                            </div>
+                            {/* Copy List Button */}
+                            <Button
+                                variant="outline"
+                                onClick={copyList}
+                                disabled={selected.length === 0}
+                                className={cn(
+                                    "gap-2 cursor-pointer md:order-2",
+                                    copied && "bg-green-100 text-green-700 border-green-200"
+                                )}
+                            >
+                                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                                {copied ? t('copied') : t('copyList')}
+                            </Button>
 
                             {/* WhatsApp Button */}
                             <Button
@@ -1219,6 +1327,37 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                             >
                                 <MessageCircle className="h-4 w-4" />
                                 {t('sendToClient')}
+                            </Button>
+                        </div>
+                    </>
+                ) : (
+                    // Culling Mode Bottom Bar
+                    <>
+                        {selected.length > 0 && (
+                            <div className="mb-2 text-xs text-muted-foreground text-center px-4 truncate">
+                                {t('chosenPhotos')}: {selectedPhotoNames.join(', ')}{selected.length > 5 && ` +${selected.length - 5} ${t('more')}`}
+                            </div>
+                        )}
+                        <div className="flex gap-2 w-full max-w-xl mx-auto">
+                            {/* Clear Selection Button */}
+                            <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => setShowClearDialog(true)}
+                                disabled={selected.length === 0}
+                                className="shrink-0 cursor-pointer text-red-500 border-red-200 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                            >
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+
+                            {/* Review Selection Button */}
+                            <Button
+                                onClick={() => setViewMode('review')}
+                                disabled={selected.length === 0}
+                                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white gap-2 cursor-pointer"
+                            >
+                                <Eye className="h-4 w-4" />
+                                {t('reviewSelection')} ({selected.length})
                             </Button>
                         </div>
                     </>

@@ -321,7 +321,9 @@ export function ProjectList({
             }
         }
 
-        const message = compileMessage(templates.initialLink, variables, false)
+        const isExtra = !!(project.lockedPhotos && project.lockedPhotos.length > 0)
+        const template = isExtra ? templates.extraLink : templates.initialLink
+        const message = compileMessage(template, variables, isExtra)
         window.open(`https://wa.me/${clientWa}?text=${encodeURIComponent(message)}`, '_blank')
     }
 
@@ -366,7 +368,9 @@ export function ProjectList({
                 }
             }
         }
-        const message = compileMessage(templates.initialLink, variables, false)
+        const isExtra = !!(project.lockedPhotos && project.lockedPhotos.length > 0)
+        const template = isExtra ? templates.extraLink : templates.initialLink
+        const message = compileMessage(template, variables, isExtra)
         if (navigator.clipboard && window.isSecureContext) {
             navigator.clipboard.writeText(message)
             setCopiedTemplateId(project.id)

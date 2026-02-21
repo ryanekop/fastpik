@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
-import { useTranslations } from "next-intl"
+import { useTranslations, useLocale } from "next-intl"
 import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Copy, ArrowRight, Check, ArrowLeft, MessageCircle, Eye, EyeOff, Loader2, ExternalLink } from "lucide-react"
@@ -56,6 +56,7 @@ interface CreateProjectFormProps {
 export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEditComplete, currentFolderId }: CreateProjectFormProps) {
     const t = useTranslations('Admin')
     const tc = useTranslations('Client')
+    const locale = useLocale()
     const supabase = createClient()
     const [generatedLink, setGeneratedLink] = useState<string | null>(null)
     const [copied, setCopied] = useState(false)
@@ -64,6 +65,9 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
     const [showPassword, setShowPassword] = useState(false)
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [vendorSlug, setVendorSlug] = useState<string | null>(null)
+
+    // Message template from settings
+    const [initialTemplate, setInitialTemplate] = useState<{ id: string, en: string } | null>(null)
 
     // Custom duration dialog states
     const [showCustomExpiryDialog, setShowCustomExpiryDialog] = useState(false)
@@ -106,7 +110,7 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
 
             const { data } = await supabase
                 .from('settings')
-                .select('default_admin_whatsapp, vendor_name, default_max_photos, default_expiry_days, default_download_expiry_days, default_password')
+                .select('default_admin_whatsapp, vendor_name, default_max_photos, default_expiry_days, default_download_expiry_days, default_password, msg_tmpl_link_initial')
                 .eq('user_id', user.id)
                 .maybeSingle()
 
@@ -150,6 +154,9 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
             }
             if (data?.default_password) {
                 form.setValue('password', data.default_password)
+            }
+            if (data?.msg_tmpl_link_initial) {
+                setInitialTemplate(data.msg_tmpl_link_initial as { id: string, en: string })
             }
         } catch (err) {
             console.log('No default settings found')
@@ -273,20 +280,43 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
         }
     }
 
+    // Compile message using template (same logic as project-list)
+    const compileMessage = (template: { id: string, en: string } | null, variables: Record<string, string>) => {
+        const lang = locale as 'id' | 'en'
+        const tmplText = template?.[lang] || ""
+        if (tmplText.trim()) {
+            let msg = tmplText
+            Object.entries(variables).forEach(([key, val]) => {
+                msg = msg.replace(new RegExp(`{{${key}}}`, 'g'), val)
+            })
+            msg = msg.replace(/{{(\w+)}}/g, '').replace(/\n{3,}/g, '\n\n').trim()
+            return msg
+        }
+        return null // No template set
+    }
+
     const buildClientMessage = () => {
         if (!generatedLink || !currentProject) return ''
-        let message = tc('waClientMessage', { name: currentProject.clientName, link: generatedLink, max: currentProject.maxPhotos.toString() })
+
+        // Build variables for template
+        const variables: Record<string, string> = {
+            client_name: currentProject.clientName,
+            link: generatedLink,
+            count: currentProject.maxPhotos.toString(),
+            max_photos: currentProject.maxPhotos.toString()
+        }
 
         if (currentProject.password) {
-            message += `\n\n🔐 Password: ${currentProject.password}`
+            variables.password = currentProject.password
         }
         if (currentProject.expiresAt) {
             const diff = currentProject.expiresAt - Date.now()
             if (diff > 0) {
                 const days = Math.floor(diff / (1000 * 60 * 60 * 24))
                 const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
-                const durationText = days > 0 ? `${days} ${t('days')}` : hours > 0 ? `${hours} ${t('hours')}` : t('lessThanHour')
-                message += `\n⏰ ${t('selectionValidFor')}: ${durationText}`
+                if (days > 0) variables.duration = `${days} ${t('days')}`
+                else if (hours > 0) variables.duration = `${hours} ${t('hours')}`
+                else variables.duration = t('lessThanHour')
             }
         }
         if (currentProject.downloadExpiresAt) {
@@ -294,9 +324,26 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
             if (diff > 0) {
                 const days = Math.floor(diff / (1000 * 60 * 60 * 24))
                 const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
-                const durationText = days > 0 ? `${days} ${t('days')}` : hours > 0 ? `${hours} ${t('hours')}` : t('lessThanHour')
-                message += `\n📥 ${t('downloadValidFor')}: ${durationText}`
+                if (days > 0) variables.download_duration = `${days} ${t('days')}`
+                else if (hours > 0) variables.download_duration = `${hours} ${t('hours')}`
+                else variables.download_duration = t('lessThanHour')
             }
+        }
+
+        // Try custom template first
+        const compiledMessage = compileMessage(initialTemplate, variables)
+        if (compiledMessage) return compiledMessage
+
+        // Fallback to hardcoded message
+        let message = tc('waClientMessage', { name: currentProject.clientName, link: generatedLink, max: currentProject.maxPhotos.toString() })
+        if (variables.password) {
+            message += `\n\n🔐 Password: ${variables.password}`
+        }
+        if (variables.duration) {
+            message += `\n⏰ ${t('selectionValidFor')}: ${variables.duration}`
+        }
+        if (variables.download_duration) {
+            message += `\n📥 ${t('downloadValidFor')}: ${variables.download_duration}`
         }
         return message
     }
