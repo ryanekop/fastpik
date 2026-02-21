@@ -1196,12 +1196,12 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                         const lockedSelected = hasLockedPhotos ? selectedPhotos.filter(p => isPhotoLocked(p)) : []
                         const extraSelected = hasLockedPhotos ? selectedPhotos.filter(p => !isPhotoLocked(p)) : selectedPhotos
 
-                        const renderPhotoGrid = (photoList: typeof photos) => (
+                        const renderPhotoGrid = (photoList: typeof photos, borderColor: string = 'border-primary') => (
                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                                 {photoList.map((photo) => (
                                     <div
                                         key={photo.id}
-                                        className="relative group aspect-[4/3] rounded-lg overflow-hidden cursor-pointer border-2 border-primary bg-muted"
+                                        className={cn("relative group aspect-[4/3] rounded-lg overflow-hidden cursor-pointer border-2 bg-muted", borderColor)}
                                         onClick={() => handleZoom(photo)}
                                     >
                                         <img
@@ -1231,22 +1231,28 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                                 {lockedSelected.length > 0 && (
                                     <div className="space-y-2">
                                         <div className="flex items-center gap-2">
-                                            <div className="h-px flex-1 bg-border" />
-                                            <span className="text-xs font-medium text-muted-foreground px-2">🔒 {t('previousPhotos')} ({lockedSelected.length})</span>
-                                            <div className="h-px flex-1 bg-border" />
+                                            <div className="h-px flex-1 bg-amber-300 dark:bg-amber-700" />
+                                            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400 px-2">
+                                                <Lock className="h-3.5 w-3.5" />
+                                                {t('previousPhotos')} ({lockedSelected.length})
+                                            </span>
+                                            <div className="h-px flex-1 bg-amber-300 dark:bg-amber-700" />
                                         </div>
-                                        {renderPhotoGrid(lockedSelected)}
+                                        {renderPhotoGrid(lockedSelected, 'border-amber-400 dark:border-amber-600')}
                                     </div>
                                 )}
                                 {/* Extra/New photos section */}
                                 {extraSelected.length > 0 && (
                                     <div className="space-y-2">
                                         <div className="flex items-center gap-2">
-                                            <div className="h-px flex-1 bg-border" />
-                                            <span className="text-xs font-medium text-amber-600 dark:text-amber-400 px-2">📸 {t('additionalPhotos')} ({extraSelected.length})</span>
-                                            <div className="h-px flex-1 bg-border" />
+                                            <div className="h-px flex-1 bg-emerald-300 dark:bg-emerald-700" />
+                                            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400 px-2">
+                                                <Check className="h-3.5 w-3.5" />
+                                                {t('additionalPhotos')} ({extraSelected.length})
+                                            </span>
+                                            <div className="h-px flex-1 bg-emerald-300 dark:bg-emerald-700" />
                                         </div>
-                                        {renderPhotoGrid(extraSelected)}
+                                        {renderPhotoGrid(extraSelected, 'border-emerald-400 dark:border-emerald-600')}
                                     </div>
                                 )}
                             </div>
