@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { PhoneInput } from "@/components/ui/phone-input"
-import { Loader2, Save, ArrowLeft, MessageSquare, Send } from "lucide-react"
+import { Loader2, Save, ArrowLeft, MessageSquare, Send, Search, Bot, ClipboardPaste } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import Link from "next/link"
 import { AdminShell } from "@/components/admin/admin-shell"
@@ -456,7 +456,47 @@ export default function SettingsPage() {
                                     <CardDescription>{t('telegramConfigDesc')}</CardDescription>
                                 </CardHeader>
                                 <CardContent className="space-y-6">
-                                    {/* Chat ID */}
+                                    {/* Setup Guide */}
+                                    <div className="rounded-lg border bg-muted/30 p-4 mb-2">
+                                        <p className="text-sm font-medium mb-4 text-center">Cara Setup Bot Telegram</p>
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                            {/* Step 1 */}
+                                            <a href="https://t.me/userinfo3bot" target="_blank" rel="noopener noreferrer" className="flex flex-col items-center text-center group">
+                                                <div className="relative mb-2">
+                                                    <div className="w-16 h-16 rounded-full bg-background border-2 border-muted-foreground/20 flex items-center justify-center group-hover:border-primary transition-colors">
+                                                        <Search className="w-7 h-7 text-muted-foreground group-hover:text-primary transition-colors" />
+                                                    </div>
+                                                    <span className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-foreground text-background text-xs font-bold flex items-center justify-center">1</span>
+                                                </div>
+                                                <p className="text-sm font-semibold">Dapatkan Chat ID</p>
+                                                <p className="text-xs text-muted-foreground mt-1">Buka <span className="text-primary underline">@userinfo3bot</span> → klik Start → copy angka Id</p>
+                                            </a>
+                                            {/* Step 2 */}
+                                            <a href="https://t.me/FastpikReminder_bot" target="_blank" rel="noopener noreferrer" className="flex flex-col items-center text-center group">
+                                                <div className="relative mb-2">
+                                                    <div className="w-16 h-16 rounded-full bg-background border-2 border-muted-foreground/20 flex items-center justify-center group-hover:border-primary transition-colors">
+                                                        <Bot className="w-7 h-7 text-muted-foreground group-hover:text-primary transition-colors" />
+                                                    </div>
+                                                    <span className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-foreground text-background text-xs font-bold flex items-center justify-center">2</span>
+                                                </div>
+                                                <p className="text-sm font-semibold">Start Bot Fastpik</p>
+                                                <p className="text-xs text-muted-foreground mt-1">Buka <span className="text-primary underline">@FastpikReminder_bot</span> → klik Start</p>
+                                            </a>
+                                            {/* Step 3 */}
+                                            <div className="flex flex-col items-center text-center">
+                                                <div className="relative mb-2">
+                                                    <div className="w-16 h-16 rounded-full bg-background border-2 border-muted-foreground/20 flex items-center justify-center">
+                                                        <ClipboardPaste className="w-7 h-7 text-muted-foreground" />
+                                                    </div>
+                                                    <span className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-foreground text-background text-xs font-bold flex items-center justify-center">3</span>
+                                                </div>
+                                                <p className="text-sm font-semibold">Paste Chat ID</p>
+                                                <p className="text-xs text-muted-foreground mt-1">Masukkan Chat ID di kolom bawah lalu klik Test Kirim</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Chat ID Input */}
                                     <div className="space-y-2">
                                         <Label htmlFor="telegramChatId">💬 {t('telegramChatId')}</Label>
                                         <Input
@@ -465,11 +505,6 @@ export default function SettingsPage() {
                                             onChange={(e) => setTelegramChatId(e.target.value)}
                                             placeholder={t('telegramChatIdPlaceholder')}
                                         />
-                                        <div className="text-xs text-muted-foreground space-y-1 mt-1">
-                                            <p>1️⃣ Buka <a href="https://t.me/userinfo3bot" target="_blank" rel="noopener noreferrer" className="text-primary underline">@userinfo3bot</a> → klik <b>Start</b> → copy angka <b>Id</b></p>
-                                            <p>2️⃣ Buka <a href="https://t.me/FastpikReminder_bot" target="_blank" rel="noopener noreferrer" className="text-primary underline">@FastpikReminder_bot</a> → klik <b>Start</b> (wajib agar bot bisa kirim pesan)</p>
-                                            <p>3️⃣ Paste Chat ID di kolom di atas</p>
-                                        </div>
                                     </div>
 
                                     {/* Reminder Type */}
