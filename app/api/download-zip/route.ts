@@ -9,7 +9,7 @@ import { apiKeyRotator } from '@/lib/api-key-rotator'
 // Max concurrent fetches to avoid Google API rate limiting
 const CONCURRENCY = 3
 
-async function fetchPhotoBlob(fileId: string): Promise<{ stream: ReadableStream; name: string } | null> {
+async function fetchPhotoBuffer(fileId: string): Promise<Buffer | null> {
     const apiKey = apiKeyRotator.getLeastUsedKey() || process.env.NEXT_PUBLIC_GOOGLE_API_KEY
     if (!apiKey) return null
 
@@ -26,15 +26,17 @@ async function fetchPhotoBlob(fileId: string): Promise<{ stream: ReadableStream;
                 if (newKey && newKey !== apiKey) {
                     const retryUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${newKey}`
                     const retryRes = await fetch(retryUrl)
-                    if (retryRes.ok && retryRes.body) {
-                        return { stream: retryRes.body, name: '' }
+                    if (retryRes.ok) {
+                        const arrayBuffer = await retryRes.arrayBuffer()
+                        return Buffer.from(arrayBuffer)
                     }
                 }
                 return null
             }
 
-            if (response.ok && response.body) {
-                return { stream: response.body, name: '' }
+            if (response.ok) {
+                const arrayBuffer = await response.arrayBuffer()
+                return Buffer.from(arrayBuffer)
             }
             return null
         } catch (err) {
@@ -63,6 +65,8 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Maximum 500 photos per request' }, { status: 400 })
         }
 
+        console.log(`[download-zip] Starting ZIP for ${photoIds.length} photos (client: ${clientName})`)
+
         // Create archiver instance
         const archive = archiver('zip', { zlib: { level: 1 } }) // level 1 = fast compression (photos are already compressed)
         const passThrough = new PassThrough()
@@ -70,17 +74,28 @@ export async function POST(request: NextRequest) {
         // Pipe archive to passthrough stream
         archive.pipe(passThrough)
 
+        // Handle archive errors
+        archive.on('error', (err) => {
+            console.error('[download-zip] Archive stream error:', err)
+        })
+
+        archive.on('warning', (err) => {
+            console.warn('[download-zip] Archive warning:', err)
+        })
+
         // Process photos with concurrency control
         const processPhotos = async () => {
             const usedNames = new Set<string>()
+            let addedCount = 0
+            let failedCount = 0
 
             for (let i = 0; i < photoIds.length; i += CONCURRENCY) {
                 const batch = photoIds.slice(i, i + CONCURRENCY)
 
                 const results = await Promise.allSettled(
                     batch.map(async (id) => {
-                        const result = await fetchPhotoBlob(id)
-                        if (!result) return null
+                        const buffer = await fetchPhotoBuffer(id)
+                        if (!buffer) return null
 
                         // Determine filename
                         let filename = photoNames?.[id] || `photo-${id}.jpg`
@@ -96,36 +111,26 @@ export async function POST(request: NextRequest) {
                         }
                         usedNames.add(filename)
 
-                        return { id, filename, stream: result.stream }
+                        return { id, filename, buffer }
                     })
                 )
 
                 for (const result of results) {
                     if (result.status === 'fulfilled' && result.value) {
-                        const { filename, stream } = result.value
-
-                        // Convert Web ReadableStream to Node.js readable
-                        const reader = stream.getReader()
-                        const nodeStream = new PassThrough()
-
-                            // Pipe web stream to node stream (don't await, let it flow)
-                            ; (async () => {
-                                try {
-                                    while (true) {
-                                        const { done, value } = await reader.read()
-                                        if (done) break
-                                        nodeStream.write(value)
-                                    }
-                                    nodeStream.end()
-                                } catch (err) {
-                                    nodeStream.destroy(err as Error)
-                                }
-                            })()
-
-                        archive.append(nodeStream, { name: filename })
+                        const { filename, buffer } = result.value
+                        archive.append(buffer, { name: filename })
+                        addedCount++
+                    } else {
+                        failedCount++
                     }
                 }
+
+                // Log progress
+                const processed = Math.min(i + CONCURRENCY, photoIds.length)
+                console.log(`[download-zip] Progress: ${processed}/${photoIds.length} fetched (${addedCount} added, ${failedCount} failed)`)
             }
+
+            console.log(`[download-zip] Finalizing ZIP: ${addedCount} photos added, ${failedCount} failed`)
 
             // All photos added, finalize the archive
             await archive.finalize()
@@ -133,13 +138,8 @@ export async function POST(request: NextRequest) {
 
         // Start processing in background (don't block response)
         processPhotos().catch(err => {
-            console.error('[download-zip] Archive error:', err)
-            archive.abort()
-        })
-
-        // Handle archive errors
-        archive.on('error', (err) => {
-            console.error('[download-zip] Archive stream error:', err)
+            console.error('[download-zip] Process error:', err)
+            passThrough.destroy(err)
         })
 
         // Convert Node.js PassThrough to Web ReadableStream for Next.js response
