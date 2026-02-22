@@ -701,7 +701,7 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
 
         const message = compileMessage(template || null, variables, defaultMsg)
 
-        window.open(`https://wa.me/${config.adminWhatsapp}?text=${encodeURIComponent(message)}`, '_blank')
+        window.open(`https://api.whatsapp.com/send/?phone=${config.adminWhatsapp}&text=${encodeURIComponent(message)}`, '_blank')
     }
 
     const handleClearSelection = () => {

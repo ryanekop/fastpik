@@ -351,7 +351,7 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
     const sendToClient = () => {
         if (generatedLink && currentProject) {
             const message = buildClientMessage()
-            window.open(`https://wa.me/${currentProject.clientWhatsapp}?text=${encodeURIComponent(message)}`, '_blank')
+            window.open(`https://api.whatsapp.com/send/?phone=${currentProject.clientWhatsapp}&text=${encodeURIComponent(message)}`, '_blank')
         }
     }
 

@@ -4,6 +4,9 @@ import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { ProjectList } from "@/components/admin/project-list"
 import { CreateProjectForm } from "@/components/admin/create-project-form"
+import { ImportProjectForm } from "@/components/admin/import-project-form"
+import { BatchModeForm } from "@/components/admin/batch-mode-form"
+import { BatchProjectDialog } from "@/components/admin/batch-project-dialog"
 import { ClientStatusTab } from "@/components/admin/client-status-tab"
 import type { Project } from "@/lib/project-store"
 import type { Folder } from "@/lib/supabase/folders"
@@ -30,8 +33,9 @@ export function ProjectListWrapper({ initialProjects, initialFolders }: ProjectL
         setFolders(initialFolders)
     }, [initialFolders])
 
-    const [view, setView] = useState<'list' | 'create' | 'edit'>('list')
+    const [view, setView] = useState<'list' | 'create' | 'edit' | 'import' | 'batch'>('list')
     const [editingProject, setEditingProject] = useState<Project | null>(null)
+    const [showBatchDialog, setShowBatchDialog] = useState(false)
     const [activeTab, setActiveTab] = useState<'projects' | 'status'>('projects')
 
     // Folder navigation
@@ -71,6 +75,26 @@ export function ProjectListWrapper({ initialProjects, initialFolders }: ProjectL
     const handleCreateNew = () => {
         setEditingProject(null)
         setView('create')
+    }
+
+    const handleBatchClick = () => {
+        setShowBatchDialog(true)
+    }
+
+    const handleImport = () => {
+        setShowBatchDialog(false)
+        setView('import')
+    }
+
+    const handleBatchMode = () => {
+        setShowBatchDialog(false)
+        setView('batch')
+    }
+
+    const onProjectsImported = (importedProjects: Project[]) => {
+        setProjects(prev => [...importedProjects, ...prev])
+        setView('list')
+        router.refresh()
     }
 
     const handleBack = () => {
@@ -167,6 +191,7 @@ export function ProjectListWrapper({ initialProjects, initialFolders }: ProjectL
                             currentDepth={getCurrentDepth()}
                             onNavigateToFolder={navigateToFolder}
                             onCreateNew={handleCreateNew}
+                            onBatchClick={handleBatchClick}
                             onOpenProject={(p) => window.open(p.link, '_blank')}
                             onEditProject={handleEditProject}
                             onDeleteProject={async (id) => {
@@ -180,6 +205,34 @@ export function ProjectListWrapper({ initialProjects, initialFolders }: ProjectL
                                 router.refresh()
                             }}
                             onFoldersChanged={refreshData}
+                        />
+                    </motion.div>
+                ) : view === 'import' ? (
+                    <motion.div
+                        key="import"
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 20 }}
+                        transition={{ duration: 0.2 }}
+                    >
+                        <ImportProjectForm
+                            onBack={handleBack}
+                            onProjectsImported={onProjectsImported}
+                            currentFolderId={currentFolderId}
+                        />
+                    </motion.div>
+                ) : view === 'batch' ? (
+                    <motion.div
+                        key="batch"
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 20 }}
+                        transition={{ duration: 0.2 }}
+                    >
+                        <BatchModeForm
+                            onBack={handleBack}
+                            onProjectsCreated={onProjectsImported}
+                            currentFolderId={currentFolderId}
                         />
                     </motion.div>
                 ) : (
@@ -200,6 +253,13 @@ export function ProjectListWrapper({ initialProjects, initialFolders }: ProjectL
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            <BatchProjectDialog
+                isOpen={showBatchDialog}
+                onClose={() => setShowBatchDialog(false)}
+                onImportFile={handleImport}
+                onBatchMode={handleBatchMode}
+            />
         </div>
     )
 }

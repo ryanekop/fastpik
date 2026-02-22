@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, DragEvent } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useTranslations, useLocale } from "next-intl"
-import { Plus, Trash2, ExternalLink, Copy, Clock, Users, MessageCircle, Edit, CheckSquare, Square, X, PlusCircle, Search, Loader2, Bell, FolderOpen, ArrowUpDown, Move, ChevronRight, Home, FolderPlus, FileText } from "lucide-react"
+import { Plus, Trash2, ExternalLink, Copy, Clock, Users, MessageCircle, Edit, CheckSquare, Square, X, PlusCircle, Search, Loader2, Bell, FolderOpen, ArrowUpDown, Move, ChevronRight, Home, FolderPlus, FileText, Zap } from "lucide-react"
 import { isProjectExpired, getClientWhatsapp, generateShortId, type Project } from "@/lib/project-store"
 import type { Folder } from "@/lib/supabase/folders"
 import { Button } from "@/components/ui/button"
@@ -21,6 +21,7 @@ interface ProjectListProps {
     currentDepth: number
     onNavigateToFolder: (folderId: string | null) => void
     onCreateNew: () => void
+    onBatchClick: () => void
     onOpenProject: (project: Project) => void
     onEditProject: (project: Project) => void
     onDeleteProject: (id: string) => Promise<void>
@@ -36,6 +37,7 @@ export function ProjectList({
     currentDepth,
     onNavigateToFolder,
     onCreateNew,
+    onBatchClick,
     onOpenProject,
     onEditProject,
     onDeleteProject,
@@ -324,7 +326,7 @@ export function ProjectList({
 
         const template = isExtra ? templates.extraLink : templates.initialLink
         const message = compileMessage(template, variables, isExtra)
-        window.open(`https://wa.me/${clientWa}?text=${encodeURIComponent(message)}`, '_blank')
+        window.open(`https://api.whatsapp.com/send/?phone=${clientWa}&text=${encodeURIComponent(message)}`, '_blank')
     }
 
     const copyTemplateForProject = (project: Project) => {
@@ -461,9 +463,9 @@ export function ProjectList({
             if (variables.download_duration) {
                 fallbackMessage += `\n📥 ${locale === 'id' ? 'Berlaku download' : 'Download valid for'}: ${variables.download_duration}`
             }
-            window.open(`https://wa.me/${clientWa}?text=${encodeURIComponent(fallbackMessage)}`, '_blank')
+            window.open(`https://api.whatsapp.com/send/?phone=${clientWa}&text=${encodeURIComponent(fallbackMessage)}`, '_blank')
         } else {
-            window.open(`https://wa.me/${clientWa}?text=${encodeURIComponent(message)}`, '_blank')
+            window.open(`https://api.whatsapp.com/send/?phone=${clientWa}&text=${encodeURIComponent(message)}`, '_blank')
         }
     }
 
@@ -838,10 +840,16 @@ export function ProjectList({
                 <div className="text-6xl">📂</div>
                 <h3 className="text-xl font-semibold">{t('noProjects')}</h3>
                 <p className="text-muted-foreground">{t('noProjectsDesc')}</p>
-                <Button onClick={onCreateNew} size="lg" className="gap-2 cursor-pointer">
-                    <Plus className="h-5 w-5" />
-                    {t('createNew')}
-                </Button>
+                <div className="flex flex-col sm:flex-row gap-2 justify-center">
+                    <Button onClick={onCreateNew} size="lg" className="gap-2 cursor-pointer">
+                        <Plus className="h-5 w-5" />
+                        {t('createNew')}
+                    </Button>
+                    <Button onClick={onBatchClick} size="lg" variant="outline" className="gap-2 cursor-pointer">
+                        <Zap className="h-5 w-5" />
+                        {t('batchCreate')}
+                    </Button>
+                </div>
             </motion.div>
         )
     }
@@ -911,6 +919,10 @@ export function ProjectList({
                                     {t('newFolder')}
                                 </Button>
                             )}
+                            <Button onClick={onBatchClick} size="sm" variant="outline" className="gap-2 cursor-pointer">
+                                <Zap className="h-4 w-4" />
+                                {t('batchCreate')}
+                            </Button>
                             <Button onClick={onCreateNew} size="sm" className="gap-2 cursor-pointer">
                                 <Plus className="h-4 w-4" />
                                 {t('createNew')}
@@ -1220,7 +1232,7 @@ export function ProjectList({
                                                 const clientWa = extraPhotosProject?.clientWhatsapp || ''
                                                 if (!clientWa) { setToastMessage(tc('noWhatsapp')); setShowToast(true); return }
                                                 const message = buildExtraTemplateMessage()
-                                                window.open(`https://wa.me/${clientWa}?text=${encodeURIComponent(message)}`, '_blank')
+                                                window.open(`https://api.whatsapp.com/send/?phone=${clientWa}&text=${encodeURIComponent(message)}`, '_blank')
                                             }} className="flex-1 bg-green-600 hover:bg-green-700 text-white cursor-pointer"><MessageCircle className="h-4 w-4 mr-2" />{t('sendToClientWa')}</Button>
                                             <Button variant="outline" className="flex-1 cursor-pointer" onClick={() => {
                                                 const message = buildExtraTemplateMessage()

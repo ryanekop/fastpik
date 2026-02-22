@@ -232,7 +232,7 @@ export function ClientStatusTab({ projects: initialProjects, folders }: ClientSt
 
         const message = compileMessage(templates.reminderLink, variables)
         if (message) {
-            window.open(`https://wa.me/${clientWa}?text=${encodeURIComponent(message)}`, '_blank')
+            window.open(`https://api.whatsapp.com/send/?phone=${clientWa}&text=${encodeURIComponent(message)}`, '_blank')
         } else {
             // Fallback
             let fallbackMessage = t('waReminderMessage', {
@@ -246,7 +246,7 @@ export function ClientStatusTab({ projects: initialProjects, folders }: ClientSt
             if (variables.download_duration) {
                 fallbackMessage += `\n📥 ${locale === 'id' ? 'Berlaku download' : 'Download valid for'}: ${variables.download_duration}`
             }
-            window.open(`https://wa.me/${clientWa}?text=${encodeURIComponent(fallbackMessage)}`, '_blank')
+            window.open(`https://api.whatsapp.com/send/?phone=${clientWa}&text=${encodeURIComponent(fallbackMessage)}`, '_blank')
         }
     }
 

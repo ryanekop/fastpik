@@ -61,6 +61,22 @@ export async function createProject(project: Project) {
     return project
 }
 
+export async function createBatchProjects(projects: Project[]) {
+    const supabase = await createClient()
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error("Unauthorized")
+
+    const dbProjects = projects.map(p => transformProjectToDB(p, user.id))
+
+    const { error } = await supabase
+        .from('projects')
+        .insert(dbProjects)
+
+    if (error) throw error
+    return projects
+}
+
 export async function updateProject(id: string, updates: Partial<Project>) {
     const supabase = await createClient()
 
