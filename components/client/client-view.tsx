@@ -1489,12 +1489,12 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                 onClose={() => setShowDownloadAllDialog(false)}
                 onConfirm={() => {
                     setShowDownloadAllDialog(false)
-                    handleDownloadPhotos(photos.map(p => p.id))
+                    window.open(config.gdriveLink, '_blank')
                 }}
                 title={t('confirmDownloadAll')}
                 message={t('confirmDownloadAllMsg', { count: photos.length })}
                 type="info"
-                confirmText={t('continue')}
+                confirmText={t('openGoogleDrive')}
                 cancelText={t('cancel')}
             />
         </div>
