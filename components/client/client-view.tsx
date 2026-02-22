@@ -66,6 +66,7 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
     const [downloadSelected, setDownloadSelected] = useState<string[]>([])
     const [isDownloading, setIsDownloading] = useState(false)
     const [downloadProgress, setDownloadProgress] = useState(0)
+    const [downloadStatusText, setDownloadStatusText] = useState('')
     const abortControllerRef = useRef<AbortController | null>(null)
 
     // Password dialog state (shown when clicking 'Pilih Foto' on password-protected albums)
@@ -736,10 +737,11 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
     // Helper: delay
     const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
-    // Constants
-    const BATCH_SIZE = 200        // Photos per ZIP file
-    const CONCURRENCY = 5         // Parallel downloads
-    const DIRECT_TEST_COUNT = 3   // Test direct API on first N photos
+    // Constants — smaller batch on mobile to avoid RAM issues
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
+    const BATCH_SIZE = isMobile ? 50 : 200
+    const CONCURRENCY = isMobile ? 3 : 5
+    const DIRECT_TEST_COUNT = 3
 
     // Download via direct Google Drive API (no bandwidth cost, but may get rate-limited)
     const downloadDirect = async (photo: Photo, signal: AbortSignal): Promise<Blob | null> => {
@@ -847,6 +849,14 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
         return { blobs, failed }
     }
 
+    // Helper: format ETA
+    const formatETA = (seconds: number): string => {
+        if (seconds < 60) return `~${Math.ceil(seconds)}s`
+        const mins = Math.floor(seconds / 60)
+        const secs = Math.ceil(seconds % 60)
+        return `~${mins}m ${secs}s`
+    }
+
     // Main download function with adaptive strategy + parallel + auto-batch
     const handleDownloadPhotos = async (photoIds: string[]) => {
         if (photoIds.length === 0) return
@@ -855,6 +865,24 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
         abortControllerRef.current = controller
         setIsDownloading(true)
         setDownloadProgress(0)
+        setDownloadStatusText(t('preparingDownload'))
+
+        const downloadStartTime = Date.now()
+        let totalCompleted = 0
+        const totalPhotos = photoIds.length
+
+        const updateProgress = (completed: number, batchOffset: number) => {
+            totalCompleted = batchOffset + completed
+            const pct = Math.round((totalCompleted / totalPhotos) * 100)
+            setDownloadProgress(pct)
+
+            const elapsed = (Date.now() - downloadStartTime) / 1000
+            const rate = totalCompleted / elapsed // photos per second
+            const remaining = totalPhotos - totalCompleted
+            const eta = rate > 0 ? remaining / rate : 0
+
+            setDownloadStatusText(`${totalCompleted}/${totalPhotos} foto${eta > 2 ? ` • ${formatETA(eta)}` : ''}`)
+        }
 
         try {
             const photosToDownload = photos.filter(p => photoIds.includes(p.id))
@@ -918,13 +946,16 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                     controller.signal,
                     useDirect,
                     (completed) => {
-                        const globalCompleted = batchStart + completed
-                        setDownloadProgress(Math.round((globalCompleted / photosToDownload.length) * 100))
+                        updateProgress(completed, batchStart)
                     }
                 )
 
                 // Create ZIP from downloaded blobs
                 if (blobs.size > 0) {
+                    setDownloadStatusText(isBatched
+                        ? `ZIP ${batch + 1}/${totalBatches}...`
+                        : `ZIP...`
+                    )
                     const [{ default: JSZip }, { saveAs }] = await Promise.all([
                         import('jszip'),
                         import('file-saver'),
@@ -975,6 +1006,7 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
             abortControllerRef.current = null
             setIsDownloading(false)
             setDownloadProgress(0)
+            setDownloadStatusText('')
         }
     }
 
@@ -1310,7 +1342,7 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                                 {isDownloading ? (
                                     <>
                                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                        {downloadProgress}%
+                                        <span className="text-xs">{downloadStatusText || `${downloadProgress}%`}</span>
                                     </>
                                 ) : (
                                     <>
