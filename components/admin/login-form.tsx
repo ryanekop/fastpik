@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
-import { Loader2, Eye, EyeOff, Instagram } from "lucide-react"
+import { Loader2, Eye, EyeOff, Instagram, Lock } from "lucide-react"
 import Link from "next/link"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { LanguageToggle } from "@/components/language-toggle"
@@ -78,7 +78,10 @@ export function LoginForm() {
     return (
         <Card className="w-full max-w-sm mx-auto shadow-lg">
             <CardHeader className="space-y-1">
-                <CardTitle className="text-2xl font-bold text-center">{t('loginTitle')}</CardTitle>
+                <CardTitle className="text-2xl font-bold text-center flex items-center justify-center gap-2">
+                    <Lock className="h-6 w-6" />
+                    {t('loginTitle')}
+                </CardTitle>
                 <CardDescription className="text-center">
                     {t('loginDescription')}
                 </CardDescription>
