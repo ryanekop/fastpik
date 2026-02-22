@@ -847,7 +847,7 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
         return { blobs, failed }
     }
 
-    // Main download function: 1 photo = client-side, 2+ photos = server-side ZIP via bypass subdomain
+    // Main download function with adaptive strategy + parallel + auto-batch
     const handleDownloadPhotos = async (photoIds: string[]) => {
         if (photoIds.length === 0) return
 
@@ -870,6 +870,7 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                     setToastMessage(t('downloadComplete'))
                     setShowToast(true)
                 } else {
+                    // All APIs failed → redirect to Google Drive
                     redirectToGDrive(photo)
                     setToastMessage(t('downloadFailed'))
                     setShowToast(true)
@@ -877,62 +878,26 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                 return
             }
 
-            // === MULTIPLE PHOTOS: try server-side ZIP (bypass Cloudflare) ===
-            console.log(`[Download] Server-side ZIP for ${photosToDownload.length} photos`)
-            setDownloadProgress(5)
-
-            const photoNames: Record<string, string> = {}
-            for (const photo of photosToDownload) {
-                photoNames[photo.id] = photo.name
-            }
-
-            try {
-                const response = await fetch('https://dl-fastpik.ryanekoapp.web.id/api/download-zip', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        photoIds: photosToDownload.map(p => p.id),
-                        photoNames,
-                        clientName: config.clientName,
-                    }),
-                    signal: controller.signal,
-                })
-
-                if (!response.ok) {
-                    throw new Error(`Server ZIP failed: ${response.status}`)
-                }
-
-                setDownloadProgress(50)
-                const blob = await response.blob()
-                setDownloadProgress(90)
-
-                const { saveAs } = await import('file-saver')
-                saveAs(blob, `${config.clientName}-photos.zip`)
-
-                setDownloadProgress(100)
-                setToastMessage(t('downloadComplete'))
-                setShowToast(true)
-                return
-            } catch (serverErr: any) {
-                if (serverErr.name === 'AbortError') throw serverErr
-                console.warn('[Download] Server-side ZIP failed, falling back to client-side:', serverErr.message)
-            }
-
-            // === FALLBACK: client-side JSZip (if server fails) ===
-            console.log(`[Download] Falling back to client-side JSZip`)
-
+            // === ADAPTIVE STRATEGY: test direct on first N photos ===
             let useDirect = false
             const testPhotos = photosToDownload.slice(0, DIRECT_TEST_COUNT)
             let directSuccessCount = 0
 
+            console.log(`[Adaptive] Testing direct Google API on ${testPhotos.length} photos...`)
+
             for (const photo of testPhotos) {
                 if (controller.signal.aborted) throw new DOMException('Download cancelled', 'AbortError')
                 const blob = await downloadDirect(photo, controller.signal)
-                if (blob) directSuccessCount++
+                if (blob) {
+                    directSuccessCount++
+                }
             }
 
+            // Use direct if majority (>50%) of test photos succeeded
             useDirect = directSuccessCount > DIRECT_TEST_COUNT / 2
+            console.log(`[Adaptive] Direct success: ${directSuccessCount}/${testPhotos.length} → ${useDirect ? 'Using DIRECT + CF Worker fallback' : 'Using CF Worker only (faster)'}`)
 
+            // === MULTIPLE PHOTOS: parallel download + auto-batch ZIP ===
             const totalBatches = Math.ceil(photosToDownload.length / BATCH_SIZE)
             const isBatched = totalBatches > 1
 
@@ -943,6 +908,11 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                 const batchEnd = Math.min(batchStart + BATCH_SIZE, photosToDownload.length)
                 const batchPhotos = photosToDownload.slice(batchStart, batchEnd)
 
+                if (isBatched) {
+                    console.log(`[Download] Batch ${batch + 1}/${totalBatches} (${batchPhotos.length} photos)`)
+                }
+
+                // Download all photos in this batch using parallel downloads
                 const { blobs, failed } = await downloadParallel(
                     batchPhotos,
                     controller.signal,
@@ -953,6 +923,7 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                     }
                 )
 
+                // Create ZIP from downloaded blobs
                 if (blobs.size > 0) {
                     const [{ default: JSZip }, { saveAs }] = await Promise.all([
                         import('jszip'),
@@ -962,20 +933,25 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                     for (const [name, blob] of blobs) {
                         zip.file(name, blob)
                     }
+
                     const zipName = isBatched
                         ? `${config.clientName}-photos-${batch + 1}.zip`
                         : `${config.clientName}-photos.zip`
+
                     const content = await zip.generateAsync({ type: 'blob' })
                     saveAs(content, zipName)
                 }
 
+                // Redirect failed photos to Google Drive (max 5 tabs to avoid popup blocker)
                 if (failed.length > 0) {
+                    console.warn(`[Fallback] ${failed.length} photos failed, redirecting to Google Drive`)
                     const maxRedirects = Math.min(failed.length, 5)
                     for (let r = 0; r < maxRedirects; r++) {
                         redirectToGDrive(failed[r])
                     }
                 }
 
+                // Brief pause between batches
                 if (isBatched && batch < totalBatches - 1) {
                     await delay(1000)
                 }
