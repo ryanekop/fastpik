@@ -78,7 +78,7 @@ export function LoginForm() {
     return (
         <Card className="w-full max-w-sm mx-auto shadow-lg">
             <CardHeader className="space-y-1">
-                <CardTitle className="text-2xl font-bold text-center">🔐 {t('loginTitle')}</CardTitle>
+                <CardTitle className="text-2xl font-bold text-center">{t('loginTitle')}</CardTitle>
                 <CardDescription className="text-center">
                     {t('loginDescription')}
                 </CardDescription>
@@ -86,7 +86,7 @@ export function LoginForm() {
             <CardContent>
                 <form onSubmit={handleLogin} className="space-y-4">
                     <div className="space-y-2">
-                        <Label htmlFor="email">📧 {t('emailLabel')}</Label>
+                        <Label htmlFor="email">{t('emailLabel')}</Label>
                         <Input
                             id="email"
                             type="email"
@@ -98,7 +98,7 @@ export function LoginForm() {
                     </div>
                     <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                            <Label htmlFor="password">🔑 {t('passwordLabel')}</Label>
+                            <Label htmlFor="password">{t('passwordLabel')}</Label>
                             <Link href={`/${locale}/dashboard/forgot-password`} className="text-xs text-primary hover:underline cursor-pointer">
                                 {t('forgotPassword')}
                             </Link>
@@ -146,7 +146,7 @@ export function LoginForm() {
                                 {t('signingIn')}
                             </>
                         ) : (
-                            <>🚀 {t('signIn')}</>
+                            <>{t('signIn')}</>
                         )}
                     </Button>
                 </form>
