@@ -737,10 +737,7 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
     // Helper: delay
     const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
-    // Constants — smaller batch on mobile to avoid RAM issues
-    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
-    const BATCH_SIZE = isMobile ? 50 : 200
-    const CONCURRENCY = isMobile ? 3 : 5
+    // Constants
     const DIRECT_TEST_COUNT = 3
 
     // Download via direct Google Drive API (no bandwidth cost, but may get rate-limited)
@@ -811,6 +808,8 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
         const blobs = new Map<string, Blob>()
         const failed: Photo[] = []
         let completed = 0
+        const isMobile = window.innerWidth < 768
+        const CONCURRENCY = isMobile ? 3 : 5
 
         for (let i = 0; i < photos.length; i += CONCURRENCY) {
             if (signal.aborted) throw new DOMException('Download cancelled', 'AbortError')
@@ -926,6 +925,8 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
             console.log(`[Adaptive] Direct success: ${directSuccessCount}/${testPhotos.length} → ${useDirect ? 'Using DIRECT + CF Worker fallback' : 'Using CF Worker only (faster)'}`)
 
             // === MULTIPLE PHOTOS: parallel download + auto-batch ZIP ===
+            const isMobile = window.innerWidth < 768
+            const BATCH_SIZE = isMobile ? 50 : 200
             const totalBatches = Math.ceil(photosToDownload.length / BATCH_SIZE)
             const isBatched = totalBatches > 1
 
