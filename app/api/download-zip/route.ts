@@ -20,7 +20,6 @@ async function fetchPhotoBuffer(fileId: string): Promise<Buffer | null> {
             const response = await fetch(directUrl)
 
             if (response.status === 429 && attempt === 0) {
-                // Rate limited, try with a different key
                 apiKeyRotator.markRateLimited(apiKey)
                 const newKey = apiKeyRotator.getLeastUsedKey()
                 if (newKey && newKey !== apiKey) {
@@ -53,7 +52,7 @@ export async function POST(request: NextRequest) {
         const body = await request.json()
         const { photoIds, photoNames, clientName } = body as {
             photoIds: string[]
-            photoNames: Record<string, string>  // id -> filename
+            photoNames: Record<string, string>
             clientName?: string
         }
 
@@ -67,109 +66,86 @@ export async function POST(request: NextRequest) {
 
         console.log(`[download-zip] Starting ZIP for ${photoIds.length} photos (client: ${clientName})`)
 
-        // Create archiver instance
-        const archive = archiver('zip', { zlib: { level: 1 } }) // level 1 = fast compression (photos are already compressed)
-        const passThrough = new PassThrough()
+        // Create archiver and collect into buffer
+        const archive = archiver('zip', { zlib: { level: 1 } })
 
-        // Pipe archive to passthrough stream
+        // Collect all chunks into an array
+        const chunks: Buffer[] = []
+        const passThrough = new PassThrough()
         archive.pipe(passThrough)
 
-        // Handle archive errors
-        archive.on('error', (err) => {
-            console.error('[download-zip] Archive stream error:', err)
+        passThrough.on('data', (chunk: Buffer) => {
+            chunks.push(chunk)
         })
 
-        archive.on('warning', (err) => {
-            console.warn('[download-zip] Archive warning:', err)
+        const archiveComplete = new Promise<Buffer>((resolve, reject) => {
+            passThrough.on('end', () => {
+                resolve(Buffer.concat(chunks))
+            })
+            passThrough.on('error', reject)
+            archive.on('error', reject)
         })
 
-        // Process photos with concurrency control
-        const processPhotos = async () => {
-            const usedNames = new Set<string>()
-            let addedCount = 0
-            let failedCount = 0
+        // Fetch and append photos
+        const usedNames = new Set<string>()
+        let addedCount = 0
+        let failedCount = 0
 
-            for (let i = 0; i < photoIds.length; i += CONCURRENCY) {
-                const batch = photoIds.slice(i, i + CONCURRENCY)
+        for (let i = 0; i < photoIds.length; i += CONCURRENCY) {
+            const batch = photoIds.slice(i, i + CONCURRENCY)
 
-                const results = await Promise.allSettled(
-                    batch.map(async (id) => {
-                        const buffer = await fetchPhotoBuffer(id)
-                        if (!buffer) return null
+            const results = await Promise.allSettled(
+                batch.map(async (id) => {
+                    const buffer = await fetchPhotoBuffer(id)
+                    if (!buffer) return null
 
-                        // Determine filename
-                        let filename = photoNames?.[id] || `photo-${id}.jpg`
+                    let filename = photoNames?.[id] || `photo-${id}.jpg`
 
-                        // Ensure unique filename
-                        if (usedNames.has(filename)) {
-                            const ext = filename.lastIndexOf('.')
-                            const base = ext > 0 ? filename.substring(0, ext) : filename
-                            const extStr = ext > 0 ? filename.substring(ext) : '.jpg'
-                            let counter = 1
-                            while (usedNames.has(`${base}-${counter}${extStr}`)) counter++
-                            filename = `${base}-${counter}${extStr}`
-                        }
-                        usedNames.add(filename)
-
-                        return { id, filename, buffer }
-                    })
-                )
-
-                for (const result of results) {
-                    if (result.status === 'fulfilled' && result.value) {
-                        const { filename, buffer } = result.value
-                        archive.append(buffer, { name: filename })
-                        addedCount++
-                    } else {
-                        failedCount++
+                    if (usedNames.has(filename)) {
+                        const ext = filename.lastIndexOf('.')
+                        const base = ext > 0 ? filename.substring(0, ext) : filename
+                        const extStr = ext > 0 ? filename.substring(ext) : '.jpg'
+                        let counter = 1
+                        while (usedNames.has(`${base}-${counter}${extStr}`)) counter++
+                        filename = `${base}-${counter}${extStr}`
                     }
-                }
+                    usedNames.add(filename)
 
-                // Log progress
-                const processed = Math.min(i + CONCURRENCY, photoIds.length)
-                console.log(`[download-zip] Progress: ${processed}/${photoIds.length} fetched (${addedCount} added, ${failedCount} failed)`)
+                    return { id, filename, buffer }
+                })
+            )
+
+            for (const result of results) {
+                if (result.status === 'fulfilled' && result.value) {
+                    archive.append(result.value.buffer, { name: result.value.filename })
+                    addedCount++
+                } else {
+                    failedCount++
+                }
             }
 
-            console.log(`[download-zip] Finalizing ZIP: ${addedCount} photos added, ${failedCount} failed`)
-
-            // All photos added, finalize the archive
-            await archive.finalize()
+            const processed = Math.min(i + CONCURRENCY, photoIds.length)
+            console.log(`[download-zip] Progress: ${processed}/${photoIds.length} (${addedCount} added, ${failedCount} failed)`)
         }
 
-        // Start processing in background (don't block response)
-        processPhotos().catch(err => {
-            console.error('[download-zip] Process error:', err)
-            passThrough.destroy(err)
-        })
+        console.log(`[download-zip] Finalizing ZIP: ${addedCount} photos, ${failedCount} failed`)
 
-        // Convert Node.js PassThrough to Web ReadableStream for Next.js response
-        const webStream = new ReadableStream({
-            start(controller) {
-                passThrough.on('data', (chunk) => {
-                    controller.enqueue(new Uint8Array(chunk))
-                })
-                passThrough.on('end', () => {
-                    controller.close()
-                })
-                passThrough.on('error', (err) => {
-                    console.error('[download-zip] Stream error:', err)
-                    controller.error(err)
-                })
-            },
-            cancel() {
-                passThrough.destroy()
-                archive.abort()
-            }
-        })
+        // Finalize and wait for the complete ZIP buffer
+        await archive.finalize()
+        const zipBuffer = await archiveComplete
+
+        console.log(`[download-zip] ZIP complete: ${(zipBuffer.length / 1024 / 1024).toFixed(1)}MB`)
 
         const zipFilename = clientName
             ? `${clientName}-photos.zip`
             : 'photos.zip'
 
-        return new Response(webStream, {
+        // Return complete ZIP as normal response (no streaming issues with proxies)
+        return new NextResponse(new Uint8Array(zipBuffer), {
             headers: {
                 'Content-Type': 'application/zip',
                 'Content-Disposition': `attachment; filename="${encodeURIComponent(zipFilename)}"`,
+                'Content-Length': zipBuffer.length.toString(),
                 'Cache-Control': 'no-cache',
             },
         })
