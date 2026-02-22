@@ -325,7 +325,7 @@
         "selectPhotosDesc": "Choose photos to send to admin",
         "downloadAll": "Download All",
         "confirmDownloadAll": "Download All Photos?",
-        "confirmDownloadAllMsg": "Are you sure you want to download all {count} photos? This may take a while depending on the number of photos.",
+        "confirmDownloadAllMsg": "Are you sure you want to download all {count} photos? This may take a while depending on the number of photos.\n\n💻 We recommend using a laptop or tablet for a more stable download experience.",
         "downloadSelected": "Download Selected",
         "downloadingPhotos": "Downloading photos...",
         "preparingDownload": "Preparing files...",

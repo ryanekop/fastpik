@@ -99,7 +99,7 @@ export function PopupDialog({
 
                             {/* Content */}
                             <div className="p-4">
-                                <p className="text-muted-foreground">{message}</p>
+                                <p className="text-muted-foreground whitespace-pre-line">{message}</p>
                             </div>
 
                             {/* Actions */}

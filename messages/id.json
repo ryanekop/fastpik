@@ -325,7 +325,7 @@
         "selectPhotosDesc": "Pilih foto untuk dikirim ke admin",
         "downloadAll": "Download Semua",
         "confirmDownloadAll": "Download Semua Foto?",
-        "confirmDownloadAllMsg": "Apakah Anda yakin ingin download semua {count} foto? Proses ini mungkin membutuhkan waktu tergantung jumlah foto.",
+        "confirmDownloadAllMsg": "Apakah Anda yakin ingin download semua {count} foto? Proses ini mungkin membutuhkan waktu tergantung jumlah foto.\n\n💻 Disarankan menggunakan laptop atau tablet untuk hasil download yang lebih stabil.",
         "downloadSelected": "Download Terpilih",
         "downloadingPhotos": "Mengunduh foto...",
         "preparingDownload": "Menyiapkan file...",
