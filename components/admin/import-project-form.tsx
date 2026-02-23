@@ -324,6 +324,11 @@ export function ImportProjectForm({ onBack, onProjectsImported, currentFolderId 
                         exit={{ opacity: 0, y: -10 }}
                         className="space-y-4"
                     >
+                        <Button variant="outline" className="w-full gap-2 cursor-pointer border-green-500 text-green-600 hover:bg-green-50 hover:text-green-700 dark:hover:bg-green-950/30" onClick={downloadTemplate}>
+                            <Download className="h-4 w-4" />
+                            {t('importDownloadTemplate')}
+                        </Button>
+
                         <div
                             onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
                             onDragLeave={() => setIsDragging(false)}
@@ -348,11 +353,6 @@ export function ImportProjectForm({ onBack, onProjectsImported, currentFolderId 
                                 className="hidden"
                             />
                         </div>
-
-                        <Button variant="outline" className="w-full gap-2 cursor-pointer" onClick={downloadTemplate}>
-                            <Download className="h-4 w-4" />
-                            {t('importDownloadTemplate')}
-                        </Button>
 
                         {error && (
                             <div className="p-3 rounded-lg bg-destructive/15 border border-destructive/30 text-destructive text-sm flex items-center gap-2">

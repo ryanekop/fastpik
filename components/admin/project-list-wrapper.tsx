@@ -124,46 +124,49 @@ export function ProjectListWrapper({ initialProjects, initialFolders }: ProjectL
 
     return (
         <div className="bg-card text-card-foreground rounded-xl border shadow-sm p-6 sm:p-8 min-h-[500px]">
-            {/* Tab Navigation */}
-            {view === 'list' && (
-                <div className="flex items-center gap-1 mb-6 border-b overflow-x-auto scrollbar-none">
-                    <button
-                        onClick={() => setActiveTab('projects')}
-                        className={cn(
-                            "px-4 py-2.5 text-sm font-medium transition-colors relative cursor-pointer flex items-center gap-2 whitespace-nowrap",
-                            activeTab === 'projects'
-                                ? "text-primary"
-                                : "text-muted-foreground hover:text-foreground"
-                        )}
-                    >
-                        <LayoutList className="h-4 w-4" />
-                        {t('tabProjects')}
-                        {activeTab === 'projects' && (
-                            <motion.div layoutId="tab-indicator" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
-                        )}
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('status')}
-                        className={cn(
-                            "px-4 py-2.5 text-sm font-medium transition-colors relative cursor-pointer flex items-center gap-2 whitespace-nowrap",
-                            activeTab === 'status'
-                                ? "text-primary"
-                                : "text-muted-foreground hover:text-foreground"
-                        )}
-                    >
-                        <Eye className="h-4 w-4" />
-                        {t('tabClientStatus')}
-                        {activeSelections > 0 && (
-                            <span className="inline-flex items-center justify-center h-5 min-w-5 px-1.5 text-xs font-bold bg-blue-500 text-white rounded-full">
-                                {activeSelections}
-                            </span>
-                        )}
-                        {activeTab === 'status' && (
-                            <motion.div layoutId="tab-indicator" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
-                        )}
-                    </button>
-                </div>
-            )}
+            {/* Tab Navigation - always rendered for smooth transitions */}
+            <div
+                className={cn(
+                    "flex items-center gap-1 border-b overflow-x-auto scrollbar-none transition-all duration-300 ease-in-out",
+                    view === 'list' ? "mb-6 max-h-20 opacity-100" : "mb-0 max-h-0 opacity-0 overflow-hidden border-b-0"
+                )}
+            >
+                <button
+                    onClick={() => { if (view === 'list') setActiveTab('projects') }}
+                    className={cn(
+                        "px-4 py-2.5 text-sm font-medium transition-colors relative cursor-pointer flex items-center gap-2 whitespace-nowrap",
+                        activeTab === 'projects'
+                            ? "text-primary"
+                            : "text-muted-foreground hover:text-foreground"
+                    )}
+                >
+                    <LayoutList className="h-4 w-4" />
+                    {t('tabProjects')}
+                    {activeTab === 'projects' && (
+                        <motion.div layoutId="tab-indicator" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+                    )}
+                </button>
+                <button
+                    onClick={() => { if (view === 'list') setActiveTab('status') }}
+                    className={cn(
+                        "px-4 py-2.5 text-sm font-medium transition-colors relative cursor-pointer flex items-center gap-2 whitespace-nowrap",
+                        activeTab === 'status'
+                            ? "text-primary"
+                            : "text-muted-foreground hover:text-foreground"
+                    )}
+                >
+                    <Eye className="h-4 w-4" />
+                    {t('tabClientStatus')}
+                    {activeSelections > 0 && (
+                        <span className="inline-flex items-center justify-center h-5 min-w-5 px-1.5 text-xs font-bold bg-blue-500 text-white rounded-full">
+                            {activeSelections}
+                        </span>
+                    )}
+                    {activeTab === 'status' && (
+                        <motion.div layoutId="tab-indicator" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+                    )}
+                </button>
+            </div>
             <AnimatePresence mode="wait">
                 {view === 'list' && activeTab === 'status' ? (
                     <motion.div
