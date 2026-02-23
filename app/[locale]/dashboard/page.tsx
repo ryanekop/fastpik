@@ -5,7 +5,7 @@ import { getProjects } from "@/lib/supabase/projects"
 import { getFolders } from "@/lib/supabase/folders"
 import { AdminShell } from "@/components/admin/admin-shell"
 import { ProjectListWrapper } from "@/components/admin/project-list-wrapper"
-import { Loader2 } from "lucide-react"
+import { Loader2, LayoutDashboard } from "lucide-react"
 import { Metadata } from "next"
 
 export const dynamic = 'force-dynamic'
@@ -28,7 +28,7 @@ export default async function DashboardPage() {
         <AdminShell latestChangelog={latestChangelog}>
             <div className="space-y-6">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">{t('dashboardTitle')}</h1>
+                    <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2"><LayoutDashboard className="h-7 w-7" /> {t('dashboardTitle')}</h1>
                     <p className="text-muted-foreground">
                         {t('dashboardDescription')}
                     </p>
