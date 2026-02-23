@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, DragEvent } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useTranslations, useLocale } from "next-intl"
-import { Plus, Trash2, ExternalLink, Copy, Clock, Users, MessageCircle, Edit, CheckSquare, Square, X, PlusCircle, Search, Loader2, Bell, FolderOpen, ArrowUpDown, Move, ChevronRight, Home, FolderPlus, FileText, Zap } from "lucide-react"
+import { Plus, Trash2, ExternalLink, Copy, Clock, Users, MessageCircle, Edit, CheckSquare, Square, X, PlusCircle, Search, Loader2, Bell, FolderOpen, ArrowUpDown, Move, ChevronRight, Home, FolderPlus, FileText, Zap, LayoutList } from "lucide-react"
 import { isProjectExpired, getClientWhatsapp, generateShortId, type Project } from "@/lib/project-store"
 import type { Folder } from "@/lib/supabase/folders"
 import { Button } from "@/components/ui/button"
@@ -859,7 +859,7 @@ export function ProjectList({
             {/* Toolbar */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                 <h3 className="text-lg font-semibold flex items-center gap-2">
-                    📋 {t('projectList')} ({projects.length})
+                    <LayoutList className="h-5 w-5" /> {t('projectList')} ({projects.length})
                 </h3>
                 <div className="flex items-center gap-1.5 flex-wrap">
                     {isSelectMode ? (

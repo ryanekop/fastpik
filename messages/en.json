@@ -263,7 +263,7 @@
         "telegramReminderDays": "Reminder Days Before Expiry",
         "telegramReminderDaysHint": "Choose when reminders are sent (can select multiple)",
         "telegramDaysBefore": "D-{days}",
-        "telegramTestButton": "🔔 Test Send Notification",
+        "telegramTestButton": "Test Send Notification",
         "telegramTestSending": "Sending...",
         "telegramTestSuccess": "✅ Test message sent to Telegram successfully!",
         "telegramTestError": "❌ Failed to send message. Check your Chat ID.",

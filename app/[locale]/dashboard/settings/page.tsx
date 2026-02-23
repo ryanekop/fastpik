@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { PhoneInput } from "@/components/ui/phone-input"
-import { Loader2, Save, ArrowLeft, MessageSquare, Send, Search, Bot, ClipboardPaste } from "lucide-react"
+import { Loader2, Save, ArrowLeft, MessageSquare, Send, Search, Bot, ClipboardPaste, Settings } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import Link from "next/link"
 import { AdminShell } from "@/components/admin/admin-shell"
@@ -183,7 +183,7 @@ export default function SettingsPage() {
                 <div className="flex items-center justify-between mb-6">
                     <div>
                         <h1 className="text-2xl font-bold flex items-center gap-2">
-                            ⚙️ {t('settings')}
+                            <Settings className="h-6 w-6" /> {t('settings')}
                         </h1>
                         <p className="text-muted-foreground">{t('settingsDescription')}</p>
                     </div>
