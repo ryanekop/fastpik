@@ -11,6 +11,7 @@ import { Sparkles, ArrowRight } from "lucide-react"
 // Client components (these have "use client" directive, so they'll hydrate on the client)
 import { LandingNav, HeroCTA, BottomCTA } from "@/components/landing/landing-client"
 import { AnimatedHero, AnimatedFeatures, AnimatedWorkflow, AnimatedSection, AnimatedCTA } from "@/components/landing/landing-animations"
+import { AnimatedFAQ } from "@/components/landing/faq-section"
 
 export default async function Home() {
   const t = await getTranslations('Index')
@@ -94,6 +95,13 @@ export default async function Home() {
               </Link>
             </Button>
           </AnimatedSection>
+        </div>
+      </section>
+
+      {/* FAQ Section */}
+      <section className="py-20">
+        <div className="container mx-auto px-4">
+          <AnimatedFAQ />
         </div>
       </section>
 

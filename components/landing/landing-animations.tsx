@@ -9,12 +9,12 @@ import {
 } from "lucide-react"
 
 const features = [
-    { icon: Link2, titleKey: 'feature1Title', descKey: 'feature1Desc', color: 'text-blue-500' },
-    { icon: Zap, titleKey: 'feature3Title', descKey: 'feature3Desc', color: 'text-yellow-500' },
-    { icon: Download, titleKey: 'feature7Title', descKey: 'feature7Desc', color: 'text-cyan-500' },
-    { icon: Timer, titleKey: 'feature11Title', descKey: 'feature11Desc', color: 'text-orange-500' },
-    { icon: Smartphone, titleKey: 'feature4Title', descKey: 'feature4Desc', color: 'text-purple-500' },
-    { icon: Lock, titleKey: 'feature6Title', descKey: 'feature6Desc', color: 'text-red-500' },
+    { icon: Link2, titleKey: 'feature1Title', descKey: 'feature1Desc', color: 'text-blue-500', bg: 'bg-blue-500/10' },
+    { icon: Zap, titleKey: 'feature3Title', descKey: 'feature3Desc', color: 'text-yellow-500', bg: 'bg-yellow-500/10' },
+    { icon: Download, titleKey: 'feature7Title', descKey: 'feature7Desc', color: 'text-cyan-500', bg: 'bg-cyan-500/10' },
+    { icon: Timer, titleKey: 'feature11Title', descKey: 'feature11Desc', color: 'text-orange-500', bg: 'bg-orange-500/10' },
+    { icon: Smartphone, titleKey: 'feature4Title', descKey: 'feature4Desc', color: 'text-purple-500', bg: 'bg-purple-500/10' },
+    { icon: Lock, titleKey: 'feature6Title', descKey: 'feature6Desc', color: 'text-red-500', bg: 'bg-red-500/10' },
 ]
 
 const steps = [
@@ -63,7 +63,7 @@ export function AnimatedFeatures() {
                         >
                             <Card className="h-full hover:shadow-lg transition-shadow">
                                 <CardContent className="pt-6">
-                                    <div className={`h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4`}>
+                                    <div className={`h-12 w-12 rounded-lg ${feature.bg} flex items-center justify-center mb-4`}>
                                         <Icon className={`h-6 w-6 ${feature.color}`} />
                                     </div>
                                     <h3 className="font-semibold text-lg mb-2">{t(feature.titleKey)}</h3>

@@ -12,7 +12,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
-import { LogOut, Settings, User, LayoutDashboard, Crown, History } from "lucide-react"
+import { LogOut, Settings, User, LayoutDashboard, Crown, History, BookOpen } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { LanguageToggle } from "@/components/language-toggle"
 import { useTranslations, useLocale } from "next-intl"
@@ -179,6 +179,10 @@ export function AdminShell({ children, latestChangelog }: AdminShellProps) {
                             <DropdownMenuItem onClick={() => router.push(`/${locale}/dashboard/settings`)} className="cursor-pointer">
                                 <Settings className="mr-2 h-4 w-4" />
                                 <span>{t('settings')}</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => router.push(`/${locale}/dashboard/tutorial`)} className="cursor-pointer">
+                                <BookOpen className="mr-2 h-4 w-4" />
+                                <span>{t('tutorial')}</span>
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => router.push(`/${locale}/dashboard/changelog`)} className="cursor-pointer">
                                 <History className="mr-2 h-4 w-4" />
