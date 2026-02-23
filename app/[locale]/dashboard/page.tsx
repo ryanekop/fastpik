@@ -28,7 +28,7 @@ export default async function DashboardPage() {
         <AdminShell latestChangelog={latestChangelog}>
             <div className="space-y-6">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2"><LayoutDashboard className="h-7 w-7" /> {t('dashboardTitle')}</h1>
+                    <h1 className="text-2xl font-bold flex items-center gap-2"><LayoutDashboard className="h-6 w-6" /> {t('dashboardTitle')}</h1>
                     <p className="text-muted-foreground">
                         {t('dashboardDescription')}
                     </p>
