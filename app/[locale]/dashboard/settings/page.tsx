@@ -233,7 +233,7 @@ export default function SettingsPage() {
                                             </p>
                                         )}
                                         <a
-                                            href="https://instagram.com/ryanekoapp"
+                                            href="https://instagram.com/ryanekoapps"
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             className="flex items-center gap-2 text-xs text-primary hover:underline mt-1"
