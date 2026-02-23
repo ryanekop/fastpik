@@ -1325,7 +1325,7 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                                 {downloadSelected.length} {t('photosToDownload')}
                             </div>
                         )}
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap gap-2">
                             <Button
                                 variant="outline"
                                 onClick={() => setShowDownloadClearDialog(true)}
@@ -1338,24 +1338,24 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                             <Button
                                 onClick={() => handleDownloadPhotos(downloadSelected)}
                                 disabled={downloadSelected.length === 0 || isDownloading}
-                                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white cursor-pointer"
+                                className="flex-1 min-w-0 bg-blue-600 hover:bg-blue-700 text-white cursor-pointer"
                             >
                                 {isDownloading ? (
                                     <>
                                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                        <span className="text-xs">{downloadStatusText || `${downloadProgress}%`}</span>
+                                        <span className="text-xs truncate">{downloadStatusText || `${downloadProgress}%`}</span>
                                     </>
                                 ) : (
                                     <>
                                         <Download className="h-4 w-4 mr-2" />
-                                        {t('downloadSelected')} ({downloadSelected.length})
+                                        <span className="truncate">{t('downloadSelected')} ({downloadSelected.length})</span>
                                     </>
                                 )}
                             </Button>
                             {isDownloading && (
                                 <Button
                                     onClick={handleStopDownload}
-                                    className="shrink-0 bg-red-600 hover:bg-red-700 text-white cursor-pointer"
+                                    className="w-full sm:w-auto shrink-0 bg-red-600 hover:bg-red-700 text-white cursor-pointer"
                                 >
                                     <Square className="h-4 w-4 mr-1 fill-current" />
                                     {t('stopDownload')}
