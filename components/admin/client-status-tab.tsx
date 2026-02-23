@@ -319,10 +319,13 @@ export function ClientStatusTab({ projects: initialProjects, folders, onProjects
         const minutes = Math.floor(diff / 60000)
         const hours = Math.floor(diff / 3600000)
         const days = Math.floor(diff / 86400000)
+        const date = new Date(timestamp)
+        const timeStr = date.toLocaleTimeString(locale === 'id' ? 'id-ID' : 'en-US', { hour: '2-digit', minute: '2-digit' })
+        const dateStr = date.toLocaleDateString(locale === 'id' ? 'id-ID' : 'en-US', { day: 'numeric', month: 'short' })
         if (minutes < 1) return locale === 'id' ? 'Baru saja' : 'Just now'
         if (minutes < 60) return `${minutes} ${locale === 'id' ? 'menit lalu' : 'min ago'}`
-        if (hours < 24) return `${hours} ${locale === 'id' ? 'jam lalu' : 'hr ago'}`
-        return `${days} ${locale === 'id' ? 'hari lalu' : 'days ago'}`
+        if (hours < 24) return `${hours} ${locale === 'id' ? 'jam lalu' : 'hr ago'} (${timeStr})`
+        return `${dateStr}, ${timeStr}`
     }
 
     return (
@@ -398,9 +401,10 @@ export function ClientStatusTab({ projects: initialProjects, folders, onProjects
                         filteredProjects.map((project, index) => {
                             const status = getEffectiveStatus(project)
                             const statusCfg = STATUS_CONFIG[status]
-                            const selectedCount = project.selectedPhotos?.length || 0
-                            const maxPhotos = project.maxPhotos
-                            const progressPercent = maxPhotos > 0 ? Math.min((selectedCount / maxPhotos) * 100, 100) : 0
+                            const isExtraProject = project.lockedPhotos && project.lockedPhotos.length > 0
+                            const effectiveMax = isExtraProject ? (project.maxPhotos - project.lockedPhotos!.length) : project.maxPhotos
+                            const effectiveSelected = isExtraProject ? Math.max(0, (project.selectedPhotos?.length || 0) - project.lockedPhotos!.length) : (project.selectedPhotos?.length || 0)
+                            const progressPercent = effectiveMax > 0 ? Math.min((effectiveSelected / effectiveMax) * 100, 100) : 0
                             const folderName = getFolderName(project.folderId)
 
                             return (
@@ -428,8 +432,13 @@ export function ClientStatusTab({ projects: initialProjects, folders, onProjects
                                                             {formatRelativeTime(project.selectionLastSyncedAt)}
                                                         </span>
                                                     </div>
-                                                    {/* Client name */}
-                                                    <h4 className="font-semibold truncate text-base">{project.clientName}</h4>
+                                                    {/* Client name + badge */}
+                                                    <div className="flex items-center gap-2">
+                                                        <h4 className="font-semibold truncate text-base flex-1 min-w-0">{project.clientName}</h4>
+                                                        {isExtraProject && (
+                                                            <span className="text-xs bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded shrink-0">📷 {t('extraPhotosBadge')}</span>
+                                                        )}
+                                                    </div>
 
                                                     {/* Folder info */}
                                                     {folderName && (
@@ -443,22 +452,25 @@ export function ClientStatusTab({ projects: initialProjects, folders, onProjects
                                                     <div className="space-y-1">
                                                         <div className="flex justify-between text-xs">
                                                             <span className="text-muted-foreground">{t('selectionProgress')}</span>
-                                                            <span className="font-medium">{selectedCount} / {maxPhotos}</span>
+                                                            <span className="font-medium">{effectiveSelected} / {effectiveMax}</span>
                                                         </div>
                                                         <Progress value={progressPercent} className="h-2" />
                                                     </div>
 
                                                     {/* Selected photos list */}
-                                                    {selectedCount > 0 && (
+                                                    {effectiveSelected > 0 && (
                                                         <div className="flex flex-wrap gap-1">
-                                                            {(project.selectedPhotos || []).slice(0, 8).map((name, i) => (
+                                                            {(isExtraProject
+                                                                ? (project.selectedPhotos || []).filter(name => !(project.lockedPhotos || []).includes(name))
+                                                                : (project.selectedPhotos || [])
+                                                            ).slice(0, 8).map((name, i) => (
                                                                 <span key={i} className="text-xs bg-muted px-1.5 py-0.5 rounded">
                                                                     {name}
                                                                 </span>
                                                             ))}
-                                                            {selectedCount > 8 && (
+                                                            {effectiveSelected > 8 && (
                                                                 <span className="text-xs text-muted-foreground px-1.5 py-0.5">
-                                                                    +{selectedCount - 8} {t('more')}
+                                                                    +{effectiveSelected - 8} {t('more')}
                                                                 </span>
                                                             )}
                                                         </div>
