@@ -176,7 +176,7 @@ export function ProjectListWrapper({ initialProjects, initialFolders }: ProjectL
                         exit={{ opacity: 0, y: -10 }}
                         transition={{ duration: 0.15 }}
                     >
-                        <ClientStatusTab projects={projects} folders={folders} />
+                        <ClientStatusTab projects={projects} folders={folders} onProjectsChanged={setProjects} />
                     </motion.div>
                 ) : view === 'list' ? (
                     <motion.div

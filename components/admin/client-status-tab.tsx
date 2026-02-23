@@ -17,6 +17,7 @@ import { motion, AnimatePresence } from "framer-motion"
 interface ClientStatusTabProps {
     projects: Project[]
     folders: Folder[]
+    onProjectsChanged?: (projects: Project[]) => void
 }
 
 type StatusFilter = 'all' | 'in_progress' | 'reviewed' | 'pending'
@@ -27,7 +28,7 @@ const STATUS_CONFIG = {
     reviewed: { color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-900/20', border: 'border-emerald-300 dark:border-emerald-800', cardBg: 'bg-emerald-50/50 dark:bg-emerald-950/10' },
 } as const
 
-export function ClientStatusTab({ projects: initialProjects, folders }: ClientStatusTabProps) {
+export function ClientStatusTab({ projects: initialProjects, folders, onProjectsChanged }: ClientStatusTabProps) {
     const t = useTranslations('Admin')
     const locale = useLocale()
     const [projects, setProjects] = useState<Project[]>(initialProjects)
@@ -87,6 +88,7 @@ export function ClientStatusTab({ projects: initialProjects, folders }: ClientSt
                 if (res.ok) {
                     const data = await res.json()
                     setProjects(data)
+                    onProjectsChanged?.(data)
                 }
             } catch (err) {
                 console.error('Polling failed:', err)
@@ -152,9 +154,13 @@ export function ClientStatusTab({ projects: initialProjects, folders }: ClientSt
                 headers: { 'Content-Type': 'application/json' }
             })
             if (res.ok) {
-                setProjects(prev => prev.map(p =>
-                    p.id === targetId ? { ...p, selectionStatus: 'reviewed' } : p
-                ))
+                setProjects(prev => {
+                    const updated = prev.map(p =>
+                        p.id === targetId ? { ...p, selectionStatus: 'reviewed' } : p
+                    )
+                    onProjectsChanged?.(updated)
+                    return updated
+                })
             }
         } catch (err) {
             console.error('Failed to mark as reviewed:', err)
@@ -181,9 +187,13 @@ export function ClientStatusTab({ projects: initialProjects, folders }: ClientSt
                 body: JSON.stringify({ status: 'in_progress' })
             })
             if (res.ok) {
-                setProjects(prev => prev.map(p =>
-                    p.id === targetId ? { ...p, selectionStatus: 'in_progress' } : p
-                ))
+                setProjects(prev => {
+                    const updated = prev.map(p =>
+                        p.id === targetId ? { ...p, selectionStatus: 'in_progress' } : p
+                    )
+                    onProjectsChanged?.(updated)
+                    return updated
+                })
             }
         } catch (err) {
             console.error('Failed to unmark reviewed:', err)
@@ -257,6 +267,7 @@ export function ClientStatusTab({ projects: initialProjects, folders }: ClientSt
             if (res.ok) {
                 const data = await res.json()
                 setProjects(data)
+                onProjectsChanged?.(data)
             }
         } catch (err) {
             console.error('Refresh failed:', err)
