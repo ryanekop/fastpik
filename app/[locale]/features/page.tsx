@@ -11,7 +11,7 @@ import Image from 'next/image'
 import { motion } from "framer-motion"
 import {
     Link2, Zap, Smartphone, Moon, Lock, ArrowLeft, ArrowRight, Sparkles,
-    Download, ZoomIn, Hash, ImagePlus, Timer, Bell, Globe, FolderOpen, GripVertical, MessageSquare,
+    Download, ZoomIn, Hash, ImagePlus, Timer, Globe, FolderOpen, GripVertical, MessageSquare,
     Bot, Layers, ClipboardCheck
 } from "lucide-react"
 
@@ -28,14 +28,13 @@ const additionalFeatures = [
     { icon: Bot, titleKey: 'feature17Title', descKey: 'feature17Desc', color: 'text-blue-600', bg: 'bg-blue-600/10' },
     { icon: Layers, titleKey: 'feature18Title', descKey: 'feature18Desc', color: 'text-orange-600', bg: 'bg-orange-600/10' },
     { icon: ClipboardCheck, titleKey: 'feature19Title', descKey: 'feature19Desc', color: 'text-cyan-600', bg: 'bg-cyan-600/10' },
-    { icon: ZoomIn, titleKey: 'feature8Title', descKey: 'feature8Desc', color: 'text-amber-500', bg: 'bg-amber-500/10' },
-    { icon: Hash, titleKey: 'feature9Title', descKey: 'feature9Desc', color: 'text-pink-500', bg: 'bg-pink-500/10' },
-    { icon: ImagePlus, titleKey: 'feature10Title', descKey: 'feature10Desc', color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
-    { icon: Bell, titleKey: 'feature12Title', descKey: 'feature12Desc', color: 'text-rose-500', bg: 'bg-rose-500/10' },
-    { icon: Globe, titleKey: 'feature13Title', descKey: 'feature13Desc', color: 'text-teal-500', bg: 'bg-teal-500/10' },
     { icon: FolderOpen, titleKey: 'feature14Title', descKey: 'feature14Desc', color: 'text-sky-500', bg: 'bg-sky-500/10' },
-    { icon: GripVertical, titleKey: 'feature15Title', descKey: 'feature15Desc', color: 'text-violet-500', bg: 'bg-violet-500/10' },
     { icon: MessageSquare, titleKey: 'feature16Title', descKey: 'feature16Desc', color: 'text-green-500', bg: 'bg-green-500/10' },
+    { icon: ZoomIn, titleKey: 'feature8Title', descKey: 'feature8Desc', color: 'text-amber-500', bg: 'bg-amber-500/10' },
+    { icon: ImagePlus, titleKey: 'feature10Title', descKey: 'feature10Desc', color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
+    { icon: Hash, titleKey: 'feature9Title', descKey: 'feature9Desc', color: 'text-pink-500', bg: 'bg-pink-500/10' },
+    { icon: GripVertical, titleKey: 'feature15Title', descKey: 'feature15Desc', color: 'text-violet-500', bg: 'bg-violet-500/10' },
+    { icon: Globe, titleKey: 'feature13Title', descKey: 'feature13Desc', color: 'text-teal-500', bg: 'bg-teal-500/10' },
     { icon: Moon, titleKey: 'feature5Title', descKey: 'feature5Desc', color: 'text-indigo-500', bg: 'bg-indigo-500/10' },
 ]
 
@@ -95,7 +94,7 @@ export default function FeaturesPage() {
                         </Button>
                         <Badge variant="secondary">
                             <Sparkles className="h-3 w-3 mr-1" />
-                            18 {t('pageTitle').includes('Fitur') ? 'Fitur' : 'Features'}
+                            17 {t('pageTitle').includes('Fitur') ? 'Fitur' : 'Features'}
                         </Badge>
                         <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight">
                             {t('pageTitle')}
