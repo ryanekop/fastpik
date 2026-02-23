@@ -99,7 +99,7 @@ export default async function Home() {
       </section>
 
       {/* FAQ Section */}
-      <section className="py-20">
+      <section className="py-20 bg-muted/20">
         <div className="container mx-auto px-4">
           <AnimatedFAQ />
         </div>
