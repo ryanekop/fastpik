@@ -89,7 +89,12 @@ export function formatReminderMessage(
         // WhatsApp reminder link
         if (p.clientWhatsapp) {
             const daysLeft = p.daysLeftSelection ?? p.daysLeftDownload
-            const durationText = daysLeft === 1 ? 'besok' : `${daysLeft} hari`
+
+            // Determine which template language to use (Indonesian first, then English)
+            const useEnglish = reminderTemplate?.en?.trim() && !reminderTemplate?.id?.trim()
+            const durationText = useEnglish
+                ? (daysLeft === 1 ? 'tomorrow' : `${daysLeft} days`)
+                : (daysLeft === 1 ? 'besok' : `${daysLeft} hari`)
 
             // Build template variables
             const variables: Record<string, string> = {
@@ -106,12 +111,12 @@ export function formatReminderMessage(
 
             let reminderText: string
 
-            // Use custom template if available (use Indonesian version)
-            const tmplText = reminderTemplate?.id || ''
-            if (tmplText.trim()) {
+            // Use custom template if available (try Indonesian first, then English)
+            const tmplText = reminderTemplate?.id?.trim() || reminderTemplate?.en?.trim() || ''
+            if (tmplText) {
                 reminderText = compileTemplate(tmplText, variables)
             } else {
-                // Default fallback message
+                // Default fallback message (Indonesian)
                 reminderText = daysLeft === 1
                     ? `Halo ${p.clientName}, ini reminder bahwa link foto kamu akan expired besok. Silakan segera pilih/download foto ya 😊`
                     : `Halo ${p.clientName}, ini reminder bahwa link foto kamu akan expired dalam ${daysLeft} hari lagi. Silakan segera pilih/download foto ya 😊`
