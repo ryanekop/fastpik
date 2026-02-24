@@ -267,6 +267,8 @@
         "telegramReminderDownload": "Download Saja",
         "telegramReminderDays": "Hari Reminder Sebelum Expired",
         "telegramReminderDaysHint": "Pilih kapan reminder dikirim (bisa lebih dari satu)",
+        "telegramLanguage": "Bahasa Notifikasi",
+        "telegramLanguageHint": "Bahasa untuk pesan Telegram dan teks WhatsApp reminder",
         "telegramDaysBefore": "H-{days}",
         "telegramTestButton": "Test Kirim Notifikasi",
         "telegramTestSending": "Mengirim...",

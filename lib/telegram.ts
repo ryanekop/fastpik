@@ -50,10 +50,13 @@ function compileTemplate(template: string, variables: Record<string, string>): s
 export function formatReminderMessage(
     projects: ReminderProject[],
     vendorName?: string,
-    reminderTemplate?: { id: string; en: string } | null
+    reminderTemplate?: { id: string; en: string } | null,
+    lang: 'id' | 'en' = 'id'
 ): string {
+    const isEn = lang === 'en'
+
     const header = vendorName
-        ? `🔔 <b>Reminder dari ${vendorName}</b>`
+        ? `🔔 <b>${isEn ? 'Reminder from' : 'Reminder dari'} ${vendorName}</b>`
         : `🔔 <b>Fastpik Reminder</b>`
 
     const lines: string[] = [header, '']
@@ -61,26 +64,26 @@ export function formatReminderMessage(
     for (const p of projects) {
         lines.push(`👤 <b>${p.clientName}</b>`)
         lines.push(`🔗 ${p.link}`)
-        lines.push(`📸 Max foto: ${p.maxPhotos}`)
+        lines.push(`📸 Max ${isEn ? 'photos' : 'foto'}: ${p.maxPhotos}`)
         lines.push(`📋 Status: ${p.selectionStatus === 'submitted' ? '✅ Submitted' : '⏳ Pending'}`)
 
         if (p.daysLeftSelection !== undefined) {
             if (p.daysLeftSelection <= 0) {
-                lines.push(`⚠️ <b>Link pilih foto SUDAH EXPIRED!</b>`)
+                lines.push(`⚠️ <b>${isEn ? 'Selection link EXPIRED!' : 'Link pilih foto SUDAH EXPIRED!'}</b>`)
             } else if (p.daysLeftSelection === 1) {
-                lines.push(`⏰ Link pilih foto expired <b>BESOK</b>!`)
+                lines.push(`⏰ ${isEn ? 'Selection link expires <b>TOMORROW</b>!' : 'Link pilih foto expired <b>BESOK</b>!'}`)
             } else {
-                lines.push(`⏰ Link pilih foto expired dalam <b>${p.daysLeftSelection} hari</b>`)
+                lines.push(`⏰ ${isEn ? `Selection link expires in <b>${p.daysLeftSelection} days</b>` : `Link pilih foto expired dalam <b>${p.daysLeftSelection} hari</b>`}`)
             }
         }
 
         if (p.daysLeftDownload !== undefined) {
             if (p.daysLeftDownload <= 0) {
-                lines.push(`⚠️ <b>Link download SUDAH EXPIRED!</b>`)
+                lines.push(`⚠️ <b>${isEn ? 'Download link EXPIRED!' : 'Link download SUDAH EXPIRED!'}</b>`)
             } else if (p.daysLeftDownload === 1) {
-                lines.push(`📥 Link download expired <b>BESOK</b>!`)
+                lines.push(`📥 ${isEn ? 'Download link expires <b>TOMORROW</b>!' : 'Link download expired <b>BESOK</b>!'}`)
             } else {
-                lines.push(`📥 Link download expired dalam <b>${p.daysLeftDownload} hari</b>`)
+                lines.push(`📥 ${isEn ? `Download link expires in <b>${p.daysLeftDownload} days</b>` : `Link download expired dalam <b>${p.daysLeftDownload} hari</b>`}`)
             }
         }
 
@@ -89,10 +92,7 @@ export function formatReminderMessage(
         // WhatsApp reminder link
         if (p.clientWhatsapp) {
             const daysLeft = p.daysLeftSelection ?? p.daysLeftDownload
-
-            // Determine which template language to use (Indonesian first, then English)
-            const useEnglish = reminderTemplate?.en?.trim() && !reminderTemplate?.id?.trim()
-            const durationText = useEnglish
+            const durationText = isEn
                 ? (daysLeft === 1 ? 'tomorrow' : `${daysLeft} days`)
                 : (daysLeft === 1 ? 'besok' : `${daysLeft} hari`)
 
@@ -111,25 +111,30 @@ export function formatReminderMessage(
 
             let reminderText: string
 
-            // Use custom template if available (try Indonesian first, then English)
-            const tmplText = reminderTemplate?.id?.trim() || reminderTemplate?.en?.trim() || ''
+            // Use custom template if available (use the selected language)
+            const tmplText = (lang === 'id' ? reminderTemplate?.id?.trim() : reminderTemplate?.en?.trim())
+                || reminderTemplate?.id?.trim() || reminderTemplate?.en?.trim() || ''
             if (tmplText) {
                 reminderText = compileTemplate(tmplText, variables)
             } else {
-                // Default fallback message (Indonesian)
-                reminderText = daysLeft === 1
-                    ? `Halo ${p.clientName}, ini reminder bahwa link foto kamu akan expired besok. Silakan segera pilih/download foto ya 😊`
-                    : `Halo ${p.clientName}, ini reminder bahwa link foto kamu akan expired dalam ${daysLeft} hari lagi. Silakan segera pilih/download foto ya 😊`
+                // Default fallback message
+                reminderText = isEn
+                    ? (daysLeft === 1
+                        ? `Hi ${p.clientName}, this is a reminder that your photo link will expire tomorrow. Please select/download your photos soon 😊`
+                        : `Hi ${p.clientName}, this is a reminder that your photo link will expire in ${daysLeft} days. Please select/download your photos soon 😊`)
+                    : (daysLeft === 1
+                        ? `Halo ${p.clientName}, ini reminder bahwa link foto kamu akan expired besok. Silakan segera pilih/download foto ya 😊`
+                        : `Halo ${p.clientName}, ini reminder bahwa link foto kamu akan expired dalam ${daysLeft} hari lagi. Silakan segera pilih/download foto ya 😊`)
             }
 
             const waNumber = p.clientWhatsapp.replace(/[^0-9]/g, '')
             const waLink = `https://api.whatsapp.com/send/?phone=${waNumber}&text=${encodeURIComponent(reminderText)}`
-            lines.push(`💬 <a href="${waLink}">Kirim reminder via WhatsApp</a>`)
+            lines.push(`💬 <a href="${waLink}">${isEn ? 'Send reminder via WhatsApp' : 'Kirim reminder via WhatsApp'}</a>`)
             lines.push('')
         }
     }
 
-    lines.push(`💡 Segera ingatkan klien untuk memilih/download foto sebelum linknya berakhir.`)
+    lines.push(`💡 ${isEn ? 'Remind your clients to select/download photos before the link expires.' : 'Segera ingatkan klien untuk memilih/download foto sebelum linknya berakhir.'}`)
 
     return lines.join('\n')
 }

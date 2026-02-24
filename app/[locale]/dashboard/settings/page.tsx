@@ -46,6 +46,7 @@ export default function SettingsPage() {
     const [telegramChatId, setTelegramChatId] = useState("")
     const [telegramReminderDays, setTelegramReminderDays] = useState<number[]>([7, 3])
     const [telegramReminderType, setTelegramReminderType] = useState<'both' | 'selection' | 'download'>('both')
+    const [telegramLanguage, setTelegramLanguage] = useState<'id' | 'en'>('id')
     const [testingSend, setTestingSend] = useState(false)
     const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null)
 
@@ -107,6 +108,7 @@ export default function SettingsPage() {
                 setTelegramChatId(data.telegram_chat_id || "")
                 if (data.telegram_reminder_days) setTelegramReminderDays(data.telegram_reminder_days.map((d: any) => Number(d)))
                 if (data.telegram_reminder_type) setTelegramReminderType(data.telegram_reminder_type)
+                if (data.telegram_language) setTelegramLanguage(data.telegram_language)
             }
         } catch (err) {
             console.error('Failed to load settings:', err)
@@ -144,6 +146,7 @@ export default function SettingsPage() {
                     telegram_chat_id: telegramChatId || null,
                     telegram_reminder_days: telegramReminderDays,
                     telegram_reminder_type: telegramReminderType,
+                    telegram_language: telegramLanguage,
                     updated_at: new Date().toISOString()
                 }, {
                     onConflict: 'user_id'
@@ -566,6 +569,38 @@ export default function SettingsPage() {
                                         </div>
                                         <p className="text-xs text-muted-foreground">
                                             {t('telegramReminderDaysHint')}
+                                        </p>
+                                    </div>
+
+                                    {/* Notification Language */}
+                                    <div className="space-y-2">
+                                        <Label>🌐 {t('telegramLanguage')}</Label>
+                                        <div className="flex gap-4">
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    name="telegramLanguage"
+                                                    value="id"
+                                                    checked={telegramLanguage === 'id'}
+                                                    onChange={() => setTelegramLanguage('id')}
+                                                    className="accent-primary cursor-pointer"
+                                                />
+                                                <span className="text-sm">🇮🇩 Indonesia</span>
+                                            </label>
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    name="telegramLanguage"
+                                                    value="en"
+                                                    checked={telegramLanguage === 'en'}
+                                                    onChange={() => setTelegramLanguage('en')}
+                                                    className="accent-primary cursor-pointer"
+                                                />
+                                                <span className="text-sm">🇬🇧 English</span>
+                                            </label>
+                                        </div>
+                                        <p className="text-xs text-muted-foreground">
+                                            {t('telegramLanguageHint')}
                                         </p>
                                     </div>
 

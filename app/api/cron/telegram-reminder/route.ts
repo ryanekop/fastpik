@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
         // Get all users with telegram configured
         const { data: allSettings, error: settingsError } = await supabase
             .from('settings')
-            .select('user_id, telegram_chat_id, telegram_reminder_days, telegram_reminder_type, vendor_name, msg_tmpl_reminder')
+            .select('user_id, telegram_chat_id, telegram_reminder_days, telegram_reminder_type, telegram_language, vendor_name, msg_tmpl_reminder')
             .not('telegram_chat_id', 'is', null)
             .neq('telegram_chat_id', '')
 
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
 
         for (const settings of allSettings) {
-            const { user_id, telegram_chat_id, telegram_reminder_days, telegram_reminder_type, vendor_name, msg_tmpl_reminder } = settings
+            const { user_id, telegram_chat_id, telegram_reminder_days, telegram_reminder_type, telegram_language, vendor_name, msg_tmpl_reminder } = settings
             // Convert to numbers - Supabase may store as strings ["7","3","1"]
             const rawDays = telegram_reminder_days || [7, 3]
             const reminderDays: number[] = rawDays.map((d: any) => Number(d))
@@ -132,7 +132,8 @@ export async function GET(request: NextRequest) {
 
             // Send Telegram message
             const reminderTemplate = msg_tmpl_reminder as { id: string; en: string } | null
-            const message = formatReminderMessage(matchingProjects, vendor_name || undefined, reminderTemplate)
+            const lang = (telegram_language === 'en' ? 'en' : 'id') as 'id' | 'en'
+            const message = formatReminderMessage(matchingProjects, vendor_name || undefined, reminderTemplate, lang)
 
             try {
                 const result = await sendTelegramMessage(telegram_chat_id, message)

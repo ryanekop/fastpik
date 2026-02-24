@@ -267,6 +267,8 @@
         "telegramReminderDownload": "Download Only",
         "telegramReminderDays": "Reminder Days Before Expiry",
         "telegramReminderDaysHint": "Choose when reminders are sent (can select multiple)",
+        "telegramLanguage": "Notification Language",
+        "telegramLanguageHint": "Language for Telegram messages and WhatsApp reminder text",
         "telegramDaysBefore": "D-{days}",
         "telegramTestButton": "Test Send Notification",
         "telegramTestSending": "Sending...",
