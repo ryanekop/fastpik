@@ -1,13 +1,14 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useLocale } from 'next-intl'
 import { useRouter } from 'next/navigation'
 import { Button } from "@/components/ui/button"
 import Link from 'next/link'
 import { createClient } from "@/lib/supabase/client"
 import {
-    Loader2, LogOut, Settings, LayoutDashboard, User, Crown
+    Loader2, LogOut, Settings, LayoutDashboard, User, Crown,
+    Menu, X, ArrowRight
 } from "lucide-react"
 import {
     DropdownMenu,
@@ -19,6 +20,171 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { User as SupabaseUser } from "@supabase/supabase-js"
 import { useTranslations } from 'next-intl'
+import { motion, AnimatePresence } from 'framer-motion'
+
+// Smooth scroll helper
+function scrollToSection(id: string) {
+    const el = document.getElementById(id)
+    if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+}
+
+// Desktop navigation links (visible on md+)
+export function DesktopNav() {
+    const t = useTranslations('Index')
+    const navItems = [
+        { label: t('navFeatures'), id: 'features' },
+        { label: t('navWorkflow'), id: 'workflow' },
+        { label: t('navPricing'), id: 'pricing' },
+        { label: t('navFaq'), id: 'faq' },
+    ]
+
+    return (
+        <nav className="hidden md:flex items-center gap-1">
+            {navItems.map(item => (
+                <button
+                    key={item.id}
+                    onClick={() => scrollToSection(item.id)}
+                    className="px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-muted/50 cursor-pointer"
+                >
+                    {item.label}
+                </button>
+            ))}
+        </nav>
+    )
+}
+
+// Mobile hamburger menu with blur overlay
+export function MobileNav() {
+    const t = useTranslations('Index')
+    const locale = useLocale()
+    const supabase = createClient()
+    const [open, setOpen] = useState(false)
+    const [user, setUser] = useState<SupabaseUser | null>(null)
+
+    useEffect(() => {
+        supabase.auth.getUser().then(({ data: { user } }) => {
+            setUser(user)
+        })
+    }, [supabase])
+
+    // Lock body scroll when menu open
+    useEffect(() => {
+        if (open) {
+            document.body.style.overflow = 'hidden'
+        } else {
+            document.body.style.overflow = ''
+        }
+        return () => { document.body.style.overflow = '' }
+    }, [open])
+
+    const handleNav = useCallback((id: string) => {
+        setOpen(false)
+        // Small delay to let menu close animation start
+        setTimeout(() => scrollToSection(id), 150)
+    }, [])
+
+    const navItems = [
+        { label: t('navFeatures'), id: 'features' },
+        { label: t('navWorkflow'), id: 'workflow' },
+        { label: t('navPricing'), id: 'pricing' },
+        { label: t('navFaq'), id: 'faq' },
+    ]
+
+    return (
+        <div className="md:hidden">
+            <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setOpen(!open)}
+                className="relative z-[60] cursor-pointer"
+                aria-label="Toggle menu"
+            >
+                {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </Button>
+
+            <AnimatePresence>
+                {open && (
+                    <>
+                        {/* Backdrop blur overlay */}
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="fixed inset-0 z-[55] bg-background/80 backdrop-blur-md"
+                            onClick={() => setOpen(false)}
+                        />
+
+                        {/* Menu panel */}
+                        <motion.div
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            transition={{
+                                type: "spring",
+                                stiffness: 500,
+                                damping: 40,
+                                mass: 0.8,
+                            }}
+                            className="fixed top-[65px] left-4 right-4 z-[56] rounded-2xl border bg-card shadow-xl overflow-hidden"
+                        >
+                            {/* Nav links */}
+                            <div className="p-3">
+                                {navItems.map((item, index) => (
+                                    <motion.button
+                                        key={item.id}
+                                        initial={{ opacity: 0, x: -10 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        transition={{ delay: index * 0.05 }}
+                                        onClick={() => handleNav(item.id)}
+                                        className="w-full text-left px-4 py-4 text-base font-medium text-foreground hover:bg-muted/50 rounded-xl transition-colors cursor-pointer"
+                                    >
+                                        {item.label}
+                                    </motion.button>
+                                ))}
+                            </div>
+
+                            {/* Bottom buttons */}
+                            <div className="p-4 pt-2 border-t space-y-2">
+                                {user ? (
+                                    <Button size="lg" asChild className="w-full gap-2 cursor-pointer">
+                                        <Link href={`/${locale}/dashboard`} onClick={() => setOpen(false)}>
+                                            {t('dashboard')} <ArrowRight className="h-4 w-4" />
+                                        </Link>
+                                    </Button>
+                                ) : (
+                                    <>
+                                        <Button
+                                            variant="secondary"
+                                            size="lg"
+                                            asChild
+                                            className="w-full cursor-pointer"
+                                        >
+                                            <Link href={`/${locale}/dashboard/login`} onClick={() => setOpen(false)}>
+                                                {t('navRegister')}
+                                            </Link>
+                                        </Button>
+                                        <Button
+                                            size="lg"
+                                            asChild
+                                            className="w-full gap-2 cursor-pointer bg-gradient-to-r from-red-500 to-purple-500 hover:from-red-600 hover:to-purple-600 text-white border-0"
+                                        >
+                                            <Link href={`/${locale}/dashboard/login`} onClick={() => setOpen(false)}>
+                                                {t('navLogin')} <ArrowRight className="h-4 w-4" />
+                                            </Link>
+                                        </Button>
+                                    </>
+                                )}
+                            </div>
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
+        </div>
+    )
+}
 
 
 
@@ -134,7 +300,7 @@ export function LandingNav() {
                     </DropdownMenuContent>
                 </DropdownMenu>
             ) : (
-                <Button variant="outline" asChild>
+                <Button variant="outline" asChild className="hidden md:inline-flex">
                     <Link href={`/${locale}/dashboard/login`}>{t('loginAdmin')}</Link>
                 </Button>
             )}
@@ -170,10 +336,13 @@ export function HeroCTA() {
                             🚀 {t('startManaging')} <ArrowRightIcon />
                         </Link>
                     </Button>
-                    <Button size="lg" variant="outline" asChild className="gap-2 cursor-pointer text-lg px-8">
-                        <Link href={`/${locale}/pricing`}>
-                            💰 {t('viewPricing')}
-                        </Link>
+                    <Button
+                        size="lg"
+                        variant="outline"
+                        className="gap-2 cursor-pointer text-lg px-8"
+                        onClick={() => scrollToSection('features')}
+                    >
+                        ✨ {t('viewFeatures')}
                     </Button>
                 </>
             )}

@@ -9,9 +9,10 @@ import Image from 'next/image'
 import { Sparkles, ArrowRight } from "lucide-react"
 
 // Client components (these have "use client" directive, so they'll hydrate on the client)
-import { LandingNav, HeroCTA, BottomCTA } from "@/components/landing/landing-client"
+import { LandingNav, HeroCTA, BottomCTA, DesktopNav, MobileNav } from "@/components/landing/landing-client"
 import { AnimatedHero, AnimatedFeatures, AnimatedWorkflow, AnimatedSection, AnimatedCTA } from "@/components/landing/landing-animations"
 import { AnimatedFAQ } from "@/components/landing/faq-section"
+import { ProblemSection } from "@/components/landing/problem-section"
 
 export default async function Home() {
   const t = await getTranslations('Index')
@@ -25,10 +26,12 @@ export default async function Home() {
           <Image src="/fastpik-logo.png" alt="Fastpik" width={28} height={28} className="rounded-md" />
           Fastpik
         </Link>
+        <DesktopNav />
         <div className="flex items-center gap-2">
           <LanguageToggle />
           <ThemeToggle />
           <LandingNav />
+          <MobileNav />
         </div>
       </header>
 
@@ -60,8 +63,15 @@ export default async function Home() {
         </div>
       </section>
 
+      {/* Problem Section */}
+      <section id="problems" className="py-20 bg-muted/20">
+        <div className="container mx-auto px-4">
+          <ProblemSection />
+        </div>
+      </section>
+
       {/* Features Section */}
-      <section className="py-20 bg-muted/20">
+      <section id="features" className="py-20 scroll-mt-20">
         <div className="container mx-auto px-4">
           <AnimatedFeatures />
 
@@ -76,14 +86,14 @@ export default async function Home() {
       </section>
 
       {/* How It Works Section */}
-      <section className="py-20">
+      <section id="workflow" className="py-20 bg-muted/20 scroll-mt-20">
         <div className="container mx-auto px-4">
           <AnimatedWorkflow />
         </div>
       </section>
 
       {/* Pricing Preview Section */}
-      <section className="py-20 bg-gradient-to-b from-muted/30 to-background">
+      <section id="pricing" className="py-20 bg-gradient-to-b from-background to-muted/30 scroll-mt-20">
         <div className="container mx-auto px-4">
           <AnimatedSection className="text-center max-w-2xl mx-auto">
             <h2 className="text-3xl sm:text-4xl font-bold mb-4">{t('pricingTitle')}</h2>
@@ -99,7 +109,7 @@ export default async function Home() {
       </section>
 
       {/* FAQ Section */}
-      <section className="py-20 bg-muted/20">
+      <section id="faq" className="py-20 bg-muted/20 scroll-mt-20">
         <div className="container mx-auto px-4">
           <AnimatedFAQ />
         </div>
