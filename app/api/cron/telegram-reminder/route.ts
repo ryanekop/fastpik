@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
         // Get all users with telegram configured
         const { data: allSettings, error: settingsError } = await supabase
             .from('settings')
-            .select('user_id, telegram_chat_id, telegram_reminder_days, telegram_reminder_type, vendor_name')
+            .select('user_id, telegram_chat_id, telegram_reminder_days, telegram_reminder_type, vendor_name, msg_tmpl_reminder')
             .not('telegram_chat_id', 'is', null)
             .neq('telegram_chat_id', '')
 
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
 
         for (const settings of allSettings) {
-            const { user_id, telegram_chat_id, telegram_reminder_days, telegram_reminder_type, vendor_name } = settings
+            const { user_id, telegram_chat_id, telegram_reminder_days, telegram_reminder_type, vendor_name, msg_tmpl_reminder } = settings
             // Convert to numbers - Supabase may store as strings ["7","3","1"]
             const rawDays = telegram_reminder_days || [7, 3]
             const reminderDays: number[] = rawDays.map((d: any) => Number(d))
@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
             // Fetch all projects for this user that have expiry dates
             const { data: projects, error: projError } = await supabase
                 .from('projects')
-                .select('id, client_name, client_whatsapp, link, max_photos, expires_at, download_expires_at, selection_status')
+                .select('id, client_name, client_whatsapp, link, max_photos, password, expires_at, download_expires_at, selection_status')
                 .eq('user_id', user_id)
 
             if (projError) {
@@ -74,6 +74,7 @@ export async function GET(request: NextRequest) {
                 clientWhatsapp?: string
                 link: string
                 maxPhotos: number
+                password?: string
                 selectionStatus: string
                 daysLeftSelection?: number
                 daysLeftDownload?: number
@@ -116,6 +117,7 @@ export async function GET(request: NextRequest) {
                         clientWhatsapp: project.client_whatsapp || undefined,
                         link: project.link,
                         maxPhotos: project.max_photos,
+                        password: project.password || undefined,
                         selectionStatus: project.selection_status || 'pending',
                         daysLeftSelection,
                         daysLeftDownload
@@ -129,7 +131,8 @@ export async function GET(request: NextRequest) {
             }
 
             // Send Telegram message
-            const message = formatReminderMessage(matchingProjects, vendor_name || undefined)
+            const reminderTemplate = msg_tmpl_reminder as { id: string; en: string } | null
+            const message = formatReminderMessage(matchingProjects, vendor_name || undefined, reminderTemplate)
 
             try {
                 const result = await sendTelegramMessage(telegram_chat_id, message)

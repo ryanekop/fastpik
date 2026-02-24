@@ -31,12 +31,27 @@ interface ReminderProject {
     clientWhatsapp?: string
     link: string
     maxPhotos: number
+    password?: string
     selectionStatus: string
     daysLeftSelection?: number
     daysLeftDownload?: number
 }
 
-export function formatReminderMessage(projects: ReminderProject[], vendorName?: string): string {
+function compileTemplate(template: string, variables: Record<string, string>): string {
+    let msg = template
+    Object.entries(variables).forEach(([key, val]) => {
+        msg = msg.replace(new RegExp(`{{${key}}}`, 'g'), val)
+    })
+    // Remove any unreplaced variables
+    msg = msg.replace(/{{(\w+)}}/g, '').replace(/\n{3,}/g, '\n\n').trim()
+    return msg
+}
+
+export function formatReminderMessage(
+    projects: ReminderProject[],
+    vendorName?: string,
+    reminderTemplate?: { id: string; en: string } | null
+): string {
     const header = vendorName
         ? `🔔 <b>Reminder dari ${vendorName}</b>`
         : `🔔 <b>Fastpik Reminder</b>`
@@ -74,9 +89,34 @@ export function formatReminderMessage(projects: ReminderProject[], vendorName?: 
         // WhatsApp reminder link
         if (p.clientWhatsapp) {
             const daysLeft = p.daysLeftSelection ?? p.daysLeftDownload
-            const reminderText = daysLeft === 1
-                ? `Halo ${p.clientName}, ini reminder bahwa link foto kamu akan expired besok. Silakan segera pilih/download foto ya 😊`
-                : `Halo ${p.clientName}, ini reminder bahwa link foto kamu akan expired dalam ${daysLeft} hari lagi. Silakan segera pilih/download foto ya 😊`
+            const durationText = daysLeft === 1 ? 'besok' : `${daysLeft} hari`
+
+            // Build template variables
+            const variables: Record<string, string> = {
+                client_name: p.clientName,
+                link: p.link,
+                count: p.maxPhotos.toString(),
+                max_photos: p.maxPhotos.toString(),
+                duration: durationText,
+                download_duration: durationText
+            }
+            if (p.password) {
+                variables.password = p.password
+            }
+
+            let reminderText: string
+
+            // Use custom template if available (use Indonesian version)
+            const tmplText = reminderTemplate?.id || ''
+            if (tmplText.trim()) {
+                reminderText = compileTemplate(tmplText, variables)
+            } else {
+                // Default fallback message
+                reminderText = daysLeft === 1
+                    ? `Halo ${p.clientName}, ini reminder bahwa link foto kamu akan expired besok. Silakan segera pilih/download foto ya 😊`
+                    : `Halo ${p.clientName}, ini reminder bahwa link foto kamu akan expired dalam ${daysLeft} hari lagi. Silakan segera pilih/download foto ya 😊`
+            }
+
             const waNumber = p.clientWhatsapp.replace(/[^0-9]/g, '')
             const waLink = `https://api.whatsapp.com/send/?phone=${waNumber}&text=${encodeURIComponent(reminderText)}`
             lines.push(`💬 <a href="${waLink}">Kirim reminder via WhatsApp</a>`)
