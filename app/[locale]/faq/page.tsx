@@ -144,14 +144,14 @@ export default function FAQPage() {
                                                             </h3>
                                                             <ChevronDown
                                                                 className={`h-5 w-5 shrink-0 text-muted-foreground transition-transform duration-300 ${openItems[
-                                                                        qKey
-                                                                    ]
-                                                                        ? "rotate-180"
-                                                                        : ""
+                                                                    qKey
+                                                                ]
+                                                                    ? "rotate-180"
+                                                                    : ""
                                                                     }`}
                                                             />
                                                         </div>
-                                                        <AnimatePresence>
+                                                        <AnimatePresence initial={false}>
                                                             {openItems[
                                                                 qKey
                                                             ] && (
@@ -163,13 +163,33 @@ export default function FAQPage() {
                                                                         animate={{
                                                                             height: "auto",
                                                                             opacity: 1,
+                                                                            transition: {
+                                                                                height: {
+                                                                                    type: "spring",
+                                                                                    stiffness: 500,
+                                                                                    damping: 40,
+                                                                                    mass: 0.8,
+                                                                                },
+                                                                                opacity: {
+                                                                                    duration: 0.25,
+                                                                                    delay: 0.05,
+                                                                                },
+                                                                            },
                                                                         }}
                                                                         exit={{
                                                                             height: 0,
                                                                             opacity: 0,
-                                                                        }}
-                                                                        transition={{
-                                                                            duration: 0.3,
+                                                                            transition: {
+                                                                                height: {
+                                                                                    type: "spring",
+                                                                                    stiffness: 500,
+                                                                                    damping: 40,
+                                                                                    mass: 0.8,
+                                                                                },
+                                                                                opacity: {
+                                                                                    duration: 0.15,
+                                                                                },
+                                                                            },
                                                                         }}
                                                                         className="overflow-hidden"
                                                                     >

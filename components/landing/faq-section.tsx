@@ -56,7 +56,7 @@ export function AnimatedFAQ() {
                                         }`}
                                 />
                             </div>
-                            <AnimatePresence>
+                            <AnimatePresence initial={false}>
                                 {openIndex === index && (
                                     <motion.div
                                         initial={{
@@ -66,9 +66,34 @@ export function AnimatedFAQ() {
                                         animate={{
                                             height: "auto",
                                             opacity: 1,
+                                            transition: {
+                                                height: {
+                                                    type: "spring",
+                                                    stiffness: 500,
+                                                    damping: 40,
+                                                    mass: 0.8,
+                                                },
+                                                opacity: {
+                                                    duration: 0.25,
+                                                    delay: 0.05,
+                                                },
+                                            },
                                         }}
-                                        exit={{ height: 0, opacity: 0 }}
-                                        transition={{ duration: 0.3 }}
+                                        exit={{
+                                            height: 0,
+                                            opacity: 0,
+                                            transition: {
+                                                height: {
+                                                    type: "spring",
+                                                    stiffness: 500,
+                                                    damping: 40,
+                                                    mass: 0.8,
+                                                },
+                                                opacity: {
+                                                    duration: 0.15,
+                                                },
+                                            },
+                                        }}
                                         className="overflow-hidden"
                                     >
                                         <p className="text-muted-foreground mt-3 pt-3 border-t text-sm sm:text-base leading-relaxed">
