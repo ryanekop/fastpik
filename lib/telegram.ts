@@ -117,14 +117,36 @@ export function formatReminderMessage(
             if (tmplText) {
                 reminderText = compileTemplate(tmplText, variables)
             } else {
-                // Default fallback message
-                reminderText = isEn
-                    ? (daysLeft === 1
-                        ? `Hi ${p.clientName}, this is a reminder that your photo link will expire tomorrow. Please select/download your photos soon 😊`
-                        : `Hi ${p.clientName}, this is a reminder that your photo link will expire in ${daysLeft} days. Please select/download your photos soon 😊`)
-                    : (daysLeft === 1
-                        ? `Halo ${p.clientName}, ini reminder bahwa link foto kamu akan expired besok. Silakan segera pilih/download foto ya 😊`
-                        : `Halo ${p.clientName}, ini reminder bahwa link foto kamu akan expired dalam ${daysLeft} hari lagi. Silakan segera pilih/download foto ya 😊`)
+                // Default fallback message (matches dashboard waReminderMessage format)
+                const parts: string[] = []
+                if (isEn) {
+                    parts.push(`Hi ${p.clientName},`)
+                    parts.push('')
+                    parts.push('This is a reminder to select your photos.')
+                    parts.push('')
+                    parts.push(`Please select at the following link:`)
+                    parts.push(p.link)
+                    parts.push('')
+                    parts.push(`Remaining time: ${durationText}`)
+                    parts.push('')
+                    parts.push('Thank you!')
+                } else {
+                    parts.push(`Halo ${p.clientName},`)
+                    parts.push('')
+                    parts.push('Ini adalah pengingat untuk segera memilih foto Anda.')
+                    parts.push('')
+                    parts.push('Silakan pilih di link berikut:')
+                    parts.push(p.link)
+                    parts.push('')
+                    parts.push(`Sisa waktu: ${durationText}`)
+                    parts.push('')
+                    parts.push('Terima kasih!')
+                }
+                if (p.password) {
+                    parts.push('')
+                    parts.push(`🔐 Password: ${p.password}`)
+                }
+                reminderText = parts.join('\n')
             }
 
             const waNumber = p.clientWhatsapp.replace(/[^0-9]/g, '')
