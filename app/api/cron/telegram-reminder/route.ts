@@ -45,14 +45,16 @@ export async function GET(request: NextRequest) {
 
         for (const settings of allSettings) {
             const { user_id, telegram_chat_id, telegram_reminder_days, telegram_reminder_type, vendor_name } = settings
-            const reminderDays: number[] = telegram_reminder_days || [7, 3]
+            // Convert to numbers - Supabase may store as strings ["7","3","1"]
+            const rawDays = telegram_reminder_days || [7, 3]
+            const reminderDays: number[] = rawDays.map((d: any) => Number(d))
             const reminderType: string = telegram_reminder_type || 'both'
             const userResult = { userId: user_id, sent: 0, errors: [] as string[] }
 
             // Fetch all projects for this user that have expiry dates
             const { data: projects, error: projError } = await supabase
                 .from('projects')
-                .select('id, client_name, link, max_photos, expires_at, download_expires_at, selection_status')
+                .select('id, client_name, client_whatsapp, link, max_photos, expires_at, download_expires_at, selection_status')
                 .eq('user_id', user_id)
 
             if (projError) {
@@ -69,6 +71,7 @@ export async function GET(request: NextRequest) {
             // Find projects that match any reminder day
             const matchingProjects: {
                 clientName: string
+                clientWhatsapp?: string
                 link: string
                 maxPhotos: number
                 selectionStatus: string
@@ -110,6 +113,7 @@ export async function GET(request: NextRequest) {
                 if (shouldInclude) {
                     matchingProjects.push({
                         clientName: project.client_name,
+                        clientWhatsapp: project.client_whatsapp || undefined,
                         link: project.link,
                         maxPhotos: project.max_photos,
                         selectionStatus: project.selection_status || 'pending',

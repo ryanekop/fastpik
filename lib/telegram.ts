@@ -28,6 +28,7 @@ export async function sendTelegramMessage(chatId: string, message: string): Prom
 
 interface ReminderProject {
     clientName: string
+    clientWhatsapp?: string
     link: string
     maxPhotos: number
     selectionStatus: string
@@ -69,6 +70,18 @@ export function formatReminderMessage(projects: ReminderProject[], vendorName?: 
         }
 
         lines.push('') // separator between projects
+
+        // WhatsApp reminder link
+        if (p.clientWhatsapp) {
+            const daysLeft = p.daysLeftSelection ?? p.daysLeftDownload
+            const reminderText = daysLeft === 1
+                ? `Halo ${p.clientName}, ini reminder bahwa link foto kamu akan expired besok. Silakan segera pilih/download foto ya 😊`
+                : `Halo ${p.clientName}, ini reminder bahwa link foto kamu akan expired dalam ${daysLeft} hari lagi. Silakan segera pilih/download foto ya 😊`
+            const waNumber = p.clientWhatsapp.replace(/[^0-9]/g, '')
+            const waLink = `https://api.whatsapp.com/send/?phone=${waNumber}&text=${encodeURIComponent(reminderText)}`
+            lines.push(`💬 <a href="${waLink}">Kirim reminder via WhatsApp</a>`)
+            lines.push('')
+        }
     }
 
     lines.push(`💡 Segera ingatkan klien untuk memilih/download foto sebelum linknya berakhir.`)

@@ -105,7 +105,7 @@ export default function SettingsPage() {
                 if (data.msg_tmpl_reminder) setTmplReminder(data.msg_tmpl_reminder)
                 // Telegram
                 setTelegramChatId(data.telegram_chat_id || "")
-                if (data.telegram_reminder_days) setTelegramReminderDays(data.telegram_reminder_days)
+                if (data.telegram_reminder_days) setTelegramReminderDays(data.telegram_reminder_days.map((d: any) => Number(d)))
                 if (data.telegram_reminder_type) setTelegramReminderType(data.telegram_reminder_type)
             }
         } catch (err) {
