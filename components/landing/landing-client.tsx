@@ -55,7 +55,7 @@ export function DesktopNav() {
     )
 }
 
-// Mobile hamburger menu with blur overlay
+// Mobile hamburger menu — dropdown style
 export function MobileNav() {
     const t = useTranslations('Index')
     const locale = useLocale()
@@ -69,20 +69,22 @@ export function MobileNav() {
         })
     }, [supabase])
 
-    // Lock body scroll when menu open
+    // Close menu when clicking outside
     useEffect(() => {
-        if (open) {
-            document.body.style.overflow = 'hidden'
-        } else {
-            document.body.style.overflow = ''
+        if (!open) return
+        const handleClick = (e: MouseEvent) => {
+            const target = e.target as HTMLElement
+            if (!target.closest('[data-mobile-nav]')) {
+                setOpen(false)
+            }
         }
-        return () => { document.body.style.overflow = '' }
+        document.addEventListener('click', handleClick)
+        return () => document.removeEventListener('click', handleClick)
     }, [open])
 
     const handleNav = useCallback((id: string) => {
         setOpen(false)
-        // Small delay to let menu close animation start
-        setTimeout(() => scrollToSection(id), 150)
+        setTimeout(() => scrollToSection(id), 100)
     }, [])
 
     const navItems = [
@@ -93,12 +95,12 @@ export function MobileNav() {
     ]
 
     return (
-        <div className="md:hidden">
+        <div className="md:hidden" data-mobile-nav>
             <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => setOpen(!open)}
-                className="relative z-[60] cursor-pointer"
+                className="cursor-pointer"
                 aria-label="Toggle menu"
             >
                 {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -106,80 +108,64 @@ export function MobileNav() {
 
             <AnimatePresence>
                 {open && (
-                    <>
-                        {/* Backdrop blur overlay */}
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            transition={{ duration: 0.2 }}
-                            className="fixed inset-0 z-[55] bg-background/80 backdrop-blur-md"
-                            onClick={() => setOpen(false)}
-                        />
+                    <motion.div
+                        initial={{ opacity: 0, y: -8, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -8, scale: 0.95 }}
+                        transition={{
+                            type: "spring",
+                            stiffness: 500,
+                            damping: 40,
+                            mass: 0.8,
+                        }}
+                        className="absolute top-[65px] left-4 right-4 z-50 rounded-2xl border bg-card shadow-xl overflow-hidden"
+                    >
+                        {/* Nav links */}
+                        <div className="p-3">
+                            {navItems.map((item) => (
+                                <button
+                                    key={item.id}
+                                    onClick={() => handleNav(item.id)}
+                                    className="w-full text-left px-4 py-4 text-base font-medium text-foreground hover:bg-muted/50 rounded-xl transition-colors cursor-pointer"
+                                >
+                                    {item.label}
+                                </button>
+                            ))}
+                        </div>
 
-                        {/* Menu panel */}
-                        <motion.div
-                            initial={{ opacity: 0, y: -10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -10 }}
-                            transition={{
-                                type: "spring",
-                                stiffness: 500,
-                                damping: 40,
-                                mass: 0.8,
-                            }}
-                            className="fixed top-[65px] left-4 right-4 z-[56] rounded-2xl border bg-card shadow-xl overflow-hidden"
-                        >
-                            {/* Nav links */}
-                            <div className="p-3">
-                                {navItems.map((item, index) => (
-                                    <motion.button
-                                        key={item.id}
-                                        initial={{ opacity: 0, x: -10 }}
-                                        animate={{ opacity: 1, x: 0 }}
-                                        transition={{ delay: index * 0.05 }}
-                                        onClick={() => handleNav(item.id)}
-                                        className="w-full text-left px-4 py-4 text-base font-medium text-foreground hover:bg-muted/50 rounded-xl transition-colors cursor-pointer"
+                        {/* Bottom buttons */}
+                        <div className="p-4 pt-2 border-t space-y-2">
+                            {user ? (
+                                <Button size="lg" asChild className="w-full gap-2 cursor-pointer bg-black hover:bg-black/90 text-white">
+                                    <Link href={`/${locale}/dashboard`} onClick={() => setOpen(false)}>
+                                        {t('dashboard')} <ArrowRight className="h-4 w-4" />
+                                    </Link>
+                                </Button>
+                            ) : (
+                                <>
+                                    <Button
+                                        variant="secondary"
+                                        size="lg"
+                                        asChild
+                                        className="w-full cursor-pointer"
                                     >
-                                        {item.label}
-                                    </motion.button>
-                                ))}
-                            </div>
-
-                            {/* Bottom buttons */}
-                            <div className="p-4 pt-2 border-t space-y-2">
-                                {user ? (
-                                    <Button size="lg" asChild className="w-full gap-2 cursor-pointer">
-                                        <Link href={`/${locale}/dashboard`} onClick={() => setOpen(false)}>
-                                            {t('dashboard')} <ArrowRight className="h-4 w-4" />
+                                        <Link href={`/${locale}/dashboard/login`} onClick={() => setOpen(false)}>
+                                            {t('navRegister')}
                                         </Link>
                                     </Button>
-                                ) : (
-                                    <>
-                                        <Button
-                                            variant="secondary"
-                                            size="lg"
-                                            asChild
-                                            className="w-full cursor-pointer"
-                                        >
-                                            <Link href={`/${locale}/dashboard/login`} onClick={() => setOpen(false)}>
-                                                {t('navRegister')}
-                                            </Link>
-                                        </Button>
-                                        <Button
-                                            size="lg"
-                                            asChild
-                                            className="w-full gap-2 cursor-pointer bg-gradient-to-r from-red-500 to-purple-500 hover:from-red-600 hover:to-purple-600 text-white border-0"
-                                        >
-                                            <Link href={`/${locale}/dashboard/login`} onClick={() => setOpen(false)}>
-                                                {t('navLogin')} <ArrowRight className="h-4 w-4" />
-                                            </Link>
-                                        </Button>
-                                    </>
-                                )}
-                            </div>
-                        </motion.div>
-                    </>
+                                    <Button
+                                        size="lg"
+                                        asChild
+                                        className="w-full gap-2 cursor-pointer bg-black hover:bg-black/90 text-white border-0"
+                                    >
+                                        <Link href={`/${locale}/dashboard/login`} onClick={() => setOpen(false)}>
+                                            {t('navLogin')} <ArrowRight className="h-4 w-4" />
+                                        </Link>
+                                    </Button>
+                                </>
+                            )}
+                        </div>
+                    </motion.div>
                 )}
             </AnimatePresence>
         </div>

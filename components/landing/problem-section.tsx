@@ -1,6 +1,7 @@
 "use client"
 
 import { motion } from "framer-motion"
+import { Card, CardContent } from "@/components/ui/card"
 import { useTranslations } from "next-intl"
 import { FolderOpen, PenLine, Clock, Search, BellOff, DollarSign } from "lucide-react"
 
@@ -25,14 +26,14 @@ export function ProblemSection() {
                 className="text-center mb-12"
             >
                 <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-                    😩 {t("problemTitle")}
+                    {t("problemTitle")}
                 </h2>
                 <p className="text-muted-foreground text-lg">
                     {t("problemSubtitle")}
                 </p>
             </motion.div>
 
-            <div className="max-w-4xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
                 {problems.map((problem, index) => {
                     const Icon = problem.icon
                     return (
@@ -41,18 +42,21 @@ export function ProblemSection() {
                             initial={{ opacity: 0, y: 20 }}
                             whileInView={{ opacity: 1, y: 0 }}
                             viewport={{ once: true }}
-                            transition={{ delay: index * 0.08 }}
-                            className="rounded-xl border bg-card p-5 space-y-3 hover:shadow-md transition-shadow"
+                            transition={{ delay: index * 0.1 }}
                         >
-                            <div className={`h-10 w-10 rounded-lg ${problem.bg} flex items-center justify-center`}>
-                                <Icon className={`h-5 w-5 ${problem.color}`} />
-                            </div>
-                            <h3 className="font-semibold text-base">
-                                {t(`problem${problem.key}Title` as any)}
-                            </h3>
-                            <p className="text-sm text-muted-foreground leading-relaxed">
-                                {t(`problem${problem.key}Desc` as any)}
-                            </p>
+                            <Card className="h-full hover:shadow-lg transition-shadow">
+                                <CardContent className="pt-6">
+                                    <div className={`h-12 w-12 rounded-lg ${problem.bg} flex items-center justify-center mb-4`}>
+                                        <Icon className={`h-6 w-6 ${problem.color}`} />
+                                    </div>
+                                    <h3 className="font-semibold text-lg mb-2">
+                                        {t(`problem${problem.key}Title` as any)}
+                                    </h3>
+                                    <p className="text-muted-foreground">
+                                        {t(`problem${problem.key}Desc` as any)}
+                                    </p>
+                                </CardContent>
+                            </Card>
                         </motion.div>
                     )
                 })}
