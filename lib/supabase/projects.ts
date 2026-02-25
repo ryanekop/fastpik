@@ -67,7 +67,13 @@ export async function createBatchProjects(projects: Project[]) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error("Unauthorized")
 
-    const dbProjects = projects.map(p => transformProjectToDB(p, user.id))
+    // Stagger created_at by 1ms per project so spreadsheet order is preserved
+    // when sorted by created_at DESC (first row = latest timestamp = appears first)
+    const now = Date.now()
+    const dbProjects = projects.map((p, index) => {
+        const staggered = { ...p, createdAt: now - index }
+        return transformProjectToDB(staggered, user.id)
+    })
 
     const { error } = await supabase
         .from('projects')
