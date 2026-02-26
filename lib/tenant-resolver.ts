@@ -11,7 +11,7 @@ export interface TenantConfig {
     domain: string | null
     logoUrl: string | null
     faviconUrl: string | null
-    primaryColor: string
+    primaryColor: string | null
     footerText: string | null
     isActive: boolean
 }
@@ -24,7 +24,7 @@ const DEFAULT_TENANT: TenantConfig = {
     domain: null,
     logoUrl: '/fastpik-logo.png',
     faviconUrl: null,
-    primaryColor: '#7c3aed',
+    primaryColor: null,
     footerText: null,
     isActive: true,
 }
@@ -70,7 +70,7 @@ export async function resolveTenant(hostname: string): Promise<TenantConfig> {
                 domain: data.domain,
                 logoUrl: data.logo_url,
                 faviconUrl: data.favicon_url,
-                primaryColor: data.primary_color || '#7c3aed',
+                primaryColor: data.primary_color || null,
                 footerText: data.footer_text,
                 isActive: data.is_active,
             }

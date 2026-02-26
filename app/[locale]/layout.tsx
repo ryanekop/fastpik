@@ -54,7 +54,7 @@ export default async function LocaleLayout({
     <html lang={locale} suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased transition-colors duration-300`}
-        style={{ '--tenant-primary': tenant.primaryColor } as React.CSSProperties}
+        style={tenant.primaryColor ? { '--tenant-primary': tenant.primaryColor } as React.CSSProperties : undefined}
       >
         <NextIntlClientProvider messages={messages}>
           <ThemeProvider
@@ -69,7 +69,7 @@ export default async function LocaleLayout({
               domain: tenant.domain || '',
               logoUrl: tenant.logoUrl || '/fastpik-logo.png',
               faviconUrl: tenant.faviconUrl || '',
-              primaryColor: tenant.primaryColor,
+              primaryColor: tenant.primaryColor || '',
               footerText: tenant.footerText || '',
             }}>
               {children}
