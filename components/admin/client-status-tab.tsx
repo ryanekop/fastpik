@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { PopupDialog } from "@/components/ui/popup-dialog"
-import { Bell, CheckCircle, Clock, Eye, FolderOpen, Loader2, RefreshCw, Search, XCircle, Undo2 } from "lucide-react"
+import { Bell, CheckCircle, Clock, Eye, FolderOpen, Loader2, RefreshCw, Search, Timer, XCircle, Undo2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { getClientWhatsapp, type Project } from "@/lib/project-store"
@@ -46,6 +46,7 @@ export function ClientStatusTab({ projects: initialProjects, folders, onProjects
         reminderLink: { id: string, en: string } | null
     }>({ reminderLink: null })
     const [vendorSlug, setVendorSlug] = useState<string | null>(null)
+    const [dashboardDurationDisplay, setDashboardDurationDisplay] = useState<'selection' | 'download'>('selection')
 
     const supabase = createClient()
 
@@ -61,7 +62,7 @@ export function ClientStatusTab({ projects: initialProjects, folders, onProjects
                 if (!user) return
                 const { data } = await supabase
                     .from('settings')
-                    .select('msg_tmpl_reminder, vendor_name')
+                    .select('msg_tmpl_reminder, vendor_name, dashboard_duration_display')
                     .eq('user_id', user.id)
                     .maybeSingle()
                 if (data) {
@@ -70,6 +71,9 @@ export function ClientStatusTab({ projects: initialProjects, folders, onProjects
                     }
                     if (data.vendor_name) {
                         setVendorSlug(data.vendor_name)
+                    }
+                    if (data.dashboard_duration_display) {
+                        setDashboardDurationDisplay(data.dashboard_duration_display)
                     }
                 }
             } catch (err) {
@@ -428,8 +432,9 @@ export function ClientStatusTab({ projects: initialProjects, folders, onProjects
                                                             {status === 'pending' && <XCircle className="h-3 w-3" />}
                                                             {t(`status_${status}`)}
                                                         </span>
-                                                        <span className="text-xs text-muted-foreground whitespace-nowrap">
-                                                            {formatRelativeTime(project.selectionLastSyncedAt)}
+                                                        <span className="text-xs text-muted-foreground whitespace-nowrap flex items-center gap-1">
+                                                            <Timer className="h-3 w-3" />
+                                                            {formatExpiry(dashboardDurationDisplay === 'download' ? project.downloadExpiresAt : project.expiresAt)}
                                                         </span>
                                                     </div>
                                                     {/* Client name + badge */}

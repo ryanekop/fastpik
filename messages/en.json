@@ -400,7 +400,7 @@
         "selectPhotosDesc": "Choose photos to send to admin",
         "downloadAll": "Download All",
         "confirmDownloadAll": "Download All Photos?",
-        "confirmDownloadAllMsg": "To download all {count} photos, you will be redirected to Google Drive.\n\n📱 On phone: tap ⋮ then 'Download'\n💻 On laptop: right-click folder → 'Download'.",
+        "confirmDownloadAllMsg": "To download all {count} photos, you will be redirected to Google Drive.\n\n💻 On laptop: right-click folder → 'Download'.\n\n⚠️ It is recommended to use a laptop to download all photos.",
         "downloadSelected": "Download Selected",
         "openGoogleDrive": "Open Google Drive",
         "downloadingPhotos": "Downloading photos...",

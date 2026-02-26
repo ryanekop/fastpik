@@ -400,7 +400,7 @@
         "selectPhotosDesc": "Pilih foto untuk dikirim ke admin",
         "downloadAll": "Download Semua",
         "confirmDownloadAll": "Download Semua Foto?",
-        "confirmDownloadAllMsg": "Untuk download semua {count} foto, Anda akan diarahkan ke Google Drive.\n\n📱 Di HP: tap tanda ⋮ lalu pilih 'Download'\n💻 Di laptop: klik kanan folder → 'Download'.",
+        "confirmDownloadAllMsg": "Untuk download semua {count} foto, Anda akan diarahkan ke Google Drive.\n\n💻 Di laptop: klik kanan folder → 'Download'.\n\n⚠️ Disarankan menggunakan laptop untuk download semua foto.",
         "downloadSelected": "Download Terpilih",
         "openGoogleDrive": "Buka Google Drive",
         "downloadingPhotos": "Mengunduh foto...",
