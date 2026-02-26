@@ -35,6 +35,10 @@ interface ReminderProject {
     selectionStatus: string
     daysLeftSelection?: number
     daysLeftDownload?: number
+    projectType?: string
+    printSizes?: { name: string; quota: number }[]
+    daysLeftPrint?: number
+    printStatus?: string
 }
 
 function compileTemplate(template: string, variables: Record<string, string>): string {
@@ -62,12 +66,21 @@ export function formatReminderMessage(
     const lines: string[] = [header, '']
 
     for (const p of projects) {
+        const isPrint = p.projectType === 'print'
+
         lines.push(`👤 <b>${p.clientName}</b>`)
         lines.push(`🔗 ${p.link}`)
-        lines.push(`📸 Max ${isEn ? 'photos' : 'foto'}: ${p.maxPhotos}`)
-        lines.push(`📋 Status: ${p.selectionStatus === 'submitted' ? '✅ Submitted' : '⏳ Pending'}`)
 
-        if (p.daysLeftSelection !== undefined) {
+        if (isPrint) {
+            const sizesStr = (p.printSizes || []).map(s => `${s.name}×${s.quota}`).join(', ')
+            lines.push(`🖨️ ${isEn ? 'Print' : 'Cetak'}: ${sizesStr}`)
+            lines.push(`📋 Status: ${p.printStatus === 'submitted' ? '✅ Submitted' : p.printStatus === 'in_progress' ? '⏳ In Progress' : '⏳ Pending'}`)
+        } else {
+            lines.push(`📸 Max ${isEn ? 'photos' : 'foto'}: ${p.maxPhotos}`)
+            lines.push(`📋 Status: ${p.selectionStatus === 'submitted' ? '✅ Submitted' : '⏳ Pending'}`)
+        }
+
+        if (p.daysLeftSelection !== undefined && !isPrint) {
             if (p.daysLeftSelection <= 0) {
                 lines.push(`⚠️ <b>${isEn ? 'Selection link EXPIRED!' : 'Link pilih foto SUDAH EXPIRED!'}</b>`)
             } else if (p.daysLeftSelection === 1) {
@@ -77,7 +90,7 @@ export function formatReminderMessage(
             }
         }
 
-        if (p.daysLeftDownload !== undefined) {
+        if (p.daysLeftDownload !== undefined && !isPrint) {
             if (p.daysLeftDownload <= 0) {
                 lines.push(`⚠️ <b>${isEn ? 'Download link EXPIRED!' : 'Link download SUDAH EXPIRED!'}</b>`)
             } else if (p.daysLeftDownload === 1) {
@@ -87,11 +100,22 @@ export function formatReminderMessage(
             }
         }
 
+        // Print expiry
+        if (p.daysLeftPrint !== undefined && isPrint) {
+            if (p.daysLeftPrint <= 0) {
+                lines.push(`⚠️ <b>${isEn ? 'Print selection link EXPIRED!' : 'Link pilih cetak SUDAH EXPIRED!'}</b>`)
+            } else if (p.daysLeftPrint === 1) {
+                lines.push(`🖨️ ${isEn ? 'Print selection expires <b>TOMORROW</b>!' : 'Link pilih cetak expired <b>BESOK</b>!'}`)
+            } else {
+                lines.push(`🖨️ ${isEn ? `Print selection expires in <b>${p.daysLeftPrint} days</b>` : `Link pilih cetak expired dalam <b>${p.daysLeftPrint} hari</b>`}`)
+            }
+        }
+
         lines.push('') // separator between projects
 
         // WhatsApp reminder link
         if (p.clientWhatsapp) {
-            const daysLeft = p.daysLeftSelection ?? p.daysLeftDownload
+            const daysLeft = isPrint ? p.daysLeftPrint : (p.daysLeftSelection ?? p.daysLeftDownload)
             const durationText = isEn
                 ? (daysLeft === 1 ? 'tomorrow' : `${daysLeft} days`)
                 : (daysLeft === 1 ? 'besok' : `${daysLeft} hari`)
@@ -108,6 +132,11 @@ export function formatReminderMessage(
             if (p.password) {
                 variables.password = p.password
             }
+            if (isPrint) {
+                const sizesStr = (p.printSizes || []).map(s => `${s.name}×${s.quota}`).join(', ')
+                variables.print_sizes = sizesStr
+                variables.print_duration = durationText
+            }
 
             let reminderText: string
 
@@ -122,23 +151,31 @@ export function formatReminderMessage(
                 if (isEn) {
                     parts.push(`Hi ${p.clientName},`)
                     parts.push('')
-                    parts.push('This is a reminder to select your photos.')
+                    parts.push(isPrint ? 'This is a reminder to select your print photos.' : 'This is a reminder to select your photos.')
                     parts.push('')
                     parts.push(`Please select at the following link:`)
                     parts.push(p.link)
                     parts.push('')
                     parts.push(`Remaining time: ${durationText}`)
+                    if (isPrint) {
+                        const sizesStr = (p.printSizes || []).map(s => `${s.name}×${s.quota}`).join(', ')
+                        parts.push(`Print sizes: ${sizesStr}`)
+                    }
                     parts.push('')
                     parts.push('Thank you!')
                 } else {
                     parts.push(`Halo ${p.clientName},`)
                     parts.push('')
-                    parts.push('Ini adalah pengingat untuk segera memilih foto Anda.')
+                    parts.push(isPrint ? 'Ini adalah pengingat untuk segera memilih foto cetak Anda.' : 'Ini adalah pengingat untuk segera memilih foto Anda.')
                     parts.push('')
                     parts.push('Silakan pilih di link berikut:')
                     parts.push(p.link)
                     parts.push('')
                     parts.push(`Sisa waktu: ${durationText}`)
+                    if (isPrint) {
+                        const sizesStr = (p.printSizes || []).map(s => `${s.name}×${s.quota}`).join(', ')
+                        parts.push(`Ukuran cetak: ${sizesStr}`)
+                    }
                     parts.push('')
                     parts.push('Terima kasih!')
                 }
@@ -160,3 +197,4 @@ export function formatReminderMessage(
 
     return lines.join('\n')
 }
+

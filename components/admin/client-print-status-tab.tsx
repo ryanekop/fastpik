@@ -272,23 +272,38 @@ export function ClientPrintStatusTab({ projects: initialProjects, folders, onPro
             }
         }
 
-        // Try to use settings template
+        // Try to use settings template (uses {{var}} pattern)
         const tmpl = reminderTemplate
         if (tmpl) {
             const tmplStr = locale === 'id' ? tmpl.id : tmpl.en
-            if (tmplStr) {
-                const message = tmplStr.replace(/\{(\w+)\}/g, (_, key) => variables[key] || '')
+            if (tmplStr?.trim()) {
+                let message = tmplStr
+                Object.entries(variables).forEach(([key, val]) => {
+                    message = message.replace(new RegExp(`{{${key}}}`, 'g'), val)
+                })
+                // Remove unreplaced variables
+                message = message.replace(/{{(\w+)}}/g, '').replace(/\n{3,}/g, '\n\n').trim()
                 window.open(`https://api.whatsapp.com/send/?phone=${clientWa}&text=${encodeURIComponent(message)}`, '_blank')
                 return
             }
         }
 
-        // Fallback
-        const message = locale === 'id'
-            ? `Halo ${project.clientName},\n\nIni adalah pengingat untuk memilih foto cetak Anda.\n\nUkuran cetak: ${printSizesStr}\nLink: ${link}\n\nSisa waktu: ${variables.duration || '∞'}\n\nTerima kasih!`
-            : `Hello ${project.clientName},\n\nReminder to select your print photos.\n\nPrint sizes: ${printSizesStr}\nLink: ${link}\n\nRemaining: ${variables.duration || '∞'}\n\nThank you!`
+        // Fallback: use default reminder translation (same as project-list)
+        let fallbackMessage = t('waReminderMessage', {
+            name: project.clientName,
+            link,
+            duration: variables.duration || `♾️ ${t('forever')}`
+        })
+        // Append password
+        if (variables.password) {
+            fallbackMessage += `\n\n🔐 Password: ${variables.password}`
+        }
+        // Append print sizes info
+        if (printSizesStr) {
+            fallbackMessage += `\n🖨️ ${locale === 'id' ? 'Ukuran cetak' : 'Print sizes'}: ${printSizesStr}`
+        }
 
-        window.open(`https://api.whatsapp.com/send/?phone=${clientWa}&text=${encodeURIComponent(message)}`, '_blank')
+        window.open(`https://api.whatsapp.com/send/?phone=${clientWa}&text=${encodeURIComponent(fallbackMessage)}`, '_blank')
     }
 
     return (

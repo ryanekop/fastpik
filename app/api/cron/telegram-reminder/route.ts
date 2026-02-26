@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
             // Fetch all projects for this user that have expiry dates
             const { data: projects, error: projError } = await supabase
                 .from('projects')
-                .select('id, client_name, client_whatsapp, link, max_photos, password, expires_at, download_expires_at, selection_status')
+                .select('id, client_name, client_whatsapp, link, max_photos, password, expires_at, download_expires_at, selection_status, project_type, print_expires_at, print_sizes, print_status')
                 .eq('user_id', user_id)
 
             if (projError) {
@@ -78,15 +78,21 @@ export async function GET(request: NextRequest) {
                 selectionStatus: string
                 daysLeftSelection?: number
                 daysLeftDownload?: number
+                projectType?: string
+                printSizes?: { name: string; quota: number }[]
+                daysLeftPrint?: number
+                printStatus?: string
             }[] = []
 
             for (const project of projects) {
                 let daysLeftSelection: number | undefined
                 let daysLeftDownload: number | undefined
+                let daysLeftPrint: number | undefined
                 let shouldInclude = false
+                const isPrint = project.project_type === 'print'
 
-                // Check selection expiry
-                if ((reminderType === 'both' || reminderType === 'selection') && project.expires_at) {
+                // Check selection expiry (non-print projects)
+                if (!isPrint && (reminderType === 'both' || reminderType === 'selection') && project.expires_at) {
                     const expiryDate = new Date(project.expires_at)
                     const expiryDay = new Date(expiryDate.getFullYear(), expiryDate.getMonth(), expiryDate.getDate())
                     const diffMs = expiryDay.getTime() - today.getTime()
@@ -98,8 +104,8 @@ export async function GET(request: NextRequest) {
                     }
                 }
 
-                // Check download expiry
-                if ((reminderType === 'both' || reminderType === 'download') && project.download_expires_at) {
+                // Check download expiry (non-print projects)
+                if (!isPrint && (reminderType === 'both' || reminderType === 'download') && project.download_expires_at) {
                     const expiryDate = new Date(project.download_expires_at)
                     const expiryDay = new Date(expiryDate.getFullYear(), expiryDate.getMonth(), expiryDate.getDate())
                     const diffMs = expiryDay.getTime() - today.getTime()
@@ -107,6 +113,19 @@ export async function GET(request: NextRequest) {
 
                     if (diffDays > 0 && reminderDays.includes(diffDays)) {
                         daysLeftDownload = diffDays
+                        shouldInclude = true
+                    }
+                }
+
+                // Check print expiry (print projects)
+                if (isPrint && project.print_expires_at) {
+                    const expiryDate = new Date(project.print_expires_at)
+                    const expiryDay = new Date(expiryDate.getFullYear(), expiryDate.getMonth(), expiryDate.getDate())
+                    const diffMs = expiryDay.getTime() - today.getTime()
+                    const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24))
+
+                    if (diffDays > 0 && reminderDays.includes(diffDays)) {
+                        daysLeftPrint = diffDays
                         shouldInclude = true
                     }
                 }
@@ -120,7 +139,11 @@ export async function GET(request: NextRequest) {
                         password: project.password || undefined,
                         selectionStatus: project.selection_status || 'pending',
                         daysLeftSelection,
-                        daysLeftDownload
+                        daysLeftDownload,
+                        projectType: project.project_type || undefined,
+                        printSizes: project.print_sizes || undefined,
+                        daysLeftPrint,
+                        printStatus: project.print_status || undefined,
                     })
                 }
             }
