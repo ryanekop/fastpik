@@ -58,8 +58,10 @@ export function ProjectList({
     const [templates, setTemplates] = useState<{
         initialLink: { id: string, en: string } | null,
         extraLink: { id: string, en: string } | null,
-        reminderLink: { id: string, en: string } | null
-    }>({ initialLink: null, extraLink: null, reminderLink: null })
+        reminderLink: { id: string, en: string } | null,
+        reminderExtraLink: { id: string, en: string } | null,
+        reminderPrintLink: { id: string, en: string } | null
+    }>({ initialLink: null, extraLink: null, reminderLink: null, reminderExtraLink: null, reminderPrintLink: null })
     const [vendorSlug, setVendorSlug] = useState<string | null>(null)
     const [dashboardDurationDisplay, setDashboardDurationDisplay] = useState<'selection' | 'download'>('selection')
 
@@ -85,7 +87,7 @@ export function ProjectList({
 
             const { data } = await supabase
                 .from('settings')
-                .select('msg_tmpl_link_initial, msg_tmpl_link_extra, msg_tmpl_reminder, msg_tmpl_link_initial_print, vendor_name, dashboard_duration_display, default_expiry_days, default_download_expiry_days, print_enabled, print_templates, default_print_expiry_days')
+                .select('msg_tmpl_link_initial, msg_tmpl_link_extra, msg_tmpl_reminder, msg_tmpl_reminder_extra, msg_tmpl_reminder_print, msg_tmpl_link_initial_print, vendor_name, dashboard_duration_display, default_expiry_days, default_download_expiry_days, print_enabled, print_templates, default_print_expiry_days')
                 .eq('user_id', user.id)
                 .maybeSingle()
 
@@ -93,7 +95,9 @@ export function ProjectList({
                 setTemplates({
                     initialLink: data.msg_tmpl_link_initial,
                     extraLink: data.msg_tmpl_link_extra,
-                    reminderLink: data.msg_tmpl_reminder
+                    reminderLink: data.msg_tmpl_reminder,
+                    reminderExtraLink: data.msg_tmpl_reminder_extra,
+                    reminderPrintLink: data.msg_tmpl_reminder_print
                 })
                 if (data.vendor_name) {
                     const slug = data.vendor_name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
@@ -563,20 +567,39 @@ export function ProjectList({
             }
         }
 
-        const message = compileMessage(templates.reminderLink, variables, false)
-        if (!message || !templates.reminderLink?.id) {
-            // Fallback to default if no custom template
-            let fallbackMessage = t('waReminderMessage', {
+        // Determine project category: print, extra, or original
+        const isPrint = project.projectType === 'print'
+        const isExtra = !!(project.lockedPhotos && project.lockedPhotos.length > 0)
+
+        // Select template and fallback by category
+        let selectedTemplate: { id: string, en: string } | null = null
+        let fallbackKey: string
+        if (isPrint) {
+            selectedTemplate = templates.reminderPrintLink || null
+            fallbackKey = 'waReminderPrintMessage'
+        } else if (isExtra) {
+            selectedTemplate = templates.reminderExtraLink || null
+            fallbackKey = 'waReminderExtraMessage'
+        } else {
+            selectedTemplate = templates.reminderLink || null
+            fallbackKey = 'waReminderMessage'
+        }
+
+        const message = compileMessage(selectedTemplate, variables, false)
+        if (!message || !(selectedTemplate as any)?.[locale as 'id' | 'en']) {
+            // Fallback to default per category
+            const expiryRef = isPrint ? project.printExpiresAt : project.expiresAt
+            let fallbackMessage = t(fallbackKey, {
                 name: project.clientName,
                 link: dynamicLink,
-                duration: variables.duration || formatExpiry(project.expiresAt)
+                duration: variables.duration || formatExpiry(expiryRef)
             })
             // Append password info if available
             if (variables.password) {
                 fallbackMessage += `\n\n🔐 Password: ${variables.password}`
             }
-            // Append download duration if available (selection duration already in template as "Sisa waktu")
-            if (variables.download_duration) {
+            // Append download duration if available (non-print)
+            if (!isPrint && variables.download_duration) {
                 fallbackMessage += `\n📥 ${locale === 'id' ? 'Berlaku download' : 'Download valid for'}: ${variables.download_duration}`
             }
             window.open(`https://api.whatsapp.com/send/?phone=${clientWa}&text=${encodeURIComponent(fallbackMessage)}`, '_blank')

@@ -39,6 +39,7 @@ interface ReminderProject {
     printSizes?: { name: string; quota: number }[]
     daysLeftPrint?: number
     printStatus?: string
+    isExtra?: boolean
 }
 
 function compileTemplate(template: string, variables: Record<string, string>): string {
@@ -55,7 +56,9 @@ export function formatReminderMessage(
     projects: ReminderProject[],
     vendorName?: string,
     reminderTemplate?: { id: string; en: string } | null,
-    lang: 'id' | 'en' = 'id'
+    lang: 'id' | 'en' = 'id',
+    reminderTemplateExtra?: { id: string; en: string } | null,
+    reminderTemplatePrint?: { id: string; en: string } | null
 ): string {
     const isEn = lang === 'en'
 
@@ -140,9 +143,17 @@ export function formatReminderMessage(
 
             let reminderText: string
 
-            // Use custom template if available (use the selected language)
-            const tmplText = (lang === 'id' ? reminderTemplate?.id?.trim() : reminderTemplate?.en?.trim())
-                || reminderTemplate?.id?.trim() || reminderTemplate?.en?.trim() || ''
+            // Use custom template if available — select by type
+            let selectedTemplate: { id: string; en: string } | null | undefined
+            if (isPrint) {
+                selectedTemplate = reminderTemplatePrint
+            } else if (p.isExtra) {
+                selectedTemplate = reminderTemplateExtra
+            } else {
+                selectedTemplate = reminderTemplate
+            }
+            const tmplText = (lang === 'id' ? selectedTemplate?.id?.trim() : selectedTemplate?.en?.trim())
+                || selectedTemplate?.id?.trim() || selectedTemplate?.en?.trim() || ''
             if (tmplText) {
                 reminderText = compileTemplate(tmplText, variables)
             } else {

@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
         // Get all users with telegram configured
         const { data: allSettings, error: settingsError } = await supabase
             .from('settings')
-            .select('user_id, telegram_chat_id, telegram_reminder_days, telegram_reminder_type, telegram_language, vendor_name, msg_tmpl_reminder')
+            .select('user_id, telegram_chat_id, telegram_reminder_days, telegram_reminder_type, telegram_language, vendor_name, msg_tmpl_reminder, msg_tmpl_reminder_extra, msg_tmpl_reminder_print')
             .not('telegram_chat_id', 'is', null)
             .neq('telegram_chat_id', '')
 
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
 
         for (const settings of allSettings) {
-            const { user_id, telegram_chat_id, telegram_reminder_days, telegram_reminder_type, telegram_language, vendor_name, msg_tmpl_reminder } = settings
+            const { user_id, telegram_chat_id, telegram_reminder_days, telegram_reminder_type, telegram_language, vendor_name, msg_tmpl_reminder, msg_tmpl_reminder_extra, msg_tmpl_reminder_print } = settings
             // Convert to numbers - Supabase may store as strings ["7","3","1"]
             const rawDays = telegram_reminder_days || [7, 3]
             const reminderDays: number[] = rawDays.map((d: any) => Number(d))
@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
             // Fetch all projects for this user that have expiry dates
             const { data: projects, error: projError } = await supabase
                 .from('projects')
-                .select('id, client_name, client_whatsapp, link, max_photos, password, expires_at, download_expires_at, selection_status, project_type, print_expires_at, print_sizes, print_status')
+                .select('id, client_name, client_whatsapp, link, max_photos, password, expires_at, download_expires_at, selection_status, project_type, print_expires_at, print_sizes, print_status, locked_photos')
                 .eq('user_id', user_id)
 
             if (projError) {
@@ -82,6 +82,7 @@ export async function GET(request: NextRequest) {
                 printSizes?: { name: string; quota: number }[]
                 daysLeftPrint?: number
                 printStatus?: string
+                isExtra?: boolean
             }[] = []
 
             for (const project of projects) {
@@ -144,6 +145,7 @@ export async function GET(request: NextRequest) {
                         printSizes: project.print_sizes || undefined,
                         daysLeftPrint,
                         printStatus: project.print_status || undefined,
+                        isExtra: !!(project.locked_photos && Array.isArray(project.locked_photos) && project.locked_photos.length > 0),
                     })
                 }
             }
@@ -155,8 +157,10 @@ export async function GET(request: NextRequest) {
 
             // Send Telegram message
             const reminderTemplate = msg_tmpl_reminder as { id: string; en: string } | null
+            const reminderTemplateExtra = msg_tmpl_reminder_extra as { id: string; en: string } | null
+            const reminderTemplatePrint = msg_tmpl_reminder_print as { id: string; en: string } | null
             const lang = (telegram_language === 'en' ? 'en' : 'id') as 'id' | 'en'
-            const message = formatReminderMessage(matchingProjects, vendor_name || undefined, reminderTemplate, lang)
+            const message = formatReminderMessage(matchingProjects, vendor_name || undefined, reminderTemplate, lang, reminderTemplateExtra, reminderTemplatePrint)
 
             try {
                 const result = await sendTelegramMessage(telegram_chat_id, message)

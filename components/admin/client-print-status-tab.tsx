@@ -59,14 +59,14 @@ export function ClientPrintStatusTab({ projects: initialProjects, folders, onPro
                 if (!user) return
                 const { data } = await supabase
                     .from('settings')
-                    .select('vendor_name, msg_tmpl_reminder')
+                    .select('vendor_name, msg_tmpl_reminder_print')
                     .eq('user_id', user.id)
                     .maybeSingle()
                 if (data?.vendor_name) {
                     setVendorSlug(data.vendor_name)
                 }
-                if (data?.msg_tmpl_reminder) {
-                    setReminderTemplate(data.msg_tmpl_reminder)
+                if (data?.msg_tmpl_reminder_print) {
+                    setReminderTemplate(data.msg_tmpl_reminder_print)
                 }
             } catch (err) {
                 console.error('Failed to load settings:', err)
@@ -288,8 +288,8 @@ export function ClientPrintStatusTab({ projects: initialProjects, folders, onPro
             }
         }
 
-        // Fallback: use default reminder translation (same as project-list)
-        let fallbackMessage = t('waReminderMessage', {
+        // Fallback: use default print reminder translation
+        let fallbackMessage = t('waReminderPrintMessage', {
             name: project.clientName,
             link,
             duration: variables.duration || `♾️ ${t('forever')}`

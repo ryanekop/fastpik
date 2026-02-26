@@ -53,6 +53,8 @@ export default function SettingsPage() {
     const [tmplResultExtra, setTmplResultExtra] = useState({ id: "", en: "" })
     const [tmplResultPrint, setTmplResultPrint] = useState({ id: "", en: "" })
     const [tmplReminder, setTmplReminder] = useState({ id: "", en: "" })
+    const [tmplReminderExtra, setTmplReminderExtra] = useState({ id: "", en: "" })
+    const [tmplReminderPrint, setTmplReminderPrint] = useState({ id: "", en: "" })
 
     // Telegram Bot State
     const [telegramChatId, setTelegramChatId] = useState("")
@@ -118,6 +120,8 @@ export default function SettingsPage() {
                 if (data.msg_tmpl_result_extra) setTmplResultExtra(data.msg_tmpl_result_extra)
                 if (data.msg_tmpl_result_print) setTmplResultPrint(data.msg_tmpl_result_print)
                 if (data.msg_tmpl_reminder) setTmplReminder(data.msg_tmpl_reminder)
+                if (data.msg_tmpl_reminder_extra) setTmplReminderExtra(data.msg_tmpl_reminder_extra)
+                if (data.msg_tmpl_reminder_print) setTmplReminderPrint(data.msg_tmpl_reminder_print)
                 // Telegram
                 setTelegramChatId(data.telegram_chat_id || "")
                 if (data.telegram_reminder_days) setTelegramReminderDays(data.telegram_reminder_days.map((d: any) => Number(d)))
@@ -163,6 +167,8 @@ export default function SettingsPage() {
                     msg_tmpl_result_extra: tmplResultExtra,
                     msg_tmpl_result_print: tmplResultPrint,
                     msg_tmpl_reminder: tmplReminder,
+                    msg_tmpl_reminder_extra: tmplReminderExtra,
+                    msg_tmpl_reminder_print: tmplReminderPrint,
                     telegram_chat_id: telegramChatId || null,
                     telegram_reminder_days: telegramReminderDays,
                     telegram_reminder_type: telegramReminderType,
@@ -710,6 +716,39 @@ export default function SettingsPage() {
                                     value={tmplReminder}
                                     onChange={setTmplReminder}
                                 />
+
+                                <MessageTemplateEditor
+                                    title={t('tmplReminderExtraTitle')}
+                                    description={t('tmplReminderExtraDesc')}
+                                    colorScheme="yellow"
+                                    variables={[
+                                        { key: "client_name", label: t('varClientName') },
+                                        { key: "link", label: t('varLink') },
+                                        { key: "count", label: t('varExtraCount') },
+                                        { key: "password", label: t('varPassword') },
+                                        { key: "duration", label: t('varDuration') },
+                                        { key: "download_duration", label: t('varDownloadDuration') }
+                                    ]}
+                                    value={tmplReminderExtra}
+                                    onChange={setTmplReminderExtra}
+                                />
+
+                                {printEnabled && (
+                                    <MessageTemplateEditor
+                                        title={t('tmplReminderPrintTitle')}
+                                        description={t('tmplReminderPrintDesc')}
+                                        colorScheme="purple"
+                                        variables={[
+                                            { key: "client_name", label: t('varClientName') },
+                                            { key: "link", label: t('varLink') },
+                                            { key: "print_sizes", label: t('varPrintSizes') },
+                                            { key: "print_duration", label: t('varPrintDuration') },
+                                            { key: "password", label: t('varPassword') }
+                                        ]}
+                                        value={tmplReminderPrint}
+                                        onChange={setTmplReminderPrint}
+                                    />
+                                )}
                             </div>
                         </TabsContent>
 

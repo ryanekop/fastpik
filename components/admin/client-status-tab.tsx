@@ -44,7 +44,8 @@ export function ClientStatusTab({ projects: initialProjects, folders, onProjects
     // Templates for reminder
     const [templates, setTemplates] = useState<{
         reminderLink: { id: string, en: string } | null
-    }>({ reminderLink: null })
+        reminderExtraLink: { id: string, en: string } | null
+    }>({ reminderLink: null, reminderExtraLink: null })
     const [vendorSlug, setVendorSlug] = useState<string | null>(null)
     const [dashboardDurationDisplay, setDashboardDurationDisplay] = useState<'selection' | 'download'>('selection')
 
@@ -62,13 +63,14 @@ export function ClientStatusTab({ projects: initialProjects, folders, onProjects
                 if (!user) return
                 const { data } = await supabase
                     .from('settings')
-                    .select('msg_tmpl_reminder, vendor_name, dashboard_duration_display')
+                    .select('msg_tmpl_reminder, msg_tmpl_reminder_extra, vendor_name, dashboard_duration_display')
                     .eq('user_id', user.id)
                     .maybeSingle()
                 if (data) {
-                    if (data.msg_tmpl_reminder) {
-                        setTemplates({ reminderLink: data.msg_tmpl_reminder as { id: string, en: string } })
-                    }
+                    setTemplates({
+                        reminderLink: data.msg_tmpl_reminder as { id: string, en: string } || null,
+                        reminderExtraLink: data.msg_tmpl_reminder_extra as { id: string, en: string } || null
+                    })
                     if (data.vendor_name) {
                         setVendorSlug(data.vendor_name)
                     }
@@ -211,6 +213,7 @@ export function ClientStatusTab({ projects: initialProjects, folders, onProjects
         if (!clientWa) return
 
         const dynamicLink = buildProjectLink(project.id)
+        const isExtra = !!(project.lockedPhotos && project.lockedPhotos.length > 0)
         const variables: Record<string, string> = {
             client_name: project.clientName,
             link: dynamicLink,
@@ -244,12 +247,16 @@ export function ClientStatusTab({ projects: initialProjects, folders, onProjects
             }
         }
 
-        const message = compileMessage(templates.reminderLink, variables)
+        // Select template by category: extra vs original
+        const selectedTemplate = isExtra ? templates.reminderExtraLink : templates.reminderLink
+        const fallbackKey = isExtra ? 'waReminderExtraMessage' : 'waReminderMessage'
+
+        const message = compileMessage(selectedTemplate, variables)
         if (message) {
             window.open(`https://api.whatsapp.com/send/?phone=${clientWa}&text=${encodeURIComponent(message)}`, '_blank')
         } else {
             // Fallback
-            let fallbackMessage = t('waReminderMessage', {
+            let fallbackMessage = t(fallbackKey, {
                 name: project.clientName,
                 link: dynamicLink,
                 duration: variables.duration || formatExpiry(project.expiresAt)
