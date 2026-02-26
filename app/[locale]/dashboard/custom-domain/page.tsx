@@ -11,12 +11,12 @@ export default function CustomDomainPage() {
     const locale = useLocale()
 
     const benefits = [
-        { icon: Tag, title: t('domainPage.brandTitle'), desc: t('domainPage.brandDesc') },
-        { icon: Link2, title: t('domainPage.urlTitle'), desc: t('domainPage.urlDesc') },
-        { icon: BarChart3, title: t('domainPage.seoTitle'), desc: t('domainPage.seoDesc') },
-        { icon: Palette, title: t('domainPage.customTitle'), desc: t('domainPage.customDesc') },
-        { icon: Shield, title: t('domainPage.separateTitle'), desc: t('domainPage.separateDesc') },
-        { icon: Briefcase, title: t('domainPage.proTitle'), desc: t('domainPage.proDesc') },
+        { icon: Tag, color: 'text-blue-500 bg-blue-500/10', title: t('domainPage.brandTitle'), desc: t('domainPage.brandDesc') },
+        { icon: Link2, color: 'text-green-500 bg-green-500/10', title: t('domainPage.urlTitle'), desc: t('domainPage.urlDesc') },
+        { icon: BarChart3, color: 'text-amber-500 bg-amber-500/10', title: t('domainPage.seoTitle'), desc: t('domainPage.seoDesc') },
+        { icon: Palette, color: 'text-purple-500 bg-purple-500/10', title: t('domainPage.customTitle'), desc: t('domainPage.customDesc') },
+        { icon: Shield, color: 'text-teal-500 bg-teal-500/10', title: t('domainPage.separateTitle'), desc: t('domainPage.separateDesc') },
+        { icon: Briefcase, color: 'text-rose-500 bg-rose-500/10', title: t('domainPage.proTitle'), desc: t('domainPage.proDesc') },
     ]
 
     const comparison = [
@@ -58,8 +58,8 @@ export default function CustomDomainPage() {
                             style={{ animationDelay: `${i * 80 + 200}ms` }}
                         >
                             <CardContent className="p-5 space-y-3">
-                                <div className="w-10 h-10 rounded-xl bg-foreground/10 flex items-center justify-center">
-                                    <b.icon className="h-5 w-5 text-foreground" />
+                                <div className={`w-10 h-10 rounded-xl ${b.color} flex items-center justify-center`}>
+                                    <b.icon className="h-5 w-5" />
                                 </div>
                                 <h3 className="font-semibold text-sm">{b.title}</h3>
                                 <p className="text-xs text-muted-foreground leading-relaxed">{b.desc}</p>
