@@ -2,6 +2,22 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { invalidateTenantCache } from '@/lib/tenant-resolver'
 
+// CORS headers for cross-origin requests from license portal
+const CORS_HEADERS = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, x-admin-api-key',
+}
+
+function corsResponse(data: unknown, init?: { status?: number }) {
+    return NextResponse.json(data, { ...init, headers: CORS_HEADERS })
+}
+
+// Preflight
+export async function OPTIONS() {
+    return new NextResponse(null, { status: 204, headers: CORS_HEADERS })
+}
+
 // Verify admin access via API key only
 function verifyAdmin(request: NextRequest) {
     const apiKey = request.headers.get('x-admin-api-key')
@@ -11,7 +27,7 @@ function verifyAdmin(request: NextRequest) {
 // GET: List all tenants
 export async function GET(request: NextRequest) {
     if (!verifyAdmin(request)) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        return corsResponse({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const supabase = createServiceClient()
@@ -21,23 +37,23 @@ export async function GET(request: NextRequest) {
         .order('created_at', { ascending: true })
 
     if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        return corsResponse({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json(data)
+    return corsResponse(data)
 }
 
 // POST: Create new tenant
 export async function POST(request: NextRequest) {
     if (!verifyAdmin(request)) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        return corsResponse({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const body = await request.json()
     const { slug, name, domain, logo_url, favicon_url, primary_color, footer_text } = body
 
     if (!slug || !name) {
-        return NextResponse.json({ error: 'slug and name are required' }, { status: 400 })
+        return corsResponse({ error: 'slug and name are required' }, { status: 400 })
     }
 
     const supabase = createServiceClient()
@@ -56,26 +72,26 @@ export async function POST(request: NextRequest) {
         .single()
 
     if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        return corsResponse({ error: error.message }, { status: 500 })
     }
 
     // Clear cache so new domain resolves immediately
     invalidateTenantCache()
 
-    return NextResponse.json(data, { status: 201 })
+    return corsResponse(data, { status: 201 })
 }
 
 // PUT: Update existing tenant
 export async function PUT(request: NextRequest) {
     if (!verifyAdmin(request)) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        return corsResponse({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const body = await request.json()
     const { id, ...updates } = body
 
     if (!id) {
-        return NextResponse.json({ error: 'id is required' }, { status: 400 })
+        return corsResponse({ error: 'id is required' }, { status: 400 })
     }
 
     // Get old domain before update (for cache invalidation)
@@ -94,12 +110,12 @@ export async function PUT(request: NextRequest) {
         .single()
 
     if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        return corsResponse({ error: error.message }, { status: 500 })
     }
 
     // Invalidate cache for both old and new domains
     if (oldTenant?.domain) invalidateTenantCache(oldTenant.domain)
     if (data?.domain) invalidateTenantCache(data.domain)
 
-    return NextResponse.json(data)
+    return corsResponse(data)
 }
