@@ -191,7 +191,7 @@
         "generalConfigDesc": "Pengaturan dasar untuk akun admin Anda",
         "vendorName": "Nama Vendor / Studio",
         "vendorNameHint": "Nama ini akan muncul di URL link client. Contoh: fastpik.ryanekoapp.web.id/id/client/nama-vendor/xxxxx",
-        "customDomainPromo": "Mau hubungkan ke domain milikmu sendiri? Kontak Admin ya!",
+        "customDomainPromo": "Mau hubungkan ke domain milikmu sendiri? Cek di sini ya!",
         "vendorNamePlaceholder": "Contoh: RyanStudio",
         "tmplInitialLinkTitle": "📨 Link Awal (Admin → Klien)",
         "tmplInitialLinkDesc": "Template untuk mengirim link proyek pertama ke klien.",
