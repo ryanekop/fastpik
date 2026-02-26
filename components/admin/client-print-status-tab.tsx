@@ -298,10 +298,6 @@ export function ClientPrintStatusTab({ projects: initialProjects, folders, onPro
         if (variables.password) {
             fallbackMessage += `\n\n🔐 Password: ${variables.password}`
         }
-        // Append print sizes info
-        if (printSizesStr) {
-            fallbackMessage += `\n🖨️ ${locale === 'id' ? 'Ukuran cetak' : 'Print sizes'}: ${printSizesStr}`
-        }
 
         window.open(`https://api.whatsapp.com/send/?phone=${clientWa}&text=${encodeURIComponent(fallbackMessage)}`, '_blank')
     }

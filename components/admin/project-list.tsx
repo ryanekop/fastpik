@@ -303,21 +303,69 @@ export function ProjectList({
 
         const dynamicLink = buildProjectLink(project.id)
 
+        // Print projects use the print template
+        if (project.projectType === 'print') {
+            const printSizesStr = (project.printSizes || []).map((s: any) => `${s.name}×${s.quota}`).join(', ')
+            const variables: Record<string, string> = {
+                client_name: project.clientName,
+                link: dynamicLink,
+                print_sizes: printSizesStr,
+            }
+            if (project.password) {
+                variables.password = project.password
+            }
+            if (project.printExpiresAt) {
+                const diff = project.printExpiresAt - Date.now()
+                if (diff > 0) {
+                    const days = Math.floor(diff / 86400000)
+                    const hours = Math.floor((diff % 86400000) / 3600000)
+                    if (days > 0) {
+                        variables.print_duration = `${days} ${t('days')}`
+                    } else if (hours > 0) {
+                        variables.print_duration = `${hours} ${t('hours')}`
+                    } else {
+                        variables.print_duration = t('lessThanHour')
+                    }
+                }
+            }
+            // Try custom print WA template first
+            if (printWaTemplate) {
+                const lang = locale as 'id' | 'en'
+                const tmplText = printWaTemplate[lang] || ''
+                if (tmplText.trim()) {
+                    let msg = tmplText
+                    Object.entries(variables).forEach(([key, val]) => {
+                        msg = msg.replace(new RegExp(`{{${key}}}`, 'g'), val)
+                    })
+                    msg = msg.replace(/{{(\w+)}}/g, '').replace(/\n{3,}/g, '\n\n').trim()
+                    window.open(`https://api.whatsapp.com/send/?phone=${clientWa}&text=${encodeURIComponent(msg)}`, '_blank')
+                    return
+                }
+            }
+            // Default print message
+            let message = locale === 'id'
+                ? `Halo ${project.clientName}! \u{1F5A8}\u{FE0F}\n\nSilakan pilih foto untuk dicetak melalui link berikut:\n${dynamicLink}`
+                : `Hello ${project.clientName}! \u{1F5A8}\u{FE0F}\n\nPlease select photos for print at the following link:\n${dynamicLink}`
+            if (variables.print_duration) {
+                message += `\n\n\u23F0 ${t('printDuration')}: ${variables.print_duration}`
+            }
+            window.open(`https://api.whatsapp.com/send/?phone=${clientWa}&text=${encodeURIComponent(message)}`, '_blank')
+            return
+        }
+
         const isExtra = !!(project.lockedPhotos && project.lockedPhotos.length > 0)
         const effectiveCount = isExtra ? project.maxPhotos - project.lockedPhotos!.length : project.maxPhotos
         const variables: Record<string, string> = {
             client_name: project.clientName,
             link: dynamicLink,
             count: effectiveCount.toString(),
-            max_photos: effectiveCount.toString() // backward compatibility
+            max_photos: effectiveCount.toString()
         }
 
-        // Add password only if set
         if (project.password) {
             variables.password = project.password
         }
 
-        // Add duration only if expiry is set
         if (project.expiresAt) {
             const now = Date.now()
             const diff = project.expiresAt - now
@@ -334,7 +382,6 @@ export function ProjectList({
             }
         }
 
-        // Add download duration if set
         if (project.downloadExpiresAt) {
             const now = Date.now()
             const diff = project.downloadExpiresAt - now
@@ -347,22 +394,6 @@ export function ProjectList({
                     variables.download_duration = `${hours} ${t('hours')}`
                 } else {
                     variables.download_duration = t('lessThanHour')
-                }
-            }
-        }
-        // Add print duration if enabled
-        if (project.printEnabled && project.printExpiresAt) {
-            const now = Date.now()
-            const diff = project.printExpiresAt - now
-            if (diff > 0) {
-                const days = Math.floor(diff / (1000 * 60 * 60 * 24))
-                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
-                if (days > 0) {
-                    variables.print_duration = `${days} ${t('days')}`
-                } else if (hours > 0) {
-                    variables.print_duration = `${hours} ${t('hours')}`
-                } else {
-                    variables.print_duration = t('lessThanHour')
                 }
             }
         }
@@ -1449,150 +1480,152 @@ export function ProjectList({
             )}
 
             {/* Print Dialog */}
-            {showPrintDialog && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                    <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-background rounded-xl shadow-xl max-w-md w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-                        <div className="flex items-center justify-between">
-                            <h2 className="text-lg font-semibold flex items-center gap-2"><Printer className="h-5 w-5 text-purple-600" />{t('addPrintSelectionTitle')}</h2>
-                            <Button size="icon" variant="ghost" onClick={closePrintDialog} className="h-8 w-8 cursor-pointer"><X className="h-4 w-4" /></Button>
-                        </div>
-                        <p className="text-sm text-muted-foreground">{printProject?.clientName}</p>
-
-                        {/* Template selection */}
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">🖨️ {t('printTemplate')}</label>
-                            <select
-                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer"
-                                value={selectedPrintTemplateIdx === 'custom' ? 'custom' : selectedPrintTemplateIdx.toString()}
-                                onChange={(e) => {
-                                    if (e.target.value === 'custom') {
-                                        setSelectedPrintTemplateIdx('custom')
-                                    } else {
-                                        setSelectedPrintTemplateIdx(parseInt(e.target.value))
-                                    }
-                                }}
-                            >
-                                <option value="-1" disabled>— {t('printTemplate')} —</option>
-                                {printTemplates.map((tmpl, idx) => (
-                                    <option key={idx} value={idx.toString()}>
-                                        {tmpl.name} ({tmpl.sizes.map(s => `${s.name}×${s.quota}`).join(', ')})
-                                    </option>
-                                ))}
-                                <option value="custom">{t('printTemplateCustom')}</option>
-                            </select>
-                        </div>
-
-                        {/* Custom sizes editor */}
-                        {selectedPrintTemplateIdx === 'custom' && (
-                            <div className="space-y-2 bg-muted/30 rounded-lg p-3">
-                                <label className="text-xs font-medium">{t('printSizes')}</label>
-                                {customPrintSizes.map((size, idx) => (
-                                    <div key={idx} className="flex items-center gap-2">
-                                        <Input
-                                            value={size.name}
-                                            onChange={(e) => {
-                                                const updated = [...customPrintSizes]
-                                                updated[idx] = { ...updated[idx], name: e.target.value }
-                                                setCustomPrintSizes(updated)
-                                            }}
-                                            placeholder={t('printSizeNamePlaceholder')}
-                                            className="flex-1"
-                                        />
-                                        <Input
-                                            type="number" min="1"
-                                            value={size.quota}
-                                            onChange={(e) => {
-                                                const updated = [...customPrintSizes]
-                                                updated[idx] = { ...updated[idx], quota: parseInt(e.target.value) || 1 }
-                                                setCustomPrintSizes(updated)
-                                            }}
-                                            className="w-20"
-                                        />
-                                        <span className="text-xs text-muted-foreground">{t('printSizeQuota')}</span>
-                                        {customPrintSizes.length > 1 && (
-                                            <Button type="button" variant="ghost" size="icon"
-                                                onClick={() => setCustomPrintSizes(customPrintSizes.filter((_, i) => i !== idx))}
-                                                className="h-7 w-7 text-muted-foreground hover:text-destructive cursor-pointer"
-                                            >
-                                                <Trash2 className="h-3.5 w-3.5" />
-                                            </Button>
-                                        )}
-                                    </div>
-                                ))}
-                                <Button type="button" variant="outline" size="sm"
-                                    onClick={() => setCustomPrintSizes([...customPrintSizes, { name: '', quota: 1 }])}
-                                    className="gap-1.5 cursor-pointer"
-                                >
-                                    <Plus className="h-3.5 w-3.5" />
-                                    {t('addPrintSize')}
-                                </Button>
+            <AnimatePresence>
+                {showPrintDialog && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ duration: 0.15 }} className="bg-background rounded-xl shadow-xl max-w-md w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+                            <div className="flex items-center justify-between">
+                                <h2 className="text-lg font-semibold flex items-center gap-2"><Printer className="h-5 w-5 text-purple-600" />{t('addPrintSelectionTitle')}</h2>
+                                <Button size="icon" variant="ghost" onClick={closePrintDialog} className="h-8 w-8 cursor-pointer"><X className="h-4 w-4" /></Button>
                             </div>
-                        )}
+                            <p className="text-sm text-muted-foreground">{printProject?.clientName}</p>
 
-                        {/* Print duration */}
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">⏰ {t('printDuration')}</label>
-                            <select
-                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer"
-                                value={printExpiryDays}
-                                onChange={(e) => setPrintExpiryDays(e.target.value)}
-                            >
-                                <option value="">♾️ {t('forever')}</option>
-                                <option value="1">1 {t('days')}</option>
-                                <option value="3">3 {t('days')}</option>
-                                <option value="5">5 {t('days')}</option>
-                                <option value="7">7 {t('days')}</option>
-                                <option value="14">14 {t('days')}</option>
-                                <option value="30">30 {t('days')}</option>
-                            </select>
-                        </div>
-
-                        {/* Generate / Result */}
-                        {!generatedPrintLink ? (
-                            <Button onClick={generatePrintLink} className="w-full cursor-pointer bg-purple-600 hover:bg-purple-700" disabled={selectedPrintTemplateIdx === (-1 as any) || isGeneratingPrint}>
-                                {isGeneratingPrint ? (<><Loader2 className="h-4 w-4 mr-2 animate-spin" />{t('generatingPrintLink')}</>) : (<>🖨️ {t('generatePrintLink')}</>)}
-                            </Button>
-                        ) : (
-                            <div className="space-y-3">
-                                <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg break-all text-sm border border-purple-200 dark:border-purple-800">{generatedPrintLink}</div>
-                                <div className="flex gap-2">
-                                    <Button onClick={() => {
-                                        if (navigator.clipboard && window.isSecureContext) {
-                                            navigator.clipboard.writeText(generatedPrintLink)
+                            {/* Template selection */}
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">🖨️ {t('printTemplate')}</label>
+                                <select
+                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer"
+                                    value={selectedPrintTemplateIdx === 'custom' ? 'custom' : selectedPrintTemplateIdx.toString()}
+                                    onChange={(e) => {
+                                        if (e.target.value === 'custom') {
+                                            setSelectedPrintTemplateIdx('custom')
                                         } else {
-                                            const textArea = document.createElement('textarea')
-                                            textArea.value = generatedPrintLink
-                                            document.body.appendChild(textArea)
-                                            textArea.select()
-                                            document.execCommand('copy')
-                                            document.body.removeChild(textArea)
+                                            setSelectedPrintTemplateIdx(parseInt(e.target.value))
                                         }
-                                        setToastMessage(t('linkCopied'))
-                                        setShowToast(true)
-                                    }} variant="outline" className="flex-1 cursor-pointer"><Copy className="h-4 w-4 mr-2" />{t('copyLink')}</Button>
-                                    <Button onClick={() => window.open(generatedPrintLink, '_blank')} variant="outline" className="flex-1 cursor-pointer"><ExternalLink className="h-4 w-4 mr-2" />{t('openLink')}</Button>
-                                </div>
-                                <div className="flex flex-col sm:flex-row gap-2">
-                                    <Button onClick={() => {
-                                        const clientWa = printProject?.clientWhatsapp || ''
-                                        if (!clientWa) { setToastMessage('No WhatsApp number'); setShowToast(true); return }
-                                        const message = buildPrintTemplateMessage()
-                                        window.open(`https://api.whatsapp.com/send/?phone=${clientWa}&text=${encodeURIComponent(message)}`, '_blank')
-                                    }} className="flex-1 bg-green-600 hover:bg-green-700 text-white cursor-pointer"><MessageCircle className="h-4 w-4 mr-2" />{t('sendToClientWa')}</Button>
-                                    <Button variant="outline" className="flex-1 cursor-pointer" onClick={() => {
-                                        const message = buildPrintTemplateMessage()
-                                        if (navigator.clipboard && window.isSecureContext) {
-                                            navigator.clipboard.writeText(message)
-                                            setToastMessage(t('templateCopied'))
-                                            setShowToast(true)
-                                        }
-                                    }}><Copy className="h-4 w-4 mr-2" />{t('copyTemplate')}</Button>
-                                </div>
+                                    }}
+                                >
+                                    <option value="-1" disabled>— {t('printTemplate')} —</option>
+                                    {printTemplates.map((tmpl, idx) => (
+                                        <option key={idx} value={idx.toString()}>
+                                            {tmpl.name} ({tmpl.sizes.map(s => `${s.name}×${s.quota}`).join(', ')})
+                                        </option>
+                                    ))}
+                                    <option value="custom">{t('printTemplateCustom')}</option>
+                                </select>
                             </div>
-                        )}
-                    </motion.div>
-                </div>
-            )}
+
+                            {/* Custom sizes editor */}
+                            {selectedPrintTemplateIdx === 'custom' && (
+                                <div className="space-y-2 bg-muted/30 rounded-lg p-3">
+                                    <label className="text-xs font-medium">{t('printSizes')}</label>
+                                    {customPrintSizes.map((size, idx) => (
+                                        <div key={idx} className="flex items-center gap-2">
+                                            <Input
+                                                value={size.name}
+                                                onChange={(e) => {
+                                                    const updated = [...customPrintSizes]
+                                                    updated[idx] = { ...updated[idx], name: e.target.value }
+                                                    setCustomPrintSizes(updated)
+                                                }}
+                                                placeholder={t('printSizeNamePlaceholder')}
+                                                className="flex-1"
+                                            />
+                                            <Input
+                                                type="number" min="1"
+                                                value={size.quota}
+                                                onChange={(e) => {
+                                                    const updated = [...customPrintSizes]
+                                                    updated[idx] = { ...updated[idx], quota: parseInt(e.target.value) || 1 }
+                                                    setCustomPrintSizes(updated)
+                                                }}
+                                                className="w-20"
+                                            />
+                                            <span className="text-xs text-muted-foreground">{t('printSizeQuota')}</span>
+                                            {customPrintSizes.length > 1 && (
+                                                <Button type="button" variant="ghost" size="icon"
+                                                    onClick={() => setCustomPrintSizes(customPrintSizes.filter((_, i) => i !== idx))}
+                                                    className="h-7 w-7 text-muted-foreground hover:text-destructive cursor-pointer"
+                                                >
+                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                </Button>
+                                            )}
+                                        </div>
+                                    ))}
+                                    <Button type="button" variant="outline" size="sm"
+                                        onClick={() => setCustomPrintSizes([...customPrintSizes, { name: '', quota: 1 }])}
+                                        className="gap-1.5 cursor-pointer"
+                                    >
+                                        <Plus className="h-3.5 w-3.5" />
+                                        {t('addPrintSize')}
+                                    </Button>
+                                </div>
+                            )}
+
+                            {/* Print duration */}
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">⏰ {t('printDuration')}</label>
+                                <select
+                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer"
+                                    value={printExpiryDays}
+                                    onChange={(e) => setPrintExpiryDays(e.target.value)}
+                                >
+                                    <option value="">♾️ {t('forever')}</option>
+                                    <option value="1">1 {t('days')}</option>
+                                    <option value="3">3 {t('days')}</option>
+                                    <option value="5">5 {t('days')}</option>
+                                    <option value="7">7 {t('days')}</option>
+                                    <option value="14">14 {t('days')}</option>
+                                    <option value="30">30 {t('days')}</option>
+                                </select>
+                            </div>
+
+                            {/* Generate / Result */}
+                            {!generatedPrintLink ? (
+                                <Button onClick={generatePrintLink} className="w-full cursor-pointer bg-purple-600 hover:bg-purple-700" disabled={selectedPrintTemplateIdx === (-1 as any) || isGeneratingPrint}>
+                                    {isGeneratingPrint ? (<><Loader2 className="h-4 w-4 mr-2 animate-spin" />{t('generatingPrintLink')}</>) : (<>🖨️ {t('generatePrintLink')}</>)}
+                                </Button>
+                            ) : (
+                                <div className="space-y-3">
+                                    <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg break-all text-sm border border-purple-200 dark:border-purple-800">{generatedPrintLink}</div>
+                                    <div className="flex gap-2">
+                                        <Button onClick={() => {
+                                            if (navigator.clipboard && window.isSecureContext) {
+                                                navigator.clipboard.writeText(generatedPrintLink)
+                                            } else {
+                                                const textArea = document.createElement('textarea')
+                                                textArea.value = generatedPrintLink
+                                                document.body.appendChild(textArea)
+                                                textArea.select()
+                                                document.execCommand('copy')
+                                                document.body.removeChild(textArea)
+                                            }
+                                            setToastMessage(t('linkCopied'))
+                                            setShowToast(true)
+                                        }} variant="outline" className="flex-1 cursor-pointer"><Copy className="h-4 w-4 mr-2" />{t('copyLink')}</Button>
+                                        <Button onClick={() => window.open(generatedPrintLink, '_blank')} variant="outline" className="flex-1 cursor-pointer"><ExternalLink className="h-4 w-4 mr-2" />{t('openLink')}</Button>
+                                    </div>
+                                    <div className="flex flex-col sm:flex-row gap-2">
+                                        <Button onClick={() => {
+                                            const clientWa = printProject?.clientWhatsapp || ''
+                                            if (!clientWa) { setToastMessage('No WhatsApp number'); setShowToast(true); return }
+                                            const message = buildPrintTemplateMessage()
+                                            window.open(`https://api.whatsapp.com/send/?phone=${clientWa}&text=${encodeURIComponent(message)}`, '_blank')
+                                        }} className="flex-1 bg-green-600 hover:bg-green-700 text-white cursor-pointer"><MessageCircle className="h-4 w-4 mr-2" />{t('sendToClientWa')}</Button>
+                                        <Button variant="outline" className="flex-1 cursor-pointer" onClick={() => {
+                                            const message = buildPrintTemplateMessage()
+                                            if (navigator.clipboard && window.isSecureContext) {
+                                                navigator.clipboard.writeText(message)
+                                                setToastMessage(t('templateCopied'))
+                                                setShowToast(true)
+                                            }
+                                        }}><Copy className="h-4 w-4 mr-2" />{t('copyTemplate')}</Button>
+                                    </div>
+                                </div>
+                            )}
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
 
             {/* Custom Extra Duration Popup Dialog */}
             {showCustomExtraExpiryDialog && (
