@@ -21,7 +21,7 @@ export default async function middleware(request: NextRequest) {
     request.headers.set('x-tenant-domain', tenant.domain || '');
     request.headers.set('x-tenant-logo', tenant.logoUrl || '/fastpik-logo.png');
     request.headers.set('x-tenant-favicon', tenant.faviconUrl || '');
-    request.headers.set('x-tenant-color', tenant.primaryColor);
+    request.headers.set('x-tenant-color', tenant.primaryColor || '');
     request.headers.set('x-tenant-footer', tenant.footerText || '');
 
     // Skip i18n middleware for API routes - they don't need locale prefixes
@@ -43,7 +43,7 @@ export default async function middleware(request: NextRequest) {
     response.headers.set('x-tenant-domain', tenant.domain || '');
     response.headers.set('x-tenant-logo', tenant.logoUrl || '/fastpik-logo.png');
     response.headers.set('x-tenant-favicon', tenant.faviconUrl || '');
-    response.headers.set('x-tenant-color', tenant.primaryColor);
+    response.headers.set('x-tenant-color', tenant.primaryColor || '');
     response.headers.set('x-tenant-footer', tenant.footerText || '');
 
     // 3. Pass the response to Supabase middleware to handle session refreshing and auth protection
