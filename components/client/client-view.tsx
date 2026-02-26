@@ -838,8 +838,13 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
     }
 
     const handleClearSelection = () => {
-        // If there are locked photos, keep them and only clear new selections
-        if (config.lockedPhotos && config.lockedPhotos.length > 0) {
+        if (isPrintProject) {
+            // Clear all print selections (reset every size to empty)
+            const cleared: Record<string, string[]> = {}
+            config.printSizes!.forEach(s => { cleared[s.name] = [] })
+            setPrintSelections(cleared)
+        } else if (config.lockedPhotos && config.lockedPhotos.length > 0) {
+            // If there are locked photos, keep them and only clear new selections
             const getNameNoExt = (name: string) => name.replace(/\.[^/.]+$/, '')
             const lockedNames = config.lockedPhotos.map(n => getNameNoExt(n))
 
