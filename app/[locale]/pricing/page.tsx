@@ -29,6 +29,7 @@ import {
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { User as SupabaseUser } from "@supabase/supabase-js"
+import { useTenant } from "@/lib/tenant-context"
 
 // Map tier to plan nameKey
 const tierToPlanMap: Record<string, string> = {
@@ -49,6 +50,7 @@ export default function PricingPage() {
     const [user, setUser] = useState<SupabaseUser | null>(null)
     const [userName, setUserName] = useState<string>("Admin")
     const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+    const tenant = useTenant()
 
     useEffect(() => {
         const loadData = async () => {
@@ -189,8 +191,8 @@ export default function PricingPage() {
         <div className="flex flex-col min-h-screen font-[family-name:var(--font-geist-sans)]">
             <header className="flex items-center justify-between p-4 border-b">
                 <Link href={`/${locale}`} className="font-bold text-xl tracking-tight flex items-center gap-3 hover:opacity-80 transition-opacity">
-                    <Image src="/fastpik-logo.png" alt="Fastpik" width={28} height={28} className="rounded-md" />
-                    Fastpik
+                    <Image src={tenant.logoUrl} alt={tenant.name} width={28} height={28} className="rounded-md" />
+                    {tenant.name}
                 </Link>
                 <div className="flex items-center gap-2">
                     <LanguageToggle />
@@ -347,7 +349,13 @@ export default function PricingPage() {
 
             <footer className="py-6 border-t text-center text-sm text-muted-foreground">
                 <p>
-                    Made with ❤️ from <a href="https://instagram.com/ryanekopram" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">@ryanekopram</a> & <a href="https://instagram.com/ryanekoapps" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">@ryanekoapps</a>
+                    {tenant.footerText ? (
+                        <span dangerouslySetInnerHTML={{ __html: tenant.footerText }} />
+                    ) : (
+                        <>
+                            Made with ❤️ from <a href="https://instagram.com/ryanekopram" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">@ryanekopram</a> & <a href="https://instagram.com/ryanekoapps" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">@ryanekoapps</a>
+                        </>
+                    )}
                 </p>
             </footer>
         </div>

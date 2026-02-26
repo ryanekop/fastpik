@@ -6,6 +6,8 @@ import "../globals.css";
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages } from 'next-intl/server';
 import { ThemeProvider } from "@/components/theme-provider"
+import { getTenantConfig } from "@/lib/tenant-config"
+import { TenantProvider } from "@/lib/tenant-context"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -17,20 +19,25 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: {
-    default: "Fastpik - Photo Culling",
-    template: "%s - Fastpik",
-  },
-  description: "Select your photos quickly and easily.",
-  icons: {
-    icon: [
-      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
-      { url: '/icon-512.png', sizes: '512x512', type: 'image/png' },
-    ],
-    apple: '/apple-touch-icon.png',
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const tenant = await getTenantConfig()
+  return {
+    title: {
+      default: `${tenant.name} - Photo Culling`,
+      template: `%s - ${tenant.name}`,
+    },
+    description: "Select your photos quickly and easily.",
+    icons: {
+      icon: tenant.faviconUrl
+        ? [{ url: tenant.faviconUrl }]
+        : [
+          { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+          { url: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+        ],
+      apple: tenant.faviconUrl || '/apple-touch-icon.png',
+    },
+  }
+}
 
 export default async function LocaleLayout({
   children,
@@ -41,11 +48,13 @@ export default async function LocaleLayout({
 }) {
   const { locale } = await params; // Await params for Next.js 15+
   const messages = await getMessages();
+  const tenant = await getTenantConfig();
 
   return (
     <html lang={locale} suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased transition-colors duration-300`}
+        style={{ '--tenant-primary': tenant.primaryColor } as React.CSSProperties}
       >
         <NextIntlClientProvider messages={messages}>
           <ThemeProvider
@@ -53,7 +62,18 @@ export default async function LocaleLayout({
             defaultTheme="system"
             enableSystem
           >
-            {children}
+            <TenantProvider tenant={{
+              id: tenant.id,
+              slug: tenant.slug,
+              name: tenant.name,
+              domain: tenant.domain || '',
+              logoUrl: tenant.logoUrl || '/fastpik-logo.png',
+              faviconUrl: tenant.faviconUrl || '',
+              primaryColor: tenant.primaryColor,
+              footerText: tenant.footerText || '',
+            }}>
+              {children}
+            </TenantProvider>
           </ThemeProvider>
         </NextIntlClientProvider>
         <Script

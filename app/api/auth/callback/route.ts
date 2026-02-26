@@ -2,6 +2,7 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { resolveTenant } from '@/lib/tenant-resolver'
 
 export async function GET(request: Request) {
     const { searchParams, origin } = new URL(request.url)
@@ -14,9 +15,34 @@ export async function GET(request: Request) {
 
     if (code) {
         const supabase = await createClient()
-        const { error } = await supabase.auth.exchangeCodeForSession(code)
+        const { error, data: sessionData } = await supabase.auth.exchangeCodeForSession(code)
 
         if (!error) {
+            // =============================================
+            // MULTI-TENANT: Auto-assign tenant_id to user
+            // =============================================
+            const hostname = request.headers.get('host') || ''
+            const tenant = await resolveTenant(hostname)
+            const userId = sessionData?.user?.id
+
+            if (userId && tenant.id !== 'default') {
+                // Check if user has settings, update tenant_id
+                const { data: existingSettings } = await supabase
+                    .from('settings')
+                    .select('id, tenant_id')
+                    .eq('user_id', userId)
+                    .single()
+
+                if (existingSettings && !existingSettings.tenant_id) {
+                    // User exists but has no tenant — assign them
+                    await supabase
+                        .from('settings')
+                        .update({ tenant_id: tenant.id })
+                        .eq('user_id', userId)
+                }
+                // Note: If user already has a tenant_id, we don't override it
+            }
+
             const forwardedHost = request.headers.get('x-forwarded-host')
             const isLocalEnv = process.env.NODE_ENV === 'development'
 

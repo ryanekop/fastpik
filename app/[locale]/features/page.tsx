@@ -14,6 +14,7 @@ import {
     Download, ZoomIn, Hash, ImagePlus, Timer, Globe, FolderOpen, GripVertical, MessageSquare,
     Bot, Layers, ClipboardCheck
 } from "lucide-react"
+import { useTenant } from "@/lib/tenant-context"
 
 const coreFeatures = [
     { icon: Link2, titleKey: 'feature1Title', descKey: 'feature1Desc', color: 'text-blue-500', bg: 'bg-blue-500/10' },
@@ -42,6 +43,7 @@ export default function FeaturesPage() {
     const t = useTranslations('Features')
     const ti = useTranslations('Index')
     const locale = useLocale()
+    const tenant = useTenant()
 
     const FeatureCard = ({ feature, index, large = false }: { feature: typeof coreFeatures[0], index: number, large?: boolean }) => {
         const Icon = feature.icon
@@ -70,8 +72,8 @@ export default function FeaturesPage() {
             {/* Header */}
             <header className="sticky top-0 z-50 flex items-center justify-between p-4 border-b bg-background/80 backdrop-blur-sm">
                 <Link href={`/${locale}`} className="font-bold text-xl tracking-tight flex items-center gap-3 hover:opacity-80 transition-opacity">
-                    <Image src="/fastpik-logo.png" alt="Fastpik" width={28} height={28} className="rounded-md" />
-                    Fastpik
+                    <Image src={tenant.logoUrl} alt={tenant.name} width={28} height={28} className="rounded-md" />
+                    {tenant.name}
                 </Link>
                 <div className="flex items-center gap-2">
                     <LanguageToggle />
@@ -169,7 +171,13 @@ export default function FeaturesPage() {
             {/* Footer */}
             <footer className="py-8 border-t text-center text-sm text-muted-foreground">
                 <p>
-                    {ti('footerMadeWith')} <a href="https://instagram.com/ryanekopram" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">@ryanekopram</a> & <a href="https://instagram.com/ryanekoapps" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">@ryanekoapps</a>
+                    {tenant.footerText ? (
+                        <span dangerouslySetInnerHTML={{ __html: tenant.footerText }} />
+                    ) : (
+                        <>
+                            {ti('footerMadeWith')} <a href="https://instagram.com/ryanekopram" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">@ryanekopram</a> & <a href="https://instagram.com/ryanekoapps" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">@ryanekoapps</a>
+                        </>
+                    )}
                 </p>
             </footer>
         </div>

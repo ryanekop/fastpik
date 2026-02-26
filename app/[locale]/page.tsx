@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import Link from 'next/link'
 import Image from 'next/image'
 import { Sparkles, ArrowRight } from "lucide-react"
+import { getTenantConfig } from "@/lib/tenant-config"
 
 // Client components (these have "use client" directive, so they'll hydrate on the client)
 import { LandingNav, HeroCTA, BottomCTA, DesktopNav, MobileNav } from "@/components/landing/landing-client"
@@ -17,14 +18,15 @@ import { ProblemSection } from "@/components/landing/problem-section"
 export default async function Home() {
   const t = await getTranslations('Index')
   const locale = await getLocale()
+  const tenant = await getTenantConfig()
 
   return (
     <div className="flex flex-col min-h-screen font-[family-name:var(--font-geist-sans)]">
       {/* Header — server rendered shell + client nav */}
       <header className="sticky top-0 z-50 flex items-center justify-between p-4 border-b bg-background/80 backdrop-blur-sm">
         <Link href={`/${locale}`} className="font-bold text-xl tracking-tight flex items-center gap-3 hover:opacity-80 transition-opacity">
-          <Image src="/fastpik-logo.png" alt="Fastpik" width={28} height={28} className="rounded-md" />
-          Fastpik
+          <Image src={tenant.logoUrl || '/fastpik-logo.png'} alt={tenant.name} width={28} height={28} className="rounded-md" />
+          {tenant.name}
         </Link>
         <DesktopNav />
         <div className="flex items-center gap-2">
@@ -126,10 +128,16 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* Footer — pure SSR */}
+      {/* Footer — pure SSR, dynamic per tenant */}
       <footer className="py-8 border-t text-center text-sm text-muted-foreground">
         <p>
-          {t('footerMadeWith')} <a href="https://instagram.com/ryanekopram" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">@ryanekopram</a> & <a href="https://instagram.com/ryanekoapps" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">@ryanekoapps</a>
+          {tenant.footerText ? (
+            <span dangerouslySetInnerHTML={{ __html: tenant.footerText }} />
+          ) : (
+            <>
+              {t('footerMadeWith')} <a href="https://instagram.com/ryanekopram" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">@ryanekopram</a> & <a href="https://instagram.com/ryanekoapps" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">@ryanekoapps</a>
+            </>
+          )}
         </p>
       </footer>
     </div>
