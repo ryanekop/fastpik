@@ -407,7 +407,8 @@
             "benefit3": "Tampil lebih profesional dan terpercaya di mata klien",
             "startingFrom": "Mulai dari",
             "setupFee": "biaya setup (belum termasuk domain)",
-            "viewDetail": "Lihat Detail"
+            "viewDetail": "Lihat Detail",
+            "dontShowAgain": "Jangan tampilkan lagi"
         },
         "domainPage": {
             "heroTitle": "Tingkatkan Brand Studio Kamu",

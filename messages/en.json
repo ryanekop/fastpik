@@ -407,7 +407,8 @@
             "benefit3": "Look more professional and trustworthy to clients",
             "startingFrom": "Starting from",
             "setupFee": "setup fee (domain not included)",
-            "viewDetail": "View Details"
+            "viewDetail": "View Details",
+            "dontShowAgain": "Don't show again"
         },
         "domainPage": {
             "heroTitle": "Elevate Your Studio Brand",

@@ -86,7 +86,7 @@ export function CustomDomainPromo() {
                 <div className="flex items-center space-x-2 py-1">
                     <Checkbox id="dont-show-promo" checked={dontShowAgain} onCheckedChange={(c) => setDontShowAgain(!!c)} />
                     <Label htmlFor="dont-show-promo" className="text-sm font-normal text-muted-foreground cursor-pointer">
-                        {t('dontShowAgain')}
+                        {t('domainPromo.dontShowAgain')}
                     </Label>
                 </div>
 
