@@ -19,6 +19,7 @@ import { useTranslations, useLocale } from "next-intl"
 import Link from "next/link"
 import Image from "next/image"
 import { WhatsNewPopup } from "./whats-new-popup"
+import { CustomDomainPromo } from "./custom-domain-promo"
 
 interface Subscription {
     tier: string
@@ -202,6 +203,7 @@ export function AdminShell({ children, latestChangelog }: AdminShellProps) {
                     {children}
                 </div>
             </main>
+            <CustomDomainPromo />
             {latestChangelog && <WhatsNewPopup latestChangelog={latestChangelog} />}
         </div>
     )
