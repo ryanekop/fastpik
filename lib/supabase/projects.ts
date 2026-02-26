@@ -101,6 +101,10 @@ export async function updateProject(id: string, updates: Partial<Project>) {
     if (updates.downloadExpiresAt !== undefined) dbUpdates.download_expires_at = updates.downloadExpiresAt ? new Date(updates.downloadExpiresAt).toISOString() : null
     if (updates.link) dbUpdates.link = updates.link
     if (updates.lockedPhotos) dbUpdates.locked_photos = updates.lockedPhotos
+    if (updates.printEnabled !== undefined) dbUpdates.print_enabled = updates.printEnabled
+    if (updates.printExpiresAt !== undefined) dbUpdates.print_expires_at = updates.printExpiresAt ? new Date(updates.printExpiresAt).toISOString() : null
+    if (updates.projectType !== undefined) dbUpdates.project_type = updates.projectType
+    if (updates.printSizes !== undefined) dbUpdates.print_sizes = updates.printSizes
 
     const { error } = await supabase
         .from('projects')
@@ -145,6 +149,15 @@ function transformProjectFromDB(db: any): Project {
         selectionStatus: db.selection_status || 'pending',
         selectionSubmittedAt: db.selection_submitted_at ? new Date(db.selection_submitted_at).getTime() : null,
         selectionLastSyncedAt: db.selection_last_synced_at ? new Date(db.selection_last_synced_at).getTime() : null,
+        // Print selection
+        projectType: db.project_type || 'edit',
+        printEnabled: db.print_enabled || false,
+        printExpiresAt: db.print_expires_at ? new Date(db.print_expires_at).getTime() : undefined,
+        printSizes: db.print_sizes || [],
+        printSelections: db.print_selections || [],
+        printStatus: db.print_status || 'pending',
+        printSubmittedAt: db.print_submitted_at ? new Date(db.print_submitted_at).getTime() : null,
+        printLastSyncedAt: db.print_last_synced_at ? new Date(db.print_last_synced_at).getTime() : null,
     }
 }
 
@@ -166,5 +179,10 @@ function transformProjectToDB(project: Project, userId: string) {
         link: project.link,
         locked_photos: project.lockedPhotos || [],
         folder_id: project.folderId || null,
+        // Print selection
+        project_type: project.projectType || 'edit',
+        print_enabled: project.printEnabled || false,
+        print_expires_at: project.printExpiresAt ? new Date(project.printExpiresAt).toISOString() : null,
+        print_sizes: project.printSizes || [],
     }
 }

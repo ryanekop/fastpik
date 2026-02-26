@@ -36,6 +36,9 @@ const projectSchema = z.object({
     expiryDays: z.string().min(1),
     downloadExpiryDays: z.string().min(1),
     detectSubfolders: z.boolean().default(false),
+    projectType: z.enum(['edit', 'print']).default('edit'),
+    printSizes: z.string().optional(),
+    printExpiryDays: z.string().optional(),
 })
 
 const batchSchema = z.object({
@@ -63,6 +66,8 @@ export function BatchModeForm({ onBack, onProjectsCreated, currentFolderId }: Ba
         defaultCountryCode: 'ID',
         defaultPassword: '',
         vendorSlug: null as string | null,
+        printEnabled: false,
+        defaultPrintExpiryDays: 0,
     })
 
     const form = useForm<BatchFormValues>({
@@ -88,7 +93,7 @@ export function BatchModeForm({ onBack, onProjectsCreated, currentFolderId }: Ba
 
             const { data } = await supabase
                 .from('settings')
-                .select('default_admin_whatsapp, vendor_name, default_max_photos, default_expiry_days, default_download_expiry_days, default_country_code, default_password')
+                .select('default_admin_whatsapp, vendor_name, default_max_photos, default_expiry_days, default_download_expiry_days, default_country_code, default_password, print_enabled, default_print_expiry_days')
                 .eq('user_id', user.id)
                 .maybeSingle()
 
@@ -104,6 +109,8 @@ export function BatchModeForm({ onBack, onProjectsCreated, currentFolderId }: Ba
                     vendorSlug: data.vendor_name
                         ? data.vendor_name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
                         : null,
+                    printEnabled: data.print_enabled || false,
+                    defaultPrintExpiryDays: data.default_print_expiry_days || 0,
                 }
                 setDefaults(settings)
 
@@ -130,6 +137,9 @@ export function BatchModeForm({ onBack, onProjectsCreated, currentFolderId }: Ba
             expiryDays: settings.defaultExpiryDays.toString(),
             downloadExpiryDays: settings.defaultDownloadExpiryDays.toString(),
             detectSubfolders: settings.defaultDetectSubfolders,
+            projectType: 'edit',
+            printSizes: '',
+            printExpiryDays: settings.defaultPrintExpiryDays.toString(),
         })
     }
 
@@ -157,6 +167,16 @@ export function BatchModeForm({ onBack, onProjectsCreated, currentFolderId }: Ba
                 const expiryDays = parseInt(row.expiryDays) || 0
                 const downloadExpiryDays = parseInt(row.downloadExpiryDays) || 0
 
+                const isPrint = row.projectType === 'print'
+                let parsedPrintSizes: { name: string, quota: number }[] = []
+                if (isPrint && row.printSizes) {
+                    parsedPrintSizes = row.printSizes.split(',').map(s => {
+                        const [name, qty] = s.trim().split(':')
+                        return { name: name?.trim() || '', quota: parseInt(qty) || 1 }
+                    }).filter(s => s.name)
+                }
+                const printExpiDays = parseInt(row.printExpiryDays || '0') || 0
+
                 return {
                     id: projectId,
                     clientName: row.clientName,
@@ -172,6 +192,12 @@ export function BatchModeForm({ onBack, onProjectsCreated, currentFolderId }: Ba
                     createdAt: Date.now(),
                     link,
                     folderId: currentFolderId || null,
+                    ...(isPrint ? {
+                        projectType: 'print' as const,
+                        printEnabled: true,
+                        printSizes: parsedPrintSizes,
+                        printExpiresAt: printExpiDays > 0 ? Date.now() + (printExpiDays * 24 * 60 * 60 * 1000) : undefined,
+                    } : {}),
                 }
             })
 
@@ -243,6 +269,13 @@ export function BatchModeForm({ onBack, onProjectsCreated, currentFolderId }: Ba
                                                 <th className="font-medium p-3 text-left min-w-[120px]">{t('selectionDuration')} <span className="text-muted-foreground font-normal">(hari)</span></th>
                                                 <th className="font-medium p-3 text-left min-w-[120px]">{t('downloadDuration')} <span className="text-muted-foreground font-normal">(hari)</span></th>
                                                 <th className="font-medium p-3 text-left">{t('detectSubfolders')}</th>
+                                                {defaults.printEnabled && (
+                                                    <>
+                                                        <th className="font-medium p-3 text-left min-w-[80px]">Cetak</th>
+                                                        <th className="font-medium p-3 text-left min-w-[140px]">Ukuran Cetak</th>
+                                                        <th className="font-medium p-3 text-left min-w-[100px]">Durasi Cetak <span className="text-muted-foreground font-normal">(hari)</span></th>
+                                                    </>
+                                                )}
                                             </>
                                         )}
                                         <th className="font-medium p-3 text-right w-12"></th>
@@ -392,6 +425,54 @@ export function BatchModeForm({ onBack, onProjectsCreated, currentFolderId }: Ba
                                                                 )}
                                                             />
                                                         </td>
+                                                        {defaults.printEnabled && (
+                                                            <>
+                                                                <td className="p-3 align-top pt-5 px-4 text-center">
+                                                                    <FormField
+                                                                        control={form.control}
+                                                                        name={`projects.${index}.projectType`}
+                                                                        render={({ field }) => (
+                                                                            <FormItem className="flex justify-center">
+                                                                                <FormControl>
+                                                                                    <Switch
+                                                                                        checked={field.value === 'print'}
+                                                                                        onCheckedChange={(checked) => field.onChange(checked ? 'print' : 'edit')}
+                                                                                    />
+                                                                                </FormControl>
+                                                                            </FormItem>
+                                                                        )}
+                                                                    />
+                                                                </td>
+                                                                <td className="p-3 align-top">
+                                                                    <FormField
+                                                                        control={form.control}
+                                                                        name={`projects.${index}.printSizes`}
+                                                                        render={({ field }) => (
+                                                                            <FormItem>
+                                                                                <FormControl>
+                                                                                    <Input {...field} placeholder="4R:2, 5R:3" className="bg-background" disabled={form.watch(`projects.${index}.projectType`) !== 'print'} />
+                                                                                </FormControl>
+                                                                                <FormMessage className="text-xs" />
+                                                                            </FormItem>
+                                                                        )}
+                                                                    />
+                                                                </td>
+                                                                <td className="p-3 align-top">
+                                                                    <FormField
+                                                                        control={form.control}
+                                                                        name={`projects.${index}.printExpiryDays`}
+                                                                        render={({ field }) => (
+                                                                            <FormItem>
+                                                                                <FormControl>
+                                                                                    <Input type="number" {...field} min={0} className="bg-background" disabled={form.watch(`projects.${index}.projectType`) !== 'print'} />
+                                                                                </FormControl>
+                                                                                <FormMessage className="text-xs" />
+                                                                            </FormItem>
+                                                                        )}
+                                                                    />
+                                                                </td>
+                                                            </>
+                                                        )}
                                                     </>
                                                 )}
 

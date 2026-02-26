@@ -6,7 +6,7 @@ import { z } from "zod"
 import { useTranslations, useLocale } from "next-intl"
 import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Copy, ArrowRight, Check, ArrowLeft, MessageCircle, Eye, EyeOff, Loader2, ExternalLink } from "lucide-react"
+import { Copy, ArrowRight, Check, ArrowLeft, MessageCircle, Eye, EyeOff, Loader2, ExternalLink, Trash2, Plus } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
@@ -158,6 +158,7 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
             if (data?.msg_tmpl_link_initial) {
                 setInitialTemplate(data.msg_tmpl_link_initial as { id: string, en: string })
             }
+
         } catch (err) {
             console.log('No default settings found')
         }
@@ -231,6 +232,9 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
                 const downloadExpiryDaysNum = values.downloadExpiryDays ? parseInt(values.downloadExpiryDays) : undefined
                 projectPayload.downloadExpiresAt = downloadExpiryDaysNum ? Date.now() + (downloadExpiryDaysNum * 24 * 60 * 60 * 1000) : null
             }
+
+
+            projectPayload.projectType = 'edit'
 
             if (isEditing && editProject) {
                 const res = await fetch(`/api/projects/${editProject.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(projectPayload) })
@@ -442,6 +446,7 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
             <h2 className="text-xl font-semibold mb-4">{isEditing ? `✏️ ${t('editProject')}` : t('createNew')}</h2>
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+
                     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
                         <FormField control={form.control} name="clientName" render={({ field }) => (<FormItem><FormLabel>👤 {t('clientName')}</FormLabel><FormControl><Input placeholder="John Doe" {...field} /></FormControl><FormMessage /></FormItem>)} />
                     </motion.div>
@@ -457,6 +462,7 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
                     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.2 }}>
                         <FormField control={form.control} name="adminWhatsapp" render={({ field }) => (<FormItem><FormLabel>📲 {t('waAdminLabel')}</FormLabel><FormControl><PhoneInput value={field.value} onChange={(fullNumber) => { field.onChange(fullNumber) }} placeholder="812xxxxxxxx" /></FormControl><FormMessage /></FormItem>)} />
                     </motion.div>
+
                     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.3 }}>
                         <FormField control={form.control} name="maxPhotos" render={({ field }) => (<FormItem><FormLabel>📸 {t('maxPhotos')}</FormLabel><FormControl><Input type="number" min="1" placeholder="5" autoComplete="off" {...field} /></FormControl><FormMessage /></FormItem>)} />
                     </motion.div>
@@ -522,6 +528,7 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
                             </FormItem>
                         )} />
                     </motion.div>
+
 
                     {/* Error Message */}
                     {error && (

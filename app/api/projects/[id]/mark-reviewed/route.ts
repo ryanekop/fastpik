@@ -16,18 +16,28 @@ export async function POST(
         let targetStatus = 'reviewed'
         try {
             const body = await request.json()
-            if (body.status && ['in_progress', 'pending', 'reviewed'].includes(body.status)) {
+            if (body.status && ['in_progress', 'pending', 'reviewed', 'submitted'].includes(body.status)) {
                 targetStatus = body.status
             }
         } catch {
             // No body or invalid JSON — default to 'reviewed'
         }
 
+        // First check if this is a print project
+        const { data: project } = await supabase
+            .from('projects')
+            .select('project_type')
+            .eq('id', id)
+            .single()
+
+        const isPrint = project?.project_type === 'print'
+
         const { error } = await supabase
             .from('projects')
-            .update({
-                selection_status: targetStatus
-            })
+            .update(isPrint
+                ? { print_status: targetStatus }
+                : { selection_status: targetStatus }
+            )
             .eq('id', id)
 
         if (error) throw error

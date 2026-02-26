@@ -14,6 +14,7 @@ interface MessageTemplateEditorProps {
     variables: { key: string; label: string }[]
     value: { id: string; en: string }
     onChange: (newValue: { id: string; en: string }) => void
+    colorScheme?: 'default' | 'yellow' | 'purple'
 }
 
 export function MessageTemplateEditor({
@@ -21,7 +22,8 @@ export function MessageTemplateEditor({
     description,
     variables,
     value,
-    onChange
+    onChange,
+    colorScheme = 'default'
 }: MessageTemplateEditorProps) {
     const [activeTab, setActiveTab] = useState("id")
     const [localValue, setLocalValue] = useState(value)
@@ -56,8 +58,14 @@ export function MessageTemplateEditor({
         }, 0)
     }
 
+    const cardStyles = {
+        default: 'border-muted',
+        yellow: 'border-l-4 border-l-amber-400 border-amber-200 dark:border-amber-800 bg-amber-50/30 dark:bg-amber-950/10',
+        purple: 'border-l-4 border-l-purple-400 border-purple-200 dark:border-purple-800 bg-purple-50/30 dark:bg-purple-950/10',
+    }
+
     return (
-        <Card className="border-muted">
+        <Card className={cardStyles[colorScheme]}>
             <CardContent className="pt-6 space-y-4">
                 <div>
                     <h3 className="text-lg font-medium">{title}</h3>
@@ -115,7 +123,9 @@ export function MessageTemplateEditor({
                             list: "IMG_001.jpg, IMG_002.jpg...",
                             password: "secret123",
                             duration: "7 hari",
-                            download_duration: "14 hari"
+                            download_duration: "14 hari",
+                            print_sizes: "4R×2, 5R×3",
+                            print_duration: "7 hari"
                         }
                         return mockData[key] || match
                     }) || "(Empty message)"}

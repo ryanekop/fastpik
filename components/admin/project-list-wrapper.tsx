@@ -8,12 +8,14 @@ import { ImportProjectForm } from "@/components/admin/import-project-form"
 import { BatchModeForm } from "@/components/admin/batch-mode-form"
 import { BatchProjectDialog } from "@/components/admin/batch-project-dialog"
 import { ClientStatusTab } from "@/components/admin/client-status-tab"
+import { ClientPrintStatusTab } from "@/components/admin/client-print-status-tab"
 import type { Project } from "@/lib/project-store"
 import type { Folder } from "@/lib/supabase/folders"
 import { useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
 import { cn } from "@/lib/utils"
-import { LayoutList, Eye } from "lucide-react"
+import { LayoutList, Eye, Printer } from "lucide-react"
+import { createClient } from "@/lib/supabase/client"
 interface ProjectListWrapperProps {
     initialProjects: Project[]
     initialFolders: Folder[]
@@ -36,7 +38,22 @@ export function ProjectListWrapper({ initialProjects, initialFolders }: ProjectL
     const [view, setView] = useState<'list' | 'create' | 'edit' | 'import' | 'batch'>('list')
     const [editingProject, setEditingProject] = useState<Project | null>(null)
     const [showBatchDialog, setShowBatchDialog] = useState(false)
-    const [activeTab, setActiveTab] = useState<'projects' | 'status'>('projects')
+    const [activeTab, setActiveTab] = useState<'projects' | 'status' | 'print-status'>('projects')
+    const [printEnabled, setPrintEnabled] = useState(false)
+
+    // Load print_enabled from settings
+    useEffect(() => {
+        const loadPrintSetting = async () => {
+            try {
+                const supabase = createClient()
+                const { data: { user } } = await supabase.auth.getUser()
+                if (!user) return
+                const { data } = await supabase.from('settings').select('print_enabled').eq('user_id', user.id).maybeSingle()
+                if (data?.print_enabled) setPrintEnabled(true)
+            } catch { }
+        }
+        loadPrintSetting()
+    }, [])
 
     // Folder navigation
     const [currentFolderId, setCurrentFolderId] = useState<string | null>(null)
@@ -119,7 +136,12 @@ export function ProjectListWrapper({ initialProjects, initialFolders }: ProjectL
 
     // Count active selections (in_progress)
     const activeSelections = projects.filter(p =>
-        p.selectionStatus === 'in_progress'
+        p.selectionStatus === 'in_progress' && p.projectType !== 'print'
+    ).length
+
+    // Count active print selections (in_progress or submitted)
+    const activePrintSelections = projects.filter(p =>
+        p.projectType === 'print' && (p.printStatus === 'in_progress' || p.printStatus === 'submitted')
     ).length
 
     return (
@@ -166,9 +188,41 @@ export function ProjectListWrapper({ initialProjects, initialFolders }: ProjectL
                         <motion.div layoutId="tab-indicator" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
                     )}
                 </button>
+                {printEnabled && (
+                    <button
+                        onClick={() => { if (view === 'list') setActiveTab('print-status') }}
+                        className={cn(
+                            "px-4 py-2.5 text-sm font-medium transition-colors relative cursor-pointer flex items-center gap-2 whitespace-nowrap",
+                            activeTab === 'print-status'
+                                ? "text-primary"
+                                : "text-muted-foreground hover:text-foreground"
+                        )}
+                    >
+                        <Printer className="h-4 w-4" />
+                        {t('tabClientPrintStatus')}
+                        {activePrintSelections > 0 && (
+                            <span className="inline-flex items-center justify-center h-5 min-w-5 px-1.5 text-xs font-bold bg-purple-500 text-white rounded-full">
+                                {activePrintSelections}
+                            </span>
+                        )}
+                        {activeTab === 'print-status' && (
+                            <motion.div layoutId="tab-indicator" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+                        )}
+                    </button>
+                )}
             </div>
             <AnimatePresence mode="wait">
-                {view === 'list' && activeTab === 'status' ? (
+                {view === 'list' && activeTab === 'print-status' ? (
+                    <motion.div
+                        key="print-status"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{ duration: 0.15 }}
+                    >
+                        <ClientPrintStatusTab projects={projects} folders={folders} onProjectsChanged={setProjects} />
+                    </motion.div>
+                ) : view === 'list' && activeTab === 'status' ? (
                     <motion.div
                         key="status"
                         initial={{ opacity: 0, y: 10 }}

@@ -1,11 +1,24 @@
 
 import { createClient } from './server'
 
+export interface PrintSize {
+    name: string
+    quota: number
+}
+
+export interface PrintTemplate {
+    name: string
+    sizes: PrintSize[]
+}
+
 export interface Settings {
     defaultMaxPhotos: number
     defaultCountryCode: string
     defaultExpiryDays: number
     dashboardDurationDisplay: 'selection' | 'download'
+    printEnabled: boolean
+    printTemplates: PrintTemplate[]
+    defaultPrintExpiryDays: number | null
 }
 
 export async function getSettings(): Promise<Settings> {
@@ -22,7 +35,10 @@ export async function getSettings(): Promise<Settings> {
             defaultMaxPhotos: 10,
             defaultCountryCode: '+62',
             defaultExpiryDays: 7,
-            dashboardDurationDisplay: 'selection'
+            dashboardDurationDisplay: 'selection',
+            printEnabled: false,
+            printTemplates: [],
+            defaultPrintExpiryDays: null
         }
     }
 
@@ -30,7 +46,10 @@ export async function getSettings(): Promise<Settings> {
         defaultMaxPhotos: data.default_max_photos,
         defaultCountryCode: data.default_country_code,
         defaultExpiryDays: data.default_expiry_days,
-        dashboardDurationDisplay: data.dashboard_duration_display || 'selection'
+        dashboardDurationDisplay: data.dashboard_duration_display || 'selection',
+        printEnabled: data.print_enabled || false,
+        printTemplates: data.print_templates || [],
+        defaultPrintExpiryDays: data.default_print_expiry_days ?? null
     }
 }
 
@@ -52,6 +71,9 @@ export async function updateSettings(settings: Partial<Settings>) {
     if (settings.defaultCountryCode !== undefined) dbData.default_country_code = settings.defaultCountryCode
     if (settings.defaultExpiryDays !== undefined) dbData.default_expiry_days = settings.defaultExpiryDays
     if (settings.dashboardDurationDisplay !== undefined) dbData.dashboard_duration_display = settings.dashboardDurationDisplay
+    if (settings.printEnabled !== undefined) dbData.print_enabled = settings.printEnabled
+    if (settings.printTemplates !== undefined) dbData.print_templates = settings.printTemplates
+    if (settings.defaultPrintExpiryDays !== undefined) dbData.default_print_expiry_days = settings.defaultPrintExpiryDays
 
     let error;
     if (count === 0) {

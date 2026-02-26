@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, DragEvent } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useTranslations, useLocale } from "next-intl"
-import { Plus, Trash2, ExternalLink, Copy, Clock, Users, MessageCircle, Edit, CheckSquare, Square, X, PlusCircle, Search, Loader2, Bell, FolderOpen, ArrowUpDown, Move, ChevronRight, Home, FolderPlus, FileText, Zap, LayoutList } from "lucide-react"
+import { Plus, Trash2, ExternalLink, Copy, Clock, Users, MessageCircle, Edit, CheckSquare, Square, X, PlusCircle, Search, Loader2, Bell, FolderOpen, ArrowUpDown, Move, ChevronRight, Home, FolderPlus, FileText, Zap, LayoutList, Printer } from "lucide-react"
 import { isProjectExpired, getClientWhatsapp, generateShortId, type Project } from "@/lib/project-store"
 import type { Folder } from "@/lib/supabase/folders"
 import { Button } from "@/components/ui/button"
@@ -85,7 +85,7 @@ export function ProjectList({
 
             const { data } = await supabase
                 .from('settings')
-                .select('msg_tmpl_link_initial, msg_tmpl_link_extra, msg_tmpl_reminder, vendor_name, dashboard_duration_display, default_expiry_days, default_download_expiry_days')
+                .select('msg_tmpl_link_initial, msg_tmpl_link_extra, msg_tmpl_reminder, msg_tmpl_link_initial_print, vendor_name, dashboard_duration_display, default_expiry_days, default_download_expiry_days, print_enabled, print_templates, default_print_expiry_days')
                 .eq('user_id', user.id)
                 .maybeSingle()
 
@@ -100,6 +100,17 @@ export function ProjectList({
                     setVendorSlug(slug)
                 }
                 setDashboardDurationDisplay(data.dashboard_duration_display || 'selection')
+                // Print config
+                if (data.print_enabled) {
+                    setPrintEnabled(true)
+                    setPrintTemplates(data.print_templates || [])
+                    if (data.default_print_expiry_days) {
+                        setPrintExpiryDays(data.default_print_expiry_days.toString())
+                    }
+                }
+                if (data.msg_tmpl_link_initial_print) {
+                    setPrintWaTemplate(data.msg_tmpl_link_initial_print)
+                }
                 // Load defaults for extra photos popup
                 const standardOptions = ['', '1', '3', '5', '7', '14', '30']
                 if (data.default_expiry_days) {
@@ -169,6 +180,10 @@ export function ProjectList({
         if (variables.download_duration) {
             fallback += `\n📥 ${locale === 'id' ? 'Berlaku download' : 'Download valid for'}: ${variables.download_duration}`
         }
+        // Append print duration if available
+        if (variables.print_duration) {
+            fallback += `\n🖨️ ${locale === 'id' ? 'Berlaku pilih cetak' : 'Print selection valid for'}: ${variables.print_duration}`
+        }
         return fallback
     }
 
@@ -195,6 +210,18 @@ export function ProjectList({
     const [customExtraDays, setCustomExtraDays] = useState("")
     const [customExtraExpiryLabel, setCustomExtraExpiryLabel] = useState<string | null>(null)
     const [customExtraDownloadExpiryLabel, setCustomExtraDownloadExpiryLabel] = useState<string | null>(null)
+
+    // Print dialog states
+    const [showPrintDialog, setShowPrintDialog] = useState(false)
+    const [printProject, setPrintProject] = useState<Project | null>(null)
+    const [printTemplates, setPrintTemplates] = useState<{ name: string, sizes: { name: string, quota: number }[] }[]>([])
+    const [printEnabled, setPrintEnabled] = useState(false)
+    const [selectedPrintTemplateIdx, setSelectedPrintTemplateIdx] = useState<number | 'custom'>(-1 as any)
+    const [customPrintSizes, setCustomPrintSizes] = useState<{ name: string, quota: number }[]>([{ name: '', quota: 1 }])
+    const [printExpiryDays, setPrintExpiryDays] = useState("7")
+    const [generatedPrintLink, setGeneratedPrintLink] = useState<string | null>(null)
+    const [isGeneratingPrint, setIsGeneratingPrint] = useState(false)
+    const [printWaTemplate, setPrintWaTemplate] = useState<{ id: string, en: string } | null>(null)
 
     // Folder states
     const [sortByExpiry, setSortByExpiry] = useState<{ type: 'selection' | 'download'; direction: 'asc' | 'desc' } | null>(null)
@@ -323,6 +350,22 @@ export function ProjectList({
                 }
             }
         }
+        // Add print duration if enabled
+        if (project.printEnabled && project.printExpiresAt) {
+            const now = Date.now()
+            const diff = project.printExpiresAt - now
+            if (diff > 0) {
+                const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+                if (days > 0) {
+                    variables.print_duration = `${days} ${t('days')}`
+                } else if (hours > 0) {
+                    variables.print_duration = `${hours} ${t('hours')}`
+                } else {
+                    variables.print_duration = t('lessThanHour')
+                }
+            }
+        }
 
         const template = isExtra ? templates.extraLink : templates.initialLink
         const message = compileMessage(template, variables, isExtra)
@@ -369,6 +412,22 @@ export function ProjectList({
                     variables.download_duration = `${hours} ${t('hours')}`
                 } else {
                     variables.download_duration = t('lessThanHour')
+                }
+            }
+        }
+        // Add print duration if enabled
+        if (project.printEnabled && project.printExpiresAt) {
+            const now = Date.now()
+            const diff = project.printExpiresAt - now
+            if (diff > 0) {
+                const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+                if (days > 0) {
+                    variables.print_duration = `${days} ${t('days')}`
+                } else if (hours > 0) {
+                    variables.print_duration = `${hours} ${t('hours')}`
+                } else {
+                    variables.print_duration = t('lessThanHour')
                 }
             }
         }
@@ -443,6 +502,32 @@ export function ProjectList({
                     variables.download_duration = `${hours} ${t('hours')}`
                 } else {
                     variables.download_duration = t('lessThanHour')
+                }
+            }
+        }
+
+        // Add print-specific variables for print projects
+        if (project.projectType === 'print') {
+            if (project.printSizes && project.printSizes.length > 0) {
+                variables.print_sizes = project.printSizes.map(s => `${s.name}×${s.quota}`).join(', ')
+            }
+            if (project.printExpiresAt) {
+                const now = Date.now()
+                const diff = project.printExpiresAt - now
+                if (diff > 0) {
+                    const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+                    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+                    if (days > 0) {
+                        variables.print_duration = `${days} ${t('days')}`
+                        // Use print_duration as duration if no regular expiresAt
+                        if (!variables.duration) variables.duration = variables.print_duration
+                    } else if (hours > 0) {
+                        variables.print_duration = `${hours} ${t('hours')}`
+                        if (!variables.duration) variables.duration = variables.print_duration
+                    } else {
+                        variables.print_duration = t('lessThanHour')
+                        if (!variables.duration) variables.duration = variables.print_duration
+                    }
                 }
             }
         }
@@ -550,6 +635,112 @@ export function ProjectList({
         setLockedPhotosInput("")
         setGeneratedExtraLink(null)
         setShowExtraPhotosDialog(true)
+    }
+
+    const openPrintDialog = (project: Project) => {
+        setPrintProject(project)
+        setSelectedPrintTemplateIdx(-1 as any)
+        setCustomPrintSizes([{ name: '', quota: 1 }])
+        setGeneratedPrintLink(null)
+        setShowPrintDialog(true)
+    }
+
+    const closePrintDialog = () => {
+        setShowPrintDialog(false)
+        setPrintProject(null)
+        setGeneratedPrintLink(null)
+    }
+
+    const generatePrintLink = async () => {
+        if (!printProject) return
+        setIsGeneratingPrint(true)
+        try {
+            let printSizes: { name: string, quota: number }[] = []
+            if (selectedPrintTemplateIdx === 'custom') {
+                printSizes = customPrintSizes.filter(s => s.name.trim())
+            } else if (typeof selectedPrintTemplateIdx === 'number' && selectedPrintTemplateIdx >= 0 && printTemplates[selectedPrintTemplateIdx]) {
+                printSizes = printTemplates[selectedPrintTemplateIdx].sizes
+            }
+
+            const newProjectId = generateShortId()
+            const newLink = buildProjectLink(newProjectId)
+            const printDays = printExpiryDays ? parseInt(printExpiryDays) : undefined
+
+            const projectPayload: Project = {
+                id: newProjectId,
+                clientName: printProject.clientName,
+                gdriveLink: printProject.gdriveLink,
+                clientWhatsapp: printProject.clientWhatsapp || '',
+                adminWhatsapp: printProject.adminWhatsapp || (printProject as any).whatsapp || '',
+                countryCode: printProject.countryCode || 'ID',
+                maxPhotos: 0,
+                detectSubfolders: printProject.detectSubfolders,
+                createdAt: Date.now(),
+                link: newLink,
+                folderId: printProject.folderId || null,
+                projectType: 'print',
+                printEnabled: true,
+                printSizes: printSizes,
+                printExpiresAt: printDays ? Date.now() + (printDays * 24 * 60 * 60 * 1000) : undefined,
+            }
+
+            const res = await fetch('/api/projects', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(projectPayload)
+            })
+
+            if (!res.ok) {
+                const errData = await res.json()
+                throw new Error(errData.message || 'Failed to create print project')
+            }
+
+            setGeneratedPrintLink(newLink)
+        } catch (err: any) {
+            setToastMessage(err.message || 'Failed to generate print link')
+            setShowToast(true)
+        } finally {
+            setIsGeneratingPrint(false)
+        }
+    }
+
+    const buildPrintTemplateMessage = () => {
+        if (!printProject || !generatedPrintLink) return ''
+        // Get printSizes from the project's selected template or custom sizes
+        let printSizes: { name: string, quota: number }[] = []
+        if (selectedPrintTemplateIdx === 'custom') {
+            printSizes = customPrintSizes.filter(s => s.name.trim())
+        } else if (typeof selectedPrintTemplateIdx === 'number' && selectedPrintTemplateIdx >= 0 && printTemplates[selectedPrintTemplateIdx]) {
+            printSizes = printTemplates[selectedPrintTemplateIdx].sizes
+        }
+        const variables: Record<string, string> = {
+            client_name: printProject.clientName,
+            link: generatedPrintLink,
+            print_sizes: printSizes.map(s => `${s.name}×${s.quota}`).join(', '),
+        }
+        const days = parseInt(printExpiryDays)
+        if (days > 0) {
+            variables.print_duration = `${days} ${t('days')}`
+        }
+        // Try custom WA template first
+        if (printWaTemplate) {
+            const lang = locale as 'id' | 'en'
+            const tmplText = printWaTemplate[lang] || ''
+            if (tmplText.trim()) {
+                let msg = tmplText
+                Object.entries(variables).forEach(([key, val]) => {
+                    msg = msg.replace(new RegExp(`{{${key}}}`, 'g'), val)
+                })
+                msg = msg.replace(/{{(\w+)}}/g, '').replace(/\n{3,}/g, '\n\n').trim()
+                return msg
+            }
+        }
+        // Default print message
+        let message = `Halo ${printProject.clientName}! \u{1F5A8}\u{FE0F}\n\nSilakan pilih foto untuk dicetak melalui link berikut:\n${generatedPrintLink}`
+        if (variables.print_duration) {
+            message += `\n\n\u23F0 ${t('printDuration')}: ${variables.print_duration}`
+        }
+        return message
     }
 
     const generateExtraLink = async () => {
@@ -1054,7 +1245,7 @@ export function ProjectList({
                                 const dynamicLink = buildProjectLink(project.id)
                                 return (
                                     <motion.div key={project.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -100 }} transition={{ delay: index * 0.05 }} className="overflow-hidden max-w-full" draggable={!isSelectMode} onDragStart={(e) => handleDragStart(e as any, project.id)}>
-                                        <Card className={cn("overflow-hidden transition-all hover:shadow-md", expired && "opacity-60 border-destructive/30", isSelected && "border-primary bg-primary/5", !isSelected && !expired && project.lockedPhotos && project.lockedPhotos.length > 0 && "border-amber-400 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-600")}>
+                                        <Card className={cn("overflow-hidden transition-all hover:shadow-md", expired && "opacity-60 border-destructive/30", isSelected && "border-primary bg-primary/5", !isSelected && !expired && project.projectType === 'print' && "border-purple-400 bg-purple-50/50 dark:bg-purple-950/20 dark:border-purple-600", !isSelected && !expired && project.projectType !== 'print' && project.lockedPhotos && project.lockedPhotos.length > 0 && "border-amber-400 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-600")}>
                                             <CardContent className="p-4 overflow-hidden">
                                                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 w-full overflow-hidden">
                                                     {isSelectMode && (
@@ -1069,10 +1260,13 @@ export function ProjectList({
                                                             {project.lockedPhotos && project.lockedPhotos.length > 0 && (
                                                                 <span className="text-xs bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded shrink-0">📷 {t('extraPhotosBadge')}</span>
                                                             )}
+                                                            {project.projectType === 'print' && (
+                                                                <span className="text-xs bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 px-2 py-0.5 rounded shrink-0">🖨️ {t('projectTypePrint')}</span>
+                                                            )}
                                                             {expired && <span className="text-xs bg-destructive/20 text-destructive px-2 py-0.5 rounded shrink-0">{t('expired')}</span>}
                                                         </div>
                                                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                                                            <span className="flex items-center gap-1 shrink-0">📸 {(project.lockedPhotos && project.lockedPhotos.length > 0) ? (project.maxPhotos - project.lockedPhotos.length) : project.maxPhotos} {t('photo')}</span>
+                                                            <span className="flex items-center gap-1 shrink-0">{project.projectType === 'print' ? `🖨️ ${(project.printSizes || []).map((s: any) => `${s.name}×${s.quota}`).join(', ')}` : `📸 ${(project.lockedPhotos && project.lockedPhotos.length > 0) ? (project.maxPhotos - project.lockedPhotos.length) : project.maxPhotos} ${t('photo')}`}</span>
                                                             <span className="flex items-center gap-1 shrink-0"><Clock className="h-3 w-3" /><ExpiryDisplay expiresAt={dashboardDurationDisplay === 'download' ? project.downloadExpiresAt : project.expiresAt} /></span>
                                                         </div>
                                                         <p className="text-xs text-muted-foreground overflow-hidden text-ellipsis whitespace-nowrap block" style={{ maxWidth: 'min(100%, calc(100vw - 100px))' }} suppressHydrationWarning>🔗 {dynamicLink}</p>
@@ -1082,10 +1276,13 @@ export function ProjectList({
                                                             <Button size="icon" variant="ghost" onClick={() => copyLink(dynamicLink, project.id)} className="h-8 w-8 cursor-pointer" title={t('copyLink')}>{copiedId === project.id ? <span className="text-green-500 text-xs">✓</span> : <Copy className="h-4 w-4" />}</Button>
                                                             <Button size="icon" variant="ghost" onClick={() => copyTemplateForProject(project)} className="h-8 w-8 cursor-pointer text-purple-600 hover:text-purple-700" disabled={expired} title={t('copyTemplate')}>{copiedTemplateId === project.id ? <span className="text-green-500 text-xs">✓</span> : <FileText className="h-4 w-4" />}</Button>
                                                             <Button size="icon" variant="ghost" onClick={() => sendToClient(project)} className="h-8 w-8 cursor-pointer text-green-600 hover:text-green-700" disabled={expired} title={t('sendToClient')}><MessageCircle className="h-4 w-4" /></Button>
-                                                            <Button size="icon" variant="ghost" onClick={() => sendReminder(project)} className="h-8 w-8 cursor-pointer text-amber-600 hover:text-amber-700" disabled={expired || !project.expiresAt} title={t('sendReminder')}><Bell className="h-4 w-4" /></Button>
+                                                            <Button size="icon" variant="ghost" onClick={() => sendReminder(project)} className="h-8 w-8 cursor-pointer text-amber-600 hover:text-amber-700" disabled={expired || (!project.expiresAt && !project.printExpiresAt)} title={t('sendReminder')}><Bell className="h-4 w-4" /></Button>
                                                             <Button size="icon" variant="ghost" onClick={() => openLink(dynamicLink)} className="h-8 w-8 cursor-pointer" title={t('openLink')}><ExternalLink className="h-4 w-4" /></Button>
                                                             <Button size="icon" variant="ghost" onClick={() => onEditProject(project)} className="h-8 w-8 cursor-pointer text-blue-600 hover:text-blue-700" title={t('editProject')}><Edit className="h-4 w-4" /></Button>
                                                             <Button size="icon" variant="ghost" onClick={() => openExtraPhotosDialog(project)} className="h-8 w-8 cursor-pointer text-amber-600 hover:text-amber-700" disabled={expired} title={t('addExtraPhotos')}><PlusCircle className="h-4 w-4" /></Button>
+                                                            {printEnabled && project.projectType !== 'print' && (
+                                                                <Button size="icon" variant="ghost" onClick={() => openPrintDialog(project)} className="h-8 w-8 cursor-pointer text-purple-600 hover:text-purple-700" disabled={expired} title={t('addPrintSelection')}><Printer className="h-4 w-4" /></Button>
+                                                            )}
                                                             <Button size="icon" variant="ghost" onClick={() => handleDeleteClick(project.id)} className="h-8 w-8 text-destructive hover:text-destructive cursor-pointer" title={t('delete')}><Trash2 className="h-4 w-4" /></Button>
                                                         </div>
                                                     )}
@@ -1245,6 +1442,152 @@ export function ProjectList({
                                         </div>
                                     )
                                 })()}
+                            </div>
+                        )}
+                    </motion.div>
+                </div>
+            )}
+
+            {/* Print Dialog */}
+            {showPrintDialog && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                    <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-background rounded-xl shadow-xl max-w-md w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+                        <div className="flex items-center justify-between">
+                            <h2 className="text-lg font-semibold flex items-center gap-2"><Printer className="h-5 w-5 text-purple-600" />{t('addPrintSelectionTitle')}</h2>
+                            <Button size="icon" variant="ghost" onClick={closePrintDialog} className="h-8 w-8 cursor-pointer"><X className="h-4 w-4" /></Button>
+                        </div>
+                        <p className="text-sm text-muted-foreground">{printProject?.clientName}</p>
+
+                        {/* Template selection */}
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">🖨️ {t('printTemplate')}</label>
+                            <select
+                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer"
+                                value={selectedPrintTemplateIdx === 'custom' ? 'custom' : selectedPrintTemplateIdx.toString()}
+                                onChange={(e) => {
+                                    if (e.target.value === 'custom') {
+                                        setSelectedPrintTemplateIdx('custom')
+                                    } else {
+                                        setSelectedPrintTemplateIdx(parseInt(e.target.value))
+                                    }
+                                }}
+                            >
+                                <option value="-1" disabled>— {t('printTemplate')} —</option>
+                                {printTemplates.map((tmpl, idx) => (
+                                    <option key={idx} value={idx.toString()}>
+                                        {tmpl.name} ({tmpl.sizes.map(s => `${s.name}×${s.quota}`).join(', ')})
+                                    </option>
+                                ))}
+                                <option value="custom">{t('printTemplateCustom')}</option>
+                            </select>
+                        </div>
+
+                        {/* Custom sizes editor */}
+                        {selectedPrintTemplateIdx === 'custom' && (
+                            <div className="space-y-2 bg-muted/30 rounded-lg p-3">
+                                <label className="text-xs font-medium">{t('printSizes')}</label>
+                                {customPrintSizes.map((size, idx) => (
+                                    <div key={idx} className="flex items-center gap-2">
+                                        <Input
+                                            value={size.name}
+                                            onChange={(e) => {
+                                                const updated = [...customPrintSizes]
+                                                updated[idx] = { ...updated[idx], name: e.target.value }
+                                                setCustomPrintSizes(updated)
+                                            }}
+                                            placeholder={t('printSizeNamePlaceholder')}
+                                            className="flex-1"
+                                        />
+                                        <Input
+                                            type="number" min="1"
+                                            value={size.quota}
+                                            onChange={(e) => {
+                                                const updated = [...customPrintSizes]
+                                                updated[idx] = { ...updated[idx], quota: parseInt(e.target.value) || 1 }
+                                                setCustomPrintSizes(updated)
+                                            }}
+                                            className="w-20"
+                                        />
+                                        <span className="text-xs text-muted-foreground">{t('printSizeQuota')}</span>
+                                        {customPrintSizes.length > 1 && (
+                                            <Button type="button" variant="ghost" size="icon"
+                                                onClick={() => setCustomPrintSizes(customPrintSizes.filter((_, i) => i !== idx))}
+                                                className="h-7 w-7 text-muted-foreground hover:text-destructive cursor-pointer"
+                                            >
+                                                <Trash2 className="h-3.5 w-3.5" />
+                                            </Button>
+                                        )}
+                                    </div>
+                                ))}
+                                <Button type="button" variant="outline" size="sm"
+                                    onClick={() => setCustomPrintSizes([...customPrintSizes, { name: '', quota: 1 }])}
+                                    className="gap-1.5 cursor-pointer"
+                                >
+                                    <Plus className="h-3.5 w-3.5" />
+                                    {t('addPrintSize')}
+                                </Button>
+                            </div>
+                        )}
+
+                        {/* Print duration */}
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">⏰ {t('printDuration')}</label>
+                            <select
+                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer"
+                                value={printExpiryDays}
+                                onChange={(e) => setPrintExpiryDays(e.target.value)}
+                            >
+                                <option value="">♾️ {t('forever')}</option>
+                                <option value="1">1 {t('days')}</option>
+                                <option value="3">3 {t('days')}</option>
+                                <option value="5">5 {t('days')}</option>
+                                <option value="7">7 {t('days')}</option>
+                                <option value="14">14 {t('days')}</option>
+                                <option value="30">30 {t('days')}</option>
+                            </select>
+                        </div>
+
+                        {/* Generate / Result */}
+                        {!generatedPrintLink ? (
+                            <Button onClick={generatePrintLink} className="w-full cursor-pointer bg-purple-600 hover:bg-purple-700" disabled={selectedPrintTemplateIdx === (-1 as any) || isGeneratingPrint}>
+                                {isGeneratingPrint ? (<><Loader2 className="h-4 w-4 mr-2 animate-spin" />{t('generatingPrintLink')}</>) : (<>🖨️ {t('generatePrintLink')}</>)}
+                            </Button>
+                        ) : (
+                            <div className="space-y-3">
+                                <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg break-all text-sm border border-purple-200 dark:border-purple-800">{generatedPrintLink}</div>
+                                <div className="flex gap-2">
+                                    <Button onClick={() => {
+                                        if (navigator.clipboard && window.isSecureContext) {
+                                            navigator.clipboard.writeText(generatedPrintLink)
+                                        } else {
+                                            const textArea = document.createElement('textarea')
+                                            textArea.value = generatedPrintLink
+                                            document.body.appendChild(textArea)
+                                            textArea.select()
+                                            document.execCommand('copy')
+                                            document.body.removeChild(textArea)
+                                        }
+                                        setToastMessage(t('linkCopied'))
+                                        setShowToast(true)
+                                    }} variant="outline" className="flex-1 cursor-pointer"><Copy className="h-4 w-4 mr-2" />{t('copyLink')}</Button>
+                                    <Button onClick={() => window.open(generatedPrintLink, '_blank')} variant="outline" className="flex-1 cursor-pointer"><ExternalLink className="h-4 w-4 mr-2" />{t('openLink')}</Button>
+                                </div>
+                                <div className="flex flex-col sm:flex-row gap-2">
+                                    <Button onClick={() => {
+                                        const clientWa = printProject?.clientWhatsapp || ''
+                                        if (!clientWa) { setToastMessage('No WhatsApp number'); setShowToast(true); return }
+                                        const message = buildPrintTemplateMessage()
+                                        window.open(`https://api.whatsapp.com/send/?phone=${clientWa}&text=${encodeURIComponent(message)}`, '_blank')
+                                    }} className="flex-1 bg-green-600 hover:bg-green-700 text-white cursor-pointer"><MessageCircle className="h-4 w-4 mr-2" />{t('sendToClientWa')}</Button>
+                                    <Button variant="outline" className="flex-1 cursor-pointer" onClick={() => {
+                                        const message = buildPrintTemplateMessage()
+                                        if (navigator.clipboard && window.isSecureContext) {
+                                            navigator.clipboard.writeText(message)
+                                            setToastMessage(t('templateCopied'))
+                                            setShowToast(true)
+                                        }
+                                    }}><Copy className="h-4 w-4 mr-2" />{t('copyTemplate')}</Button>
+                                </div>
                             </div>
                         )}
                     </motion.div>

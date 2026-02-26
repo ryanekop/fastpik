@@ -8,12 +8,15 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { PhoneInput } from "@/components/ui/phone-input"
-import { Loader2, Save, ArrowLeft, MessageSquare, Send, Search, Bot, ClipboardPaste, Settings } from "lucide-react"
+import { Loader2, Save, ArrowLeft, MessageSquare, Send, Search, Bot, ClipboardPaste, Settings, Printer, Plus, Trash2, Check } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import Link from "next/link"
 import { AdminShell } from "@/components/admin/admin-shell"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { MessageTemplateEditor } from "@/components/admin/message-template-editor"
+import { Switch } from "@/components/ui/switch"
+import { PopupDialog } from "@/components/ui/popup-dialog"
+import type { PrintSize, PrintTemplate } from "@/lib/supabase/settings"
 
 export default function SettingsPage() {
     const t = useTranslations('Admin')
@@ -35,11 +38,20 @@ export default function SettingsPage() {
     const [customDefaultExpiryLabel, setCustomDefaultExpiryLabel] = useState<string | null>(null)
     const [customDefaultDownloadExpiryLabel, setCustomDefaultDownloadExpiryLabel] = useState<string | null>(null)
 
+    // Print config state
+    const [printEnabled, setPrintEnabled] = useState(false)
+    const [printTemplates, setPrintTemplates] = useState<PrintTemplate[]>([])
+    const [defaultPrintExpiryDays, setDefaultPrintExpiryDays] = useState("")
+    const [expandedTemplate, setExpandedTemplate] = useState<number | null>(null)
+    const [deleteTemplateIdx, setDeleteTemplateIdx] = useState<number | null>(null)
+
     // Message Templates State
     const [tmplLinkInitial, setTmplLinkInitial] = useState({ id: "", en: "" })
+    const [tmplLinkInitialPrint, setTmplLinkInitialPrint] = useState({ id: "", en: "" })
     const [tmplLinkExtra, setTmplLinkExtra] = useState({ id: "", en: "" })
     const [tmplResultInitial, setTmplResultInitial] = useState({ id: "", en: "" })
     const [tmplResultExtra, setTmplResultExtra] = useState({ id: "", en: "" })
+    const [tmplResultPrint, setTmplResultPrint] = useState({ id: "", en: "" })
     const [tmplReminder, setTmplReminder] = useState({ id: "", en: "" })
 
     // Telegram Bot State
@@ -100,15 +112,21 @@ export default function SettingsPage() {
                 }
                 setDefaultPassword(data.default_password || "")
                 if (data.msg_tmpl_link_initial) setTmplLinkInitial(data.msg_tmpl_link_initial)
+                if (data.msg_tmpl_link_initial_print) setTmplLinkInitialPrint(data.msg_tmpl_link_initial_print)
                 if (data.msg_tmpl_link_extra) setTmplLinkExtra(data.msg_tmpl_link_extra)
                 if (data.msg_tmpl_result_initial) setTmplResultInitial(data.msg_tmpl_result_initial)
                 if (data.msg_tmpl_result_extra) setTmplResultExtra(data.msg_tmpl_result_extra)
+                if (data.msg_tmpl_result_print) setTmplResultPrint(data.msg_tmpl_result_print)
                 if (data.msg_tmpl_reminder) setTmplReminder(data.msg_tmpl_reminder)
                 // Telegram
                 setTelegramChatId(data.telegram_chat_id || "")
                 if (data.telegram_reminder_days) setTelegramReminderDays(data.telegram_reminder_days.map((d: any) => Number(d)))
                 if (data.telegram_reminder_type) setTelegramReminderType(data.telegram_reminder_type)
                 if (data.telegram_language) setTelegramLanguage(data.telegram_language)
+                // Print
+                setPrintEnabled(data.print_enabled || false)
+                setPrintTemplates(data.print_templates || [])
+                setDefaultPrintExpiryDays(data.default_print_expiry_days?.toString() || "")
             }
         } catch (err) {
             console.error('Failed to load settings:', err)
@@ -139,14 +157,19 @@ export default function SettingsPage() {
                     default_download_expiry_days: defaultDownloadExpiryDays ? parseInt(defaultDownloadExpiryDays) : null,
                     default_password: defaultPassword || null,
                     msg_tmpl_link_initial: tmplLinkInitial,
+                    msg_tmpl_link_initial_print: tmplLinkInitialPrint,
                     msg_tmpl_link_extra: tmplLinkExtra,
                     msg_tmpl_result_initial: tmplResultInitial,
                     msg_tmpl_result_extra: tmplResultExtra,
+                    msg_tmpl_result_print: tmplResultPrint,
                     msg_tmpl_reminder: tmplReminder,
                     telegram_chat_id: telegramChatId || null,
                     telegram_reminder_days: telegramReminderDays,
                     telegram_reminder_type: telegramReminderType,
                     telegram_language: telegramLanguage,
+                    print_enabled: printEnabled,
+                    print_templates: printTemplates,
+                    default_print_expiry_days: defaultPrintExpiryDays ? parseInt(defaultPrintExpiryDays) : null,
                     updated_at: new Date().toISOString()
                 }, {
                     onConflict: 'user_id'
@@ -194,9 +217,10 @@ export default function SettingsPage() {
 
                 <form onSubmit={handleSave}>
                     <Tabs defaultValue="general" className="w-full">
-                        <TabsList className="mb-6">
+                        <TabsList className="mb-6 w-full overflow-x-auto flex justify-start">
                             <TabsTrigger value="general">{t('generalTab')}</TabsTrigger>
                             <TabsTrigger value="templates">{t('templatesTab')}</TabsTrigger>
+                            <TabsTrigger value="print">{t('printTab')}</TabsTrigger>
                             <TabsTrigger value="telegram">{t('telegramTab')}</TabsTrigger>
                         </TabsList>
 
@@ -382,6 +406,198 @@ export default function SettingsPage() {
                             </Card>
                         </TabsContent>
 
+                        {/* Print Tab */}
+                        <TabsContent value="print" className="space-y-6">
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>🖨️ {t('printEnabled')}</CardTitle>
+                                    <CardDescription>{t('printEnabledHint')}</CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-6">
+                                    <div className="flex items-center justify-between">
+                                        <Label htmlFor="printEnabled">{t('printEnabled')}</Label>
+                                        <Switch
+                                            id="printEnabled"
+                                            checked={printEnabled}
+                                            onCheckedChange={setPrintEnabled}
+                                            className="cursor-pointer"
+                                        />
+                                    </div>
+
+                                    {printEnabled && (
+                                        <>
+                                            {/* Print Templates */}
+                                            <div className="space-y-3">
+                                                <Label>📝 {t('printTemplates')}</Label>
+                                                <p className="text-xs text-muted-foreground">{t('printTemplatesHint')}</p>
+                                                <div className="space-y-3">
+                                                    {printTemplates.map((tmpl, tmplIdx) => {
+                                                        const isExpanded = expandedTemplate === tmplIdx
+                                                        const sizeSummary = tmpl.sizes.map(s => `${s.name}×${s.quota}`).join(', ')
+                                                        return (
+                                                            <div key={tmplIdx} className="rounded-lg border">
+                                                                <div
+                                                                    className="flex items-center justify-between p-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                                                                    onClick={() => setExpandedTemplate(isExpanded ? null : tmplIdx)}
+                                                                >
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <p className="font-medium text-sm truncate">
+                                                                            {tmpl.name || t('printTemplateName')}
+                                                                        </p>
+                                                                        {sizeSummary && (
+                                                                            <p className="text-xs text-muted-foreground truncate">{sizeSummary}</p>
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="flex items-center gap-1">
+                                                                        <Button
+                                                                            type="button"
+                                                                            variant="ghost"
+                                                                            size="icon"
+                                                                            onClick={(e) => { e.stopPropagation(); setDeleteTemplateIdx(tmplIdx) }}
+                                                                            className="h-7 w-7 text-muted-foreground hover:text-destructive cursor-pointer"
+                                                                        >
+                                                                            <Trash2 className="h-3.5 w-3.5" />
+                                                                        </Button>
+                                                                    </div>
+                                                                </div>
+                                                                {isExpanded && (
+                                                                    <div className="p-3 pt-0 space-y-3 border-t">
+                                                                        <div className="space-y-1">
+                                                                            <Label className="text-xs">{t('printTemplateName')}</Label>
+                                                                            <Input
+                                                                                value={tmpl.name}
+                                                                                onChange={(e) => {
+                                                                                    const updated = [...printTemplates]
+                                                                                    updated[tmplIdx] = { ...updated[tmplIdx], name: e.target.value }
+                                                                                    setPrintTemplates(updated)
+                                                                                }}
+                                                                                placeholder="e.g. Paket Nikah"
+                                                                            />
+                                                                        </div>
+                                                                        <div className="space-y-2">
+                                                                            <Label className="text-xs">{t('printSizes')}</Label>
+                                                                            {tmpl.sizes.map((size, sizeIdx) => (
+                                                                                <div key={sizeIdx} className="flex items-center gap-2">
+                                                                                    <Input
+                                                                                        value={size.name}
+                                                                                        onChange={(e) => {
+                                                                                            const updated = [...printTemplates]
+                                                                                            const sizes = [...updated[tmplIdx].sizes]
+                                                                                            sizes[sizeIdx] = { ...sizes[sizeIdx], name: e.target.value }
+                                                                                            updated[tmplIdx] = { ...updated[tmplIdx], sizes }
+                                                                                            setPrintTemplates(updated)
+                                                                                        }}
+                                                                                        placeholder={t('printSizeNamePlaceholder')}
+                                                                                        className="flex-1"
+                                                                                    />
+                                                                                    <Input
+                                                                                        type="number"
+                                                                                        min="1"
+                                                                                        value={size.quota}
+                                                                                        onChange={(e) => {
+                                                                                            const updated = [...printTemplates]
+                                                                                            const sizes = [...updated[tmplIdx].sizes]
+                                                                                            sizes[sizeIdx] = { ...sizes[sizeIdx], quota: parseInt(e.target.value) || 1 }
+                                                                                            updated[tmplIdx] = { ...updated[tmplIdx], sizes }
+                                                                                            setPrintTemplates(updated)
+                                                                                        }}
+                                                                                        className="w-20"
+                                                                                    />
+                                                                                    <span className="text-xs text-muted-foreground whitespace-nowrap">{t('printSizeQuota')}</span>
+                                                                                    <Button
+                                                                                        type="button" variant="ghost" size="icon"
+                                                                                        onClick={() => {
+                                                                                            const updated = [...printTemplates]
+                                                                                            updated[tmplIdx] = { ...updated[tmplIdx], sizes: updated[tmplIdx].sizes.filter((_, i) => i !== sizeIdx) }
+                                                                                            setPrintTemplates(updated)
+                                                                                        }}
+                                                                                        className="h-7 w-7 text-muted-foreground hover:text-destructive cursor-pointer"
+                                                                                    >
+                                                                                        <Trash2 className="h-3.5 w-3.5" />
+                                                                                    </Button>
+                                                                                </div>
+                                                                            ))}
+                                                                            <Button
+                                                                                type="button" variant="outline" size="sm"
+                                                                                onClick={() => {
+                                                                                    const updated = [...printTemplates]
+                                                                                    updated[tmplIdx] = { ...updated[tmplIdx], sizes: [...updated[tmplIdx].sizes, { name: '', quota: 1 }] }
+                                                                                    setPrintTemplates(updated)
+                                                                                }}
+                                                                                className="gap-1.5 cursor-pointer"
+                                                                            >
+                                                                                <Plus className="h-3.5 w-3.5" />
+                                                                                {t('addPrintSize')}
+                                                                            </Button>
+                                                                        </div>
+                                                                        <Button
+                                                                            type="button" variant="default" size="sm"
+                                                                            onClick={() => setExpandedTemplate(null)}
+                                                                            className="gap-1.5 cursor-pointer"
+                                                                        >
+                                                                            <Check className="h-3.5 w-3.5" />
+                                                                            {t('saveTemplate')}
+                                                                        </Button>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )
+                                                    })}
+                                                </div>
+                                                <Button
+                                                    type="button" variant="outline" size="sm"
+                                                    onClick={() => {
+                                                        setPrintTemplates([...printTemplates, { name: '', sizes: [{ name: '', quota: 1 }] }])
+                                                        setExpandedTemplate(printTemplates.length)
+                                                    }}
+                                                    className="gap-2 cursor-pointer"
+                                                >
+                                                    <Plus className="h-4 w-4" />
+                                                    {t('addPrintTemplate')}
+                                                </Button>
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <Label>⏰ {t('defaultPrintDuration')}</Label>
+                                                <select
+                                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer"
+                                                    value={defaultPrintExpiryDays}
+                                                    onChange={(e) => setDefaultPrintExpiryDays(e.target.value)}
+                                                >
+                                                    <option value="">♾️ {t('forever')}</option>
+                                                    <option value="1">1 {t('days')}</option>
+                                                    <option value="3">3 {t('days')}</option>
+                                                    <option value="5">5 {t('days')}</option>
+                                                    <option value="7">7 {t('days')}</option>
+                                                    <option value="14">14 {t('days')}</option>
+                                                    <option value="30">30 {t('days')}</option>
+                                                </select>
+                                            </div>
+                                        </>
+                                    )}
+                                </CardContent>
+                            </Card>
+
+
+                            {/* Delete Template Confirmation */}
+                            <PopupDialog
+                                isOpen={deleteTemplateIdx !== null}
+                                onClose={() => setDeleteTemplateIdx(null)}
+                                onConfirm={() => {
+                                    if (deleteTemplateIdx !== null) {
+                                        setPrintTemplates(printTemplates.filter((_, i) => i !== deleteTemplateIdx))
+                                        if (expandedTemplate === deleteTemplateIdx) setExpandedTemplate(null)
+                                        setDeleteTemplateIdx(null)
+                                    }
+                                }}
+                                title={t('confirmDeleteTemplate')}
+                                message={t('confirmDeleteTemplateMsg')}
+                                type="danger"
+                                confirmText={t('delete')}
+                                cancelText={t('cancel')}
+                            />
+                        </TabsContent>
+
                         {/* Message Templates Tab */}
                         <TabsContent value="templates" className="space-y-6">
                             <div className="rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30 p-4 text-sm text-green-800 dark:text-green-200 flex gap-3">
@@ -389,6 +605,7 @@ export default function SettingsPage() {
                                 <p>{t('templateEmojiNotice')}</p>
                             </div>
                             <div className="space-y-6">
+                                {/* === LINK TEMPLATES === */}
                                 <MessageTemplateEditor
                                     title={t('tmplInitialLinkTitle')}
                                     description={t('tmplInitialLinkDesc')}
@@ -398,7 +615,8 @@ export default function SettingsPage() {
                                         { key: "count", label: t('varMaxPhotos') },
                                         { key: "password", label: t('varPassword') },
                                         { key: "duration", label: t('varDuration') },
-                                        { key: "download_duration", label: t('varDownloadDuration') }
+                                        { key: "download_duration", label: t('varDownloadDuration') },
+                                        { key: "print_duration", label: t('varPrintDuration') }
                                     ]}
                                     value={tmplLinkInitial}
                                     onChange={setTmplLinkInitial}
@@ -407,6 +625,7 @@ export default function SettingsPage() {
                                 <MessageTemplateEditor
                                     title={t('tmplExtraLinkTitle')}
                                     description={t('tmplExtraLinkDesc')}
+                                    colorScheme="yellow"
                                     variables={[
                                         { key: "client_name", label: t('varClientName') },
                                         { key: "link", label: t('varLink') },
@@ -419,6 +638,23 @@ export default function SettingsPage() {
                                     onChange={setTmplLinkExtra}
                                 />
 
+                                {printEnabled && (
+                                    <MessageTemplateEditor
+                                        title={t('tmplPrintLinkTitle')}
+                                        description={t('tmplPrintLinkDesc')}
+                                        colorScheme="purple"
+                                        variables={[
+                                            { key: "client_name", label: t('varClientName') },
+                                            { key: "link", label: t('varLink') },
+                                            { key: "print_sizes", label: t('varPrintSizes') },
+                                            { key: "print_duration", label: t('varPrintDuration') }
+                                        ]}
+                                        value={tmplLinkInitialPrint}
+                                        onChange={setTmplLinkInitialPrint}
+                                    />
+                                )}
+
+                                {/* === RESULT TEMPLATES === */}
                                 <MessageTemplateEditor
                                     title={t('tmplInitialResultTitle')}
                                     description={t('tmplInitialResultDesc')}
@@ -434,6 +670,7 @@ export default function SettingsPage() {
                                 <MessageTemplateEditor
                                     title={t('tmplExtraResultTitle')}
                                     description={t('tmplExtraResultDesc')}
+                                    colorScheme="yellow"
                                     variables={[
                                         { key: "client_name", label: t('varClientName') },
                                         { key: "count", label: t('varExtraCount') },
@@ -443,6 +680,22 @@ export default function SettingsPage() {
                                     onChange={setTmplResultExtra}
                                 />
 
+                                {printEnabled && (
+                                    <MessageTemplateEditor
+                                        title={t('tmplPrintResultTitle')}
+                                        description={t('tmplPrintResultDesc')}
+                                        colorScheme="purple"
+                                        variables={[
+                                            { key: "client_name", label: t('varClientName') },
+                                            { key: "print_sizes", label: t('varPrintSizes') },
+                                            { key: "list", label: t('varPhotoList') }
+                                        ]}
+                                        value={tmplResultPrint}
+                                        onChange={setTmplResultPrint}
+                                    />
+                                )}
+
+                                {/* === REMINDER === */}
                                 <MessageTemplateEditor
                                     title={t('tmplReminderTitle')}
                                     description={t('tmplReminderDesc')}

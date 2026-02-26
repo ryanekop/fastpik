@@ -138,7 +138,7 @@ export function AdminShell({ children, latestChangelog }: AdminShellProps) {
                     <Image src="/fastpik-logo.png" alt="Fastpik" width={28} height={28} className="rounded-md" />
                     Fastpik
                 </Link>
-                <div className="ml-auto flex items-center gap-4">
+                <div className="ml-auto flex items-center gap-2">
                     <LanguageToggle />
                     <ThemeToggle />
                     <DropdownMenu>

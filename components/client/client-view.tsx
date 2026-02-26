@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
 import { PopupDialog, Toast } from "@/components/ui/popup-dialog"
-import { Copy, Send, AlertCircle, Loader2, RefreshCw, ImageOff, Trash2, Lock, Eye, EyeOff, MessageCircle, Check, Download, MousePointerClick, ArrowLeft, Square, ZoomIn } from "lucide-react"
+import { Copy, Send, AlertCircle, Loader2, RefreshCw, ImageOff, Trash2, Lock, Eye, EyeOff, MessageCircle, Check, Download, MousePointerClick, ArrowLeft, Square, ZoomIn, Printer } from "lucide-react"
 // jszip and file-saver are dynamically imported when needed (see handleDownloadPhotos)
 // This reduces the initial JS bundle by ~48KB
 import { generateMockPhotos } from "@/lib/mock-data"
@@ -42,10 +42,15 @@ interface ClientViewProps {
         hasPassword?: boolean
         projectId?: string
         lockedPhotos?: string[] // Previously selected photo filenames
+        projectType?: 'edit' | 'print'
+        printEnabled?: boolean
+        printExpiresAt?: number
+        printSizes?: { name: string, quota: number }[]
     }
     messageTemplates?: {
         resultInitial: { id: string, en: string } | null
         resultExtra: { id: string, en: string } | null
+        resultPrint?: { id: string, en: string } | null
     } | null
 }
 
@@ -103,9 +108,35 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
     const [showDownloadAllDialog, setShowDownloadAllDialog] = useState(false)
     const [showDownloadClearDialog, setShowDownloadClearDialog] = useState(false)
 
+    // Print size selection state
+    const isPrintProject = config.projectType === 'print' && config.printSizes && config.printSizes.length > 0
+    const [activePrintSize, setActivePrintSize] = useState(isPrintProject ? config.printSizes![0].name : '')
+    const [printSelections, setPrintSelections] = useState<Record<string, string[]>>(() => {
+        if (!isPrintProject) return {}
+        const init: Record<string, string[]> = {}
+        config.printSizes!.forEach(s => { init[s.name] = [] })
+        return init
+    })
+
+    // Computed: current max and selected based on project type
+    const currentMaxPhotos = isPrintProject
+        ? (config.printSizes!.find(s => s.name === activePrintSize)?.quota || 0)
+        : config.maxPhotos
+    const currentSelected = isPrintProject
+        ? (printSelections[activePrintSize] || [])
+        : selected
+    const totalPrintSelected = isPrintProject
+        ? Object.values(printSelections).reduce((sum, arr) => sum + arr.length, 0)
+        : 0
+    const totalPrintQuota = isPrintProject
+        ? config.printSizes!.reduce((sum, s) => sum + s.quota, 0)
+        : 0
+
     // Selection sync state
     const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const lastSyncedRef = useRef<string>('')
+    const printSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const lastPrintSyncedRef = useRef<string>('')
 
     // Time remaining state for countdown
     const [timeRemaining, setTimeRemaining] = useState<{ days: number, hours: number, minutes: number } | null>(null)
@@ -116,9 +147,11 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
     // Check if project is expired (client-side only to avoid hydration mismatch)
     const [isSelectionExpired, setIsSelectionExpired] = useState(false)
     const [isDownloadExpired, setIsDownloadExpired] = useState(false)
+    const [isPrintExpired, setIsPrintExpired] = useState(false)
 
     useEffect(() => {
         setIsSelectionExpired(config.expiresAt ? Date.now() > config.expiresAt : false)
+        setIsPrintExpired(config.printExpiresAt ? Date.now() > config.printExpiresAt : false)
 
         // Calculate time remaining for selection
         if (config.expiresAt) {
@@ -314,6 +347,49 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
         }
     }, [selected, viewMode, config.projectId, photos])
 
+    // Debounced sync for PRINT selections: auto-sync to server 2 seconds after last toggle
+    useEffect(() => {
+        if (!isPrintProject || !config.projectId || photos.length === 0) return
+
+        // Build print selections with photo names for the API
+        const getNameNoExt = (name: string | undefined) => {
+            if (!name) return ''
+            return name.replace(/\.[^/.]+$/, '')
+        }
+
+        // Convert printSelections (id-based) to name-based for the API
+        const printSelectionsForApi = Object.entries(printSelections).map(([sizeName, ids]) => ({
+            sizeName,
+            photos: ids.map(id => getNameNoExt(photos.find(p => p.id === id)?.name)).filter(Boolean)
+        }))
+
+        const serialized = JSON.stringify(printSelectionsForApi)
+
+        // Skip if nothing changed since last sync
+        if (serialized === lastPrintSyncedRef.current) return
+
+        // Clear previous timer
+        if (printSyncTimerRef.current) clearTimeout(printSyncTimerRef.current)
+
+        // Set new debounce timer (2 seconds)
+        printSyncTimerRef.current = setTimeout(async () => {
+            try {
+                await fetch(`/api/projects/${config.projectId}/sync-print-selection`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ printSelections: printSelectionsForApi })
+                })
+                lastPrintSyncedRef.current = serialized
+            } catch (err) {
+                console.error('Failed to sync print selection:', err)
+            }
+        }, 2000)
+
+        return () => {
+            if (printSyncTimerRef.current) clearTimeout(printSyncTimerRef.current)
+        }
+    }, [printSelections, config.projectId, photos, isPrintProject])
+
     const handlePasswordSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setPasswordLoading(true)
@@ -504,36 +580,51 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                         </div>
 
                         <div className="grid gap-4">
-                            {/* Select Photos Option */}
-                            <button
-                                onClick={() => !isSelectionExpired && setViewMode('culling')}
-                                disabled={isSelectionExpired}
-                                className={cn(
-                                    "group relative flex items-center gap-4 p-5 rounded-xl border-2 transition-all duration-300",
-                                    isSelectionExpired
+                            {/* Select Photos Option — green for edit, purple for print */}
+                            {(() => {
+                                const isPrint = config.projectType === 'print'
+                                const selectExpired = isPrint ? isPrintExpired : isSelectionExpired
+                                const colorClass = isPrint
+                                    ? selectExpired
+                                        ? "border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/30 opacity-60 cursor-not-allowed"
+                                        : "border-purple-200 dark:border-purple-800 bg-purple-50/50 dark:bg-purple-950/30 hover:border-purple-400 dark:hover:border-purple-600 hover:bg-purple-100/80 dark:hover:bg-purple-900/40 cursor-pointer"
+                                    : selectExpired
                                         ? "border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/30 opacity-60 cursor-not-allowed"
                                         : "border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-950/30 hover:border-green-400 dark:hover:border-green-600 hover:bg-green-100/80 dark:hover:bg-green-900/40 cursor-pointer"
-                                )}
-                            >
-                                <div className={cn(
-                                    "flex-shrink-0 w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform",
-                                    isSelectionExpired ? "bg-gray-400" : "bg-green-500 group-hover:scale-110"
-                                )}>
-                                    <MousePointerClick className="w-7 h-7 text-white" />
-                                </div>
-                                <div className="text-left flex-1">
-                                    <h3 className={cn(
-                                        "font-semibold text-lg",
-                                        isSelectionExpired ? "text-gray-400" : "text-green-700 dark:text-green-300"
-                                    )}>
-                                        {t('selectPhotos')}
-                                        {isSelectionExpired && " ⏰"}
-                                    </h3>
-                                    <p className="text-sm text-muted-foreground">
-                                        {isSelectionExpired ? t('linkExpired') : t('selectPhotosDesc')}
-                                    </p>
-                                </div>
-                            </button>
+                                const circleColor = isPrint
+                                    ? selectExpired ? "bg-gray-400" : "bg-purple-500 group-hover:scale-110"
+                                    : selectExpired ? "bg-gray-400" : "bg-green-500 group-hover:scale-110"
+                                const textColor = isPrint
+                                    ? selectExpired ? "text-gray-400" : "text-purple-700 dark:text-purple-300"
+                                    : selectExpired ? "text-gray-400" : "text-green-700 dark:text-green-300"
+
+                                return (
+                                    <button
+                                        onClick={() => !selectExpired && setViewMode('culling')}
+                                        disabled={selectExpired}
+                                        className={cn(
+                                            "group relative flex items-center gap-4 p-5 rounded-xl border-2 transition-all duration-300",
+                                            colorClass
+                                        )}
+                                    >
+                                        <div className={cn(
+                                            "flex-shrink-0 w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform",
+                                            circleColor
+                                        )}>
+                                            {isPrint ? <Printer className="w-7 h-7 text-white" /> : <MousePointerClick className="w-7 h-7 text-white" />}
+                                        </div>
+                                        <div className="text-left flex-1">
+                                            <h3 className={cn("font-semibold text-lg", textColor)}>
+                                                {isPrint ? t('printPhotos') : t('selectPhotos')}
+                                                {selectExpired && " ⏰"}
+                                            </h3>
+                                            <p className="text-sm text-muted-foreground">
+                                                {selectExpired ? t('linkExpired') : isPrint ? t('printPhotosDesc') : t('selectPhotosDesc')}
+                                            </p>
+                                        </div>
+                                    </button>
+                                )
+                            })()}
 
                             {/* Download Photos Option */}
                             <button
@@ -600,6 +691,29 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
             return
         }
 
+        if (isPrintProject) {
+            // Print mode: per-size selection
+            const sizeSelected = printSelections[activePrintSize] || []
+            const quota = config.printSizes!.find(s => s.name === activePrintSize)?.quota || 0
+            if (sizeSelected.includes(id)) {
+                setPrintSelections(prev => ({
+                    ...prev,
+                    [activePrintSize]: prev[activePrintSize].filter(x => x !== id)
+                }))
+            } else {
+                if (sizeSelected.length >= quota) {
+                    setAlertMax(true)
+                    setTimeout(() => setAlertMax(false), 1000)
+                    return
+                }
+                setPrintSelections(prev => ({
+                    ...prev,
+                    [activePrintSize]: [...(prev[activePrintSize] || []), id]
+                }))
+            }
+            return
+        }
+
         if (!selected.includes(id) && selected.length >= config.maxPhotos) {
             setAlertMax(true)
             setTimeout(() => setAlertMax(false), 1000)
@@ -617,17 +731,24 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
     const copyList = () => {
         let listText: string
 
-        if (lockedPhotoNames.length > 0) {
-            // Format with separators for extra photos project
+        if (isPrintProject) {
+            // Format grouped by size for print projects
+            const parts: string[] = []
+            config.printSizes!.forEach(size => {
+                const sizeIds = printSelections[size.name] || []
+                if (sizeIds.length === 0) return
+                const names = sizeIds.map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name)).join('\n')
+                parts.push(`=== 🖨️ ${size.name} (${sizeIds.length}/${size.quota}) ===\n${names}`)
+            })
+            listText = parts.join('\n\n')
+        } else if (lockedPhotoNames.length > 0) {
             const lockedList = lockedPhotoNames.join('\n')
             const newPhotos = selected
                 .map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name))
                 .filter(name => !lockedPhotoNames.includes(name || ''))
             const newList = newPhotos.join('\n')
-
             listText = `=== ${t('previousPhotos')} (${lockedPhotoNames.length}) ===\n${lockedList}\n\n=== ${t('additionalPhotos')} (${newPhotos.length}) ===\n${newList}`
         } else {
-            // Plain list for normal project
             listText = selected.map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name)).join('\n')
         }
 
@@ -636,7 +757,6 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
             setCopied(true)
             setTimeout(() => setCopied(false), 2000)
         } else {
-            // Fallback for non-secure context
             const textArea = document.createElement("textarea")
             textArea.value = listText
             textArea.style.position = "fixed"
@@ -673,30 +793,43 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
         let listText: string
         let totalCount: number
 
-        if (lockedPhotoNames.length > 0) {
-            // Format with separators for extra photos project
+        if (isPrintProject) {
+            // Format grouped by size for print projects
+            const parts: string[] = []
+            let count = 0
+            config.printSizes!.forEach(size => {
+                const sizeIds = printSelections[size.name] || []
+                if (sizeIds.length === 0) return
+                count += sizeIds.length
+                const names = sizeIds.map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name)).join('\n')
+                parts.push(`=== 🖨️ ${size.name} (${sizeIds.length}/${size.quota}) ===\n${names}`)
+            })
+            listText = parts.join('\n\n')
+            totalCount = count
+        } else if (lockedPhotoNames.length > 0) {
             const lockedList = lockedPhotoNames.join('\n')
             const newPhotos = selected
                 .map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name))
                 .filter(name => !lockedPhotoNames.includes(name || ''))
             const newList = newPhotos.join('\n')
-
             listText = `=== ${t('previousPhotos')} (${lockedPhotoNames.length}) ===\n${lockedList}\n\n=== ${t('additionalPhotos')} (${newPhotos.length}) ===\n${newList}`
             totalCount = lockedPhotoNames.length + newPhotos.length
         } else {
-            // Plain list for normal project
             listText = selected.map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name)).join('\n')
             totalCount = selected.length
         }
 
-        const variables = {
+        const variables: Record<string, string> = {
             client_name: config.clientName,
             count: totalCount.toString(),
             list: listText,
-            link: config.gdriveLink || ''
+            link: config.gdriveLink || '',
+            print_sizes: isPrintProject ? config.printSizes!.map(s => `${s.name}×${s.quota}`).join(', ') : ''
         }
 
-        const template = (lockedPhotoNames.length > 0) ? messageTemplates?.resultExtra : messageTemplates?.resultInitial
+        const template = isPrintProject
+            ? messageTemplates?.resultPrint
+            : (lockedPhotoNames.length > 0) ? messageTemplates?.resultExtra : messageTemplates?.resultInitial
         const defaultMsg = `${t('waMessageIntro')}\n\n${t('waMessageBody')} (${totalCount} ${t('waMessagePhotos')}):\n\n${listText}\n\n${t('waMessageThanks')}`
 
         const message = compileMessage(template || null, variables, defaultMsg)
@@ -1017,7 +1150,10 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
     }
 
     // Get selected photo names for display
-    const selectedPhotoNames = selected.slice(0, 5).map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name))
+    const allPrintSelectedIds = isPrintProject ? Object.values(printSelections).flat() : []
+    const effectiveSelected = isPrintProject ? allPrintSelectedIds : selected
+    const effectiveCount = effectiveSelected.length
+    const selectedPhotoNames = effectiveSelected.slice(0, 5).map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name))
 
     // Format photos for lightbox
     const lightboxPhotos = photos.map(p => ({
@@ -1096,7 +1232,10 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                                 <div>
                                     <h1 className="font-bold text-lg">{t('reviewTitle')}</h1>
                                     <p className="text-xs text-muted-foreground">
-                                        {selected.length} / {config.maxPhotos} {t('selected')}
+                                        {isPrintProject
+                                            ? `${totalPrintSelected} / ${totalPrintQuota} ${t('selected')}`
+                                            : `${selected.length} / ${config.maxPhotos} ${t('selected')}`
+                                        }
                                     </p>
                                 </div>
                             </div>
@@ -1123,7 +1262,10 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                                         "text-xs transition-colors",
                                         alertMax ? "text-red-500 font-semibold" : "text-muted-foreground"
                                     )}>
-                                        {selected.length} / {config.maxPhotos} {t('selected')}
+                                        {isPrintProject
+                                            ? `${activePrintSize}: ${currentSelected.length} / ${currentMaxPhotos} ${t('selected')} (${totalPrintSelected}/${totalPrintQuota} ${t('total')})`
+                                            : `${selected.length} / ${config.maxPhotos} ${t('selected')}`
+                                        }
                                         {lockedPhotoNames.length > 0 && (
                                             <span className="ml-2 text-amber-600 dark:text-amber-400">
                                                 🔒 {lockedPhotoNames.length} {t('lockedPhotosCount')}
@@ -1135,7 +1277,7 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                             </div>
                             <div className="flex items-center gap-3">
                                 <Progress
-                                    value={(selected.length / config.maxPhotos) * 100}
+                                    value={(currentSelected.length / (currentMaxPhotos || 1)) * 100}
                                     className={cn(
                                         "w-24 transition-colors",
                                         alertMax && "bg-red-200"
@@ -1171,6 +1313,34 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
 
                 {/* Portal slot for PhotoGrid's header (breadcrumb + sort) */}
                 <div ref={photoGridHeaderRef} />
+
+                {/* Print Size Tabs */}
+                {isPrintProject && viewMode === 'culling' && (
+                    <div className="border-b px-4 py-2 flex gap-2 overflow-x-auto">
+                        {config.printSizes!.map(size => {
+                            const sizeCount = (printSelections[size.name] || []).length
+                            const isActive = activePrintSize === size.name
+                            const isFull = sizeCount >= size.quota
+                            return (
+                                <button
+                                    key={size.name}
+                                    onClick={() => setActivePrintSize(size.name)}
+                                    className={cn(
+                                        "px-3 py-1.5 rounded-full text-sm font-medium transition-all whitespace-nowrap cursor-pointer",
+                                        isActive
+                                            ? "bg-purple-600 text-white shadow-sm"
+                                            : isFull
+                                                ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border border-green-300 dark:border-green-700"
+                                                : "bg-muted text-muted-foreground hover:bg-muted/80"
+                                    )}
+                                >
+                                    {size.name} ({sizeCount}/{size.quota})
+                                    {isFull && !isActive && " ✓"}
+                                </button>
+                            )
+                        })}
+                    </div>
+                )}
             </div>
 
             {/* Error State */}
@@ -1212,16 +1382,57 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                 <div className="p-4 space-y-4">
                     <div className="text-center space-y-1">
                         <p className="text-sm text-muted-foreground">
-                            {selected.length} / {config.maxPhotos} {t('selected')}
+                            {isPrintProject
+                                ? `${totalPrintSelected} / ${totalPrintQuota} ${t('selected')}`
+                                : `${selected.length} / ${config.maxPhotos} ${t('selected')}`
+                            }
                         </p>
                     </div>
-                    {selected.length === 0 ? (
+                    {effectiveCount === 0 ? (
                         <div className="flex flex-col items-center justify-center py-16 gap-4">
                             <ImageOff className="h-12 w-12 text-muted-foreground" />
                             <p className="text-muted-foreground">{t('noPhotosSelected')}</p>
                             <Button onClick={() => setViewMode('culling')} variant="outline" className="cursor-pointer">
                                 <ArrowLeft className="h-4 w-4 mr-2" />{t('backToSelect')}
                             </Button>
+                        </div>
+                    ) : isPrintProject ? (
+                        // Print review: group by size
+                        <div className="space-y-6">
+                            {config.printSizes!.map(size => {
+                                const sizePhotos = photos.filter(p => (printSelections[size.name] || []).includes(p.id))
+                                if (sizePhotos.length === 0) return null
+                                return (
+                                    <div key={size.name} className="space-y-2">
+                                        <div className="flex items-center gap-2">
+                                            <div className="h-px flex-1 bg-purple-300 dark:bg-purple-700" />
+                                            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-purple-600 dark:text-purple-400 px-2">
+                                                🖨️ {size.name} ({sizePhotos.length}/{size.quota})
+                                            </span>
+                                            <div className="h-px flex-1 bg-purple-300 dark:bg-purple-700" />
+                                        </div>
+                                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                                            {sizePhotos.map((photo) => (
+                                                <div
+                                                    key={photo.id}
+                                                    className="relative group aspect-[4/3] rounded-lg overflow-hidden cursor-pointer border-2 bg-muted border-purple-400 dark:border-purple-600"
+                                                    onClick={() => handleZoom(photo)}
+                                                >
+                                                    <img src={photo.url} alt={photo.name} className="w-full h-full object-cover" loading="lazy" />
+                                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-20">
+                                                        <div className="p-2 bg-white/20 backdrop-blur-md rounded-full text-white">
+                                                            <ZoomIn className="w-5 h-5" />
+                                                        </div>
+                                                    </div>
+                                                    <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs p-2 truncate z-20">
+                                                        {photo.name}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )
+                            })}
                         </div>
                     ) : (() => {
                         const selectedPhotos = photos.filter(p => selected.includes(p.id))
@@ -1243,13 +1454,11 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                                             className="w-full h-full object-cover"
                                             loading="lazy"
                                         />
-                                        {/* Hover overlay with zoom */}
                                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-20">
                                             <div className="p-2 bg-white/20 backdrop-blur-md rounded-full text-white">
                                                 <ZoomIn className="w-5 h-5" />
                                             </div>
                                         </div>
-                                        {/* Filename */}
                                         <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs p-2 truncate z-20">
                                             {photo.name}
                                         </div>
@@ -1260,7 +1469,6 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
 
                         return hasLockedPhotos ? (
                             <div className="space-y-6">
-                                {/* Previous/Original photos section */}
                                 {lockedSelected.length > 0 && (
                                     <div className="space-y-2">
                                         <div className="flex items-center gap-2">
@@ -1274,7 +1482,6 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                                         {renderPhotoGrid(lockedSelected, 'border-amber-400 dark:border-amber-600')}
                                     </div>
                                 )}
-                                {/* Extra/New photos section */}
                                 {extraSelected.length > 0 && (
                                     <div className="space-y-2">
                                         <div className="flex items-center gap-2">
@@ -1295,7 +1502,7 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
             ) : (
                 <PhotoGrid
                     photos={photos}
-                    selected={selected}
+                    selected={isPrintProject ? currentSelected : selected}
                     onToggle={handleToggle}
                     onZoom={handleZoom}
                     detectSubfolders={config.detectSubfolders}
@@ -1310,9 +1517,9 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                 initialIndex={lightboxIndex}
                 isOpen={lightboxOpen}
                 onClose={() => setLightboxOpen(false)}
-                selectedIds={viewMode === 'download' ? downloadSelected : selected}
+                selectedIds={viewMode === 'download' ? downloadSelected : (isPrintProject ? currentSelected : selected)}
                 onToggleSelect={viewMode === 'download' ? handleDownloadToggle : handleToggle}
-                maxPhotos={viewMode === 'download' ? Infinity : config.maxPhotos}
+                maxPhotos={viewMode === 'download' ? Infinity : currentMaxPhotos}
             />
 
             {/* Bottom Bar - Conditional based on viewMode */}
@@ -1381,7 +1588,7 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                             <Button
                                 variant="outline"
                                 onClick={copyList}
-                                disabled={selected.length === 0}
+                                disabled={effectiveCount === 0}
                                 className={cn(
                                     "gap-2 cursor-pointer md:order-2",
                                     copied && "bg-green-100 text-green-700 border-green-200"
@@ -1394,7 +1601,7 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                             {/* WhatsApp Button */}
                             <Button
                                 onClick={sendWhatsapp}
-                                disabled={selected.length === 0}
+                                disabled={effectiveCount === 0}
                                 className="w-full md:w-auto bg-green-600 hover:bg-green-700 text-white gap-2 cursor-pointer shadow-sm md:order-3"
                             >
                                 <MessageCircle className="h-4 w-4" />
@@ -1405,9 +1612,9 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                 ) : (
                     // Culling Mode Bottom Bar
                     <>
-                        {selected.length > 0 && (
+                        {effectiveCount > 0 && (
                             <div className="mb-2 text-xs text-muted-foreground text-center px-4 truncate">
-                                {t('chosenPhotos')}: {selectedPhotoNames.join(', ')}{selected.length > 5 && ` +${selected.length - 5} ${t('more')}`}
+                                {t('chosenPhotos')}: {selectedPhotoNames.join(', ')}{effectiveCount > 5 && ` +${effectiveCount - 5} ${t('more')}`}
                             </div>
                         )}
                         <div className="flex gap-2 w-full max-w-xl mx-auto">
@@ -1416,7 +1623,7 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                                 variant="outline"
                                 size="icon"
                                 onClick={() => setShowClearDialog(true)}
-                                disabled={selected.length === 0}
+                                disabled={effectiveCount === 0}
                                 className="shrink-0 cursor-pointer text-red-500 border-red-200 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
                             >
                                 <Trash2 className="h-4 w-4" />
@@ -1425,11 +1632,11 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                             {/* Review Selection Button */}
                             <Button
                                 onClick={() => setViewMode('review')}
-                                disabled={selected.length === 0}
+                                disabled={effectiveCount === 0}
                                 className="flex-1 bg-blue-600 hover:bg-blue-700 text-white gap-2 cursor-pointer"
                             >
                                 <Eye className="h-4 w-4" />
-                                {t('reviewSelection')} ({selected.length})
+                                {t('reviewSelection')} ({effectiveCount})
                             </Button>
                         </div>
                     </>

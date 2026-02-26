@@ -65,14 +65,15 @@ export default async function ClientPage({ params }: { params: Promise<{ slug: s
             if (project?.user_id) {
                 const { data: settings } = await supabase
                     .from('settings')
-                    .select('msg_tmpl_result_initial, msg_tmpl_result_extra')
+                    .select('msg_tmpl_result_initial, msg_tmpl_result_extra, msg_tmpl_result_print')
                     .eq('user_id', project.user_id)
                     .maybeSingle();
 
                 if (settings) {
                     templates = {
                         resultInitial: settings.msg_tmpl_result_initial,
-                        resultExtra: settings.msg_tmpl_result_extra
+                        resultExtra: settings.msg_tmpl_result_extra,
+                        resultPrint: settings.msg_tmpl_result_print
                     }
                 }
             }

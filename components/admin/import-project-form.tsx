@@ -29,6 +29,8 @@ interface ParsedRow {
     expiryDays: string
     downloadExpiryDays: string
     detectSubfolders: string
+    projectType: string
+    printSizes: string
     valid: boolean
     errors: string[]
 }
@@ -42,6 +44,7 @@ interface DefaultSettings {
     defaultCountryCode: string
     defaultPassword: string
     vendorSlug: string | null
+    printEnabled: boolean
 }
 
 export function ImportProjectForm({ onBack, onProjectsImported, currentFolderId }: ImportProjectFormProps) {
@@ -66,6 +69,7 @@ export function ImportProjectForm({ onBack, onProjectsImported, currentFolderId 
         defaultCountryCode: 'ID',
         defaultPassword: '',
         vendorSlug: null,
+        printEnabled: false,
     })
 
     // Load default settings
@@ -80,7 +84,7 @@ export function ImportProjectForm({ onBack, onProjectsImported, currentFolderId 
 
             const { data } = await supabase
                 .from('settings')
-                .select('default_admin_whatsapp, vendor_name, default_max_photos, default_expiry_days, default_download_expiry_days, default_country_code, default_password')
+                .select('default_admin_whatsapp, vendor_name, default_max_photos, default_expiry_days, default_download_expiry_days, default_country_code, default_password, print_enabled')
                 .eq('user_id', user.id)
                 .maybeSingle()
 
@@ -96,6 +100,7 @@ export function ImportProjectForm({ onBack, onProjectsImported, currentFolderId 
                     vendorSlug: data.vendor_name
                         ? data.vendor_name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
                         : null,
+                    printEnabled: data.print_enabled || false,
                 })
             }
         } catch (err) {
@@ -133,6 +138,8 @@ export function ImportProjectForm({ onBack, onProjectsImported, currentFolderId 
                     const expiryDays = String(row.expiryDays || row['Expiry Days'] || row['Durasi (Hari)'] || '').trim()
                     const downloadExpiryDays = String(row.downloadExpiryDays || row['Download Expiry Days'] || row['Durasi Download (Hari)'] || '').trim()
                     const detectSubfolders = String(row.detectSubfolders || row['Detect Subfolders'] || row['Deteksi Subfolder'] || '').trim().toLowerCase()
+                    const projectType = String(row.projectType || row['Project Type'] || row['Tipe Proyek'] || '').trim().toLowerCase()
+                    const printSizes = String(row.printSizes || row['Print Sizes'] || row['Ukuran Cetak'] || '').trim()
 
                     const errors: string[] = []
                     if (!clientName) errors.push(t('importRequiredField') + ': clientName')
@@ -148,6 +155,8 @@ export function ImportProjectForm({ onBack, onProjectsImported, currentFolderId 
                         expiryDays,
                         downloadExpiryDays,
                         detectSubfolders,
+                        projectType,
+                        printSizes,
                         valid: errors.length === 0,
                         errors,
                     }
@@ -198,6 +207,20 @@ export function ImportProjectForm({ onBack, onProjectsImported, currentFolderId 
                 expiryDays: 14,
                 downloadExpiryDays: 30,
                 detectSubfolders: 'yes',
+                projectType: '',
+                printSizes: '',
+            },
+            {
+                clientName: 'Dani & Eva',
+                gdriveLink: 'https://drive.google.com/drive/folders/example3',
+                clientWhatsapp: '6281111222333',
+                password: '',
+                maxPhotos: '',
+                expiryDays: 7,
+                downloadExpiryDays: '',
+                detectSubfolders: '',
+                projectType: 'print',
+                printSizes: '4R:2, 5R:3',
             },
         ]
 
@@ -212,6 +235,8 @@ export function ImportProjectForm({ onBack, onProjectsImported, currentFolderId 
             { wch: 12 }, // expiryDays
             { wch: 18 }, // downloadExpiryDays
             { wch: 16 }, // detectSubfolders
+            { wch: 12 }, // projectType
+            { wch: 20 }, // printSizes
         ]
         const wb = XLSX.utils.book_new()
         XLSX.utils.book_append_sheet(wb, ws, 'Projects')
@@ -241,14 +266,24 @@ export function ImportProjectForm({ onBack, onProjectsImported, currentFolderId 
                     ? `${origin}/${loc}/client/${defaults.vendorSlug}/${projectId}`
                     : `${origin}/${loc}/client/${projectId}`
 
-                return {
+                const isPrint = row.projectType === 'print'
+                // Parse printSizes from format "4R:2, 5R:3" → [{ name: '4R', quota: 2 }, ...]
+                let parsedPrintSizes: { name: string, quota: number }[] = []
+                if (isPrint && row.printSizes) {
+                    parsedPrintSizes = row.printSizes.split(',').map(s => {
+                        const [name, quota] = s.trim().split(':')
+                        return { name: name?.trim() || '', quota: parseInt(quota?.trim()) || 1 }
+                    }).filter(s => s.name)
+                }
+
+                const project: Project = {
                     id: projectId,
                     clientName: row.clientName,
                     gdriveLink: row.gdriveLink,
                     clientWhatsapp: row.clientWhatsapp || '',
                     adminWhatsapp: defaults.defaultAdminWhatsapp,
                     countryCode: defaults.defaultCountryCode,
-                    maxPhotos,
+                    maxPhotos: isPrint ? 0 : maxPhotos,
                     password: row.password || defaults.defaultPassword || undefined,
                     detectSubfolders: detectSub,
                     expiresAt: expiryDaysNum > 0 ? Date.now() + (expiryDaysNum * 24 * 60 * 60 * 1000) : undefined,
@@ -256,7 +291,14 @@ export function ImportProjectForm({ onBack, onProjectsImported, currentFolderId 
                     createdAt: Date.now(),
                     link,
                     folderId: currentFolderId || null,
+                    ...(isPrint ? {
+                        projectType: 'print' as const,
+                        printEnabled: true,
+                        printSizes: parsedPrintSizes,
+                        printExpiresAt: expiryDaysNum > 0 ? Date.now() + (expiryDaysNum * 24 * 60 * 60 * 1000) : undefined,
+                    } : {}),
                 }
+                return project
             })
 
             const res = await fetch('/api/projects/batch', {
@@ -401,6 +443,12 @@ export function ImportProjectForm({ onBack, onProjectsImported, currentFolderId 
                                         <th className="text-left p-3 font-medium">expiryDays</th>
                                         <th className="text-left p-3 font-medium">downloadExpiryDays</th>
                                         <th className="text-left p-3 font-medium">detectSubfolders</th>
+                                        {defaults.printEnabled && (
+                                            <>
+                                                <th className="text-left p-3 font-medium">projectType</th>
+                                                <th className="text-left p-3 font-medium">printSizes</th>
+                                            </>
+                                        )}
                                         <th className="text-left p-3 font-medium w-8"></th>
                                     </tr>
                                 </thead>
@@ -422,6 +470,12 @@ export function ImportProjectForm({ onBack, onProjectsImported, currentFolderId 
                                             <td className="p-3">{row.expiryDays || <span className="text-muted-foreground italic">{defaults.defaultExpiryDays || '∞'}</span>}</td>
                                             <td className="p-3">{row.downloadExpiryDays || <span className="text-muted-foreground italic">{defaults.defaultDownloadExpiryDays || '∞'}</span>}</td>
                                             <td className="p-3">{row.detectSubfolders || <span className="text-muted-foreground italic">{defaults.defaultDetectSubfolders ? 'yes' : 'no'}</span>}</td>
+                                            {defaults.printEnabled && (
+                                                <>
+                                                    <td className="p-3">{row.projectType ? <span className={row.projectType === 'print' ? 'text-purple-600 font-medium' : ''}>{row.projectType}</span> : <span className="text-muted-foreground italic">edit</span>}</td>
+                                                    <td className="p-3">{row.printSizes || <span className="text-muted-foreground italic">-</span>}</td>
+                                                </>
+                                            )}
                                             <td className="p-3">
                                                 <button onClick={() => removeRow(i)} className="text-muted-foreground hover:text-destructive cursor-pointer">
                                                     <X className="h-4 w-4" />

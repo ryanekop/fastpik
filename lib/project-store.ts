@@ -22,6 +22,15 @@ export interface Project {
     selectionStatus?: string // 'pending' | 'in_progress' | 'submitted' | 'reviewed'
     selectionSubmittedAt?: number | null // Unix timestamp
     selectionLastSyncedAt?: number | null // Unix timestamp
+    // Print selection
+    projectType?: 'edit' | 'print' // default 'edit'
+    printEnabled?: boolean
+    printExpiresAt?: number | null // Unix timestamp
+    printSizes?: { name: string, quota: number }[] // from template or custom
+    printSelections?: { photo: string, size: string }[]
+    printStatus?: string // 'pending' | 'in_progress' | 'submitted' | 'reviewed'
+    printSubmittedAt?: number | null
+    printLastSyncedAt?: number | null
     // Legacy support for old projects
     whatsapp?: string
 }
