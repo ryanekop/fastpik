@@ -226,6 +226,10 @@ export function ProjectList({
     const [generatedPrintLink, setGeneratedPrintLink] = useState<string | null>(null)
     const [isGeneratingPrint, setIsGeneratingPrint] = useState(false)
     const [printWaTemplate, setPrintWaTemplate] = useState<{ id: string, en: string } | null>(null)
+    const [showCustomPrintExpiryDialog, setShowCustomPrintExpiryDialog] = useState(false)
+    const [customPrintMonths, setCustomPrintMonths] = useState("")
+    const [customPrintDays, setCustomPrintDays] = useState("")
+    const [customPrintExpiryLabel, setCustomPrintExpiryLabel] = useState<string | null>(null)
 
     // Folder states
     const [sortByExpiry, setSortByExpiry] = useState<{ type: 'selection' | 'download'; direction: 'asc' | 'desc' } | null>(null)
@@ -409,6 +413,77 @@ export function ProjectList({
 
     const copyTemplateForProject = (project: Project) => {
         const dynamicLink = buildProjectLink(project.id)
+
+        // Print projects use their own template
+        if (project.projectType === 'print') {
+            const printSizesStr = (project.printSizes || []).map((s: any) => `${s.name}×${s.quota}`).join(', ')
+            const totalQuota = (project.printSizes || []).reduce((sum: number, s: any) => sum + s.quota, 0)
+            const variables: Record<string, string> = {
+                client_name: project.clientName,
+                link: dynamicLink,
+                print_sizes: printSizesStr,
+                count: totalQuota.toString(),
+            }
+            if (project.password) {
+                variables.password = project.password
+            }
+            if (project.printExpiresAt) {
+                const diff = project.printExpiresAt - Date.now()
+                if (diff > 0) {
+                    const days = Math.floor(diff / 86400000)
+                    const hours = Math.floor((diff % 86400000) / 3600000)
+                    if (days > 0) {
+                        variables.print_duration = `${days} ${t('days')}`
+                    } else if (hours > 0) {
+                        variables.print_duration = `${hours} ${t('hours')}`
+                    } else {
+                        variables.print_duration = t('lessThanHour')
+                    }
+                }
+            }
+            // Try custom print WA template
+            let message = ''
+            if (printWaTemplate) {
+                const lang = locale as 'id' | 'en'
+                const tmplText = printWaTemplate[lang] || ''
+                if (tmplText.trim()) {
+                    message = tmplText
+                    Object.entries(variables).forEach(([key, val]) => {
+                        message = message.replace(new RegExp(`{{${key}}}`, 'g'), val)
+                    })
+                    message = message.replace(/{{(\w+)}}/g, '').replace(/\n{3,}/g, '\n\n').trim()
+                }
+            }
+            if (!message) {
+                // Fallback: default print message
+                message = locale === 'id'
+                    ? `Halo ${project.clientName}! \u{1F5A8}\u{FE0F}\n\nSilakan pilih foto untuk dicetak melalui link berikut:\n${dynamicLink}`
+                    : `Hello ${project.clientName}! \u{1F5A8}\u{FE0F}\n\nPlease select photos for print at the following link:\n${dynamicLink}`
+                if (variables.print_duration) {
+                    message += `\n\n\u23F0 ${t('printDuration')}: ${variables.print_duration}`
+                }
+                if (variables.password) {
+                    message += `\n\n🔐 Password: ${variables.password}`
+                }
+            }
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(message)
+                setCopiedTemplateId(project.id)
+                setTimeout(() => setCopiedTemplateId(null), 2000)
+            } else {
+                const textArea = document.createElement("textarea")
+                textArea.value = message
+                textArea.style.position = "fixed"
+                textArea.style.left = "-9999px"
+                document.body.appendChild(textArea)
+                textArea.focus()
+                textArea.select()
+                try { document.execCommand('copy'); setCopiedTemplateId(project.id); setTimeout(() => setCopiedTemplateId(null), 2000) } catch (err) { console.error('Failed to copy', err) }
+                document.body.removeChild(textArea)
+            }
+            return
+        }
+
         const isExtra = !!(project.lockedPhotos && project.lockedPhotos.length > 0)
         const effectiveCount = isExtra ? project.maxPhotos - project.lockedPhotos!.length : project.maxPhotos
         const variables: Record<string, string> = {
@@ -772,7 +847,7 @@ export function ProjectList({
             link: generatedPrintLink,
             print_sizes: printSizes.map(s => `${s.name}×${s.quota}`).join(', '),
         }
-        const days = parseInt(printExpiryDays)
+        const days = printExpiryDays ? parseInt(printExpiryDays) : 0
         if (days > 0) {
             variables.print_duration = `${days} ${t('days')}`
         }
@@ -1587,10 +1662,23 @@ export function ProjectList({
                             {/* Print duration */}
                             <div className="space-y-2">
                                 <label className="text-sm font-medium">⏰ {t('printDuration')}</label>
+                                {customPrintExpiryLabel && (
+                                    <button onClick={() => { setCustomPrintMonths(''); setCustomPrintDays(''); setShowCustomPrintExpiryDialog(true) }} className="flex items-center gap-1.5 text-sm text-purple-600 dark:text-purple-400 hover:underline cursor-pointer mb-1">
+                                        <span>✏️ {customPrintExpiryLabel}</span>
+                                    </button>
+                                )}
                                 <select
-                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer"
-                                    value={printExpiryDays}
-                                    onChange={(e) => setPrintExpiryDays(e.target.value)}
+                                    className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer ${customPrintExpiryLabel ? 'hidden' : ''}`}
+                                    value={customPrintExpiryLabel ? 'custom' : printExpiryDays}
+                                    onChange={(e) => {
+                                        if (e.target.value === 'custom') {
+                                            setCustomPrintMonths(''); setCustomPrintDays('');
+                                            setShowCustomPrintExpiryDialog(true)
+                                        } else {
+                                            setPrintExpiryDays(e.target.value)
+                                            setCustomPrintExpiryLabel(null)
+                                        }
+                                    }}
                                 >
                                     <option value="">♾️ {t('forever')}</option>
                                     <option value="1">1 {t('days')}</option>
@@ -1599,6 +1687,7 @@ export function ProjectList({
                                     <option value="7">7 {t('days')}</option>
                                     <option value="14">14 {t('days')}</option>
                                     <option value="30">30 {t('days')}</option>
+                                    <option value="custom">✏️ Custom</option>
                                 </select>
                             </div>
 
@@ -1697,6 +1786,53 @@ export function ProjectList({
                                 }
                                 setShowCustomExtraExpiryDialog(false)
                             }} disabled={(parseInt(customExtraMonths) || 0) <= 0 && (parseInt(customExtraDays) || 0) <= 0}>✓ OK</Button>
+                        </div>
+                    </motion.div>
+                </div>
+            )}
+
+            {/* Custom Print Duration Popup Dialog */}
+            {showCustomPrintExpiryDialog && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+                    <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-background rounded-xl shadow-xl max-w-sm w-full p-6 space-y-4">
+                        <h3 className="text-lg font-semibold">✏️ {t('customDuration')}</h3>
+                        <div className="flex gap-3">
+                            <div className="flex-1 space-y-1">
+                                <label className="text-sm font-medium">🗓️ {t('customMonthsLabel')}</label>
+                                <Input
+                                    type="number"
+                                    min="0"
+                                    value={customPrintMonths}
+                                    onChange={(e) => setCustomPrintMonths(e.target.value)}
+                                    placeholder="0"
+                                    autoFocus
+                                />
+                            </div>
+                            <div className="flex-1 space-y-1">
+                                <label className="text-sm font-medium">📅 {t('customDaysLabel')}</label>
+                                <Input
+                                    type="number"
+                                    min="0"
+                                    value={customPrintDays}
+                                    onChange={(e) => setCustomPrintDays(e.target.value)}
+                                    placeholder="0"
+                                />
+                            </div>
+                        </div>
+                        <div className="flex gap-2">
+                            <Button variant="outline" className="flex-1 cursor-pointer" onClick={() => setShowCustomPrintExpiryDialog(false)}>{t('cancel')}</Button>
+                            <Button className="flex-1 cursor-pointer" onClick={() => {
+                                const months = parseInt(customPrintMonths) || 0
+                                const days = parseInt(customPrintDays) || 0
+                                if (months <= 0 && days <= 0) return
+                                const totalDays = (months * 30) + days
+                                const parts: string[] = []
+                                if (months > 0) parts.push(`${months} ${t('customMonthsLabel')}`)
+                                if (days > 0) parts.push(`${days} ${t('customDaysLabel')}`)
+                                setPrintExpiryDays(totalDays.toString())
+                                setCustomPrintExpiryLabel(parts.join(' '))
+                                setShowCustomPrintExpiryDialog(false)
+                            }} disabled={(parseInt(customPrintMonths) || 0) <= 0 && (parseInt(customPrintDays) || 0) <= 0}>✓ OK</Button>
                         </div>
                     </motion.div>
                 </div>

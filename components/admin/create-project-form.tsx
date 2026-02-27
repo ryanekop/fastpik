@@ -96,10 +96,30 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
         },
     })
 
-    // Load default admin WhatsApp from settings for new projects
+    // Load vendor slug for link generation (needed for both create and edit)
+    const loadVendorSlug = async () => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser()
+            if (!user) return
+            const { data } = await supabase
+                .from('settings')
+                .select('vendor_name')
+                .eq('user_id', user.id)
+                .maybeSingle()
+            if (data?.vendor_name) {
+                const slug = data.vendor_name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+                setVendorSlug(slug)
+            }
+        } catch { }
+    }
+
+    // Load default settings for new projects, or just vendorSlug for edit mode
     useEffect(() => {
         if (!isEditing) {
             loadDefaultSettings()
+        } else {
+            // Still need vendorSlug for correct link generation in edit mode
+            loadVendorSlug()
         }
     }, [isEditing])
 

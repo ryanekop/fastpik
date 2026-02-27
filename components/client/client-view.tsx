@@ -1421,7 +1421,7 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                                                 <div
                                                     key={photo.id}
                                                     className="relative group aspect-[4/3] rounded-lg overflow-hidden cursor-pointer border-2 bg-muted border-purple-400 dark:border-purple-600"
-                                                    onClick={() => handleZoom(photo)}
+                                                    onClick={() => { setActivePrintSize(size.name); handleZoom(photo); }}
                                                 >
                                                     <img src={photo.url} alt={photo.name} className="w-full h-full object-cover" loading="lazy" />
                                                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-20">
@@ -1522,7 +1522,7 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                 initialIndex={lightboxIndex}
                 isOpen={lightboxOpen}
                 onClose={() => setLightboxOpen(false)}
-                selectedIds={viewMode === 'download' ? downloadSelected : (isPrintProject ? currentSelected : selected)}
+                selectedIds={viewMode === 'download' ? downloadSelected : (isPrintProject ? (viewMode === 'review' ? allPrintSelectedIds : currentSelected) : selected)}
                 onToggleSelect={viewMode === 'download' ? handleDownloadToggle : handleToggle}
                 maxPhotos={viewMode === 'download' ? Infinity : currentMaxPhotos}
             />

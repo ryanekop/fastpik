@@ -105,6 +105,7 @@ export async function updateProject(id: string, updates: Partial<Project>) {
     if (updates.printExpiresAt !== undefined) dbUpdates.print_expires_at = updates.printExpiresAt ? new Date(updates.printExpiresAt).toISOString() : null
     if (updates.projectType !== undefined) dbUpdates.project_type = updates.projectType
     if (updates.printSizes !== undefined) dbUpdates.print_sizes = updates.printSizes
+    if (updates.folderId !== undefined) dbUpdates.folder_id = updates.folderId || null
 
     const { error } = await supabase
         .from('projects')

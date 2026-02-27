@@ -444,7 +444,7 @@ export function ClientStatusTab({ projects: initialProjects, folders, onProjects
                                                         </span>
                                                         <span className="text-xs text-muted-foreground whitespace-nowrap flex items-center gap-1">
                                                             <Timer className="h-3 w-3" />
-                                                            {formatExpiry(dashboardDurationDisplay === 'download' ? project.downloadExpiresAt : project.expiresAt)}
+                                                            {formatExpiry(project.expiresAt)}
                                                         </span>
                                                     </div>
                                                     {/* Client name + badge */}
