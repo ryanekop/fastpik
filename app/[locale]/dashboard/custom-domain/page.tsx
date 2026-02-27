@@ -108,8 +108,10 @@ export default function CustomDomainPage() {
                         <CardContent className="p-0">
                             <div className="bg-foreground p-6 text-background text-center">
                                 <p className="text-sm opacity-80 mb-2">{t('domainPage.pricingSetup')}</p>
-                                <p className="text-4xl font-bold">Rp 200.000</p>
-                                <p className="text-sm opacity-70 mt-1">{t('domainPage.pricingOneTime')}</p>
+                                <p className="text-lg opacity-60 line-through">Rp 200.000</p>
+                                <p className="text-4xl font-bold">Rp 150.000</p>
+                                <span className="inline-block mt-2 px-3 py-1 text-xs font-semibold bg-red-500 text-white rounded-full animate-pulse">🔥 10 orang tercepat</span>
+                                <p className="text-sm opacity-70 mt-2">{t('domainPage.pricingOneTime')}</p>
                             </div>
                             <div className="p-6 space-y-3">
                                 <div className="flex items-start gap-3">

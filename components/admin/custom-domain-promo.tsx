@@ -77,10 +77,12 @@ export function CustomDomainPromo() {
 
                 <div className="rounded-lg bg-muted border p-3 text-center animate-[fade-in-up_0.4s_ease-out_0.6s_both]">
                     <p className="text-xs text-muted-foreground mb-1">{t('domainPromo.startingFrom')}</p>
+                    <p className="text-sm text-muted-foreground line-through">Rp 200.000</p>
                     <p className="text-2xl font-bold text-foreground">
-                        Rp 200.000
+                        Rp 150.000
                     </p>
-                    <p className="text-xs text-muted-foreground">{t('domainPromo.setupFee')}</p>
+                    <span className="inline-block mt-1 px-2 py-0.5 text-xs font-semibold bg-red-500 text-white rounded-full animate-pulse">🔥 10 orang tercepat</span>
+                    <p className="text-xs text-muted-foreground mt-1">{t('domainPromo.setupFee')}</p>
                 </div>
 
                 <div className="flex items-center space-x-2 py-1">
