@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
             // Fetch all projects for this user that have expiry dates
             const { data: projects, error: projError } = await supabase
                 .from('projects')
-                .select('id, client_name, client_whatsapp, link, max_photos, password, expires_at, download_expires_at, selection_status, project_type, print_expires_at, print_sizes, print_status, locked_photos')
+                .select('id, client_name, client_whatsapp, link, max_photos, password, expires_at, download_expires_at, selection_status, project_type, print_expires_at, print_sizes, print_status, locked_photos, country_code')
                 .eq('user_id', user_id)
 
             if (projError) {
@@ -83,6 +83,7 @@ export async function GET(request: NextRequest) {
                 daysLeftPrint?: number
                 printStatus?: string
                 isExtra?: boolean
+                countryCode?: string
             }[] = []
 
             for (const project of projects) {
@@ -146,6 +147,7 @@ export async function GET(request: NextRequest) {
                         daysLeftPrint,
                         printStatus: project.print_status || undefined,
                         isExtra: !!(project.locked_photos && Array.isArray(project.locked_photos) && project.locked_photos.length > 0),
+                        countryCode: project.country_code || undefined,
                     })
                 }
             }

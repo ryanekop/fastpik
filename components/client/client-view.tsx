@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import { useSelectionStore, useStoreHydration } from "@/lib/store"
 import { PhotoGrid } from "./photo-grid"
 import { PhotoLightbox } from "./photo-lightbox"
+import { normalizeWhatsappNumber } from "@/lib/telegram"
 import { useTranslations, useLocale } from "next-intl"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -834,7 +835,8 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
 
         const message = compileMessage(template || null, variables, defaultMsg)
 
-        window.open(`https://api.whatsapp.com/send/?phone=${config.adminWhatsapp}&text=${encodeURIComponent(message)}`, '_blank')
+        const waNumber = normalizeWhatsappNumber(config.adminWhatsapp)
+        window.open(`https://api.whatsapp.com/send/?phone=${waNumber}&text=${encodeURIComponent(message)}`, '_blank')
     }
 
     const handleClearSelection = () => {

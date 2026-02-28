@@ -1,6 +1,29 @@
 
 const TELEGRAM_API = 'https://api.telegram.org'
 
+// Country code to dial code mapping
+const COUNTRY_DIAL_CODES: Record<string, string> = {
+    ID: '62', MY: '60', SG: '65', TH: '66', PH: '63', VN: '84',
+    US: '1', GB: '44', AU: '61', JP: '81', KR: '82', CN: '86',
+    IN: '91', AE: '971', SA: '966', NZ: '64', HK: '852', TW: '886',
+    BR: '55', DE: '49', FR: '33', IT: '39', ES: '34', NL: '31',
+}
+
+/** Normalize phone number: strip non-digits, add country dial code if missing */
+export function normalizeWhatsappNumber(raw: string, countryCode?: string): string {
+    let num = raw.replace(/[^0-9]/g, '')
+    const dialCode = COUNTRY_DIAL_CODES[countryCode?.toUpperCase() || ''] || '62'
+
+    if (num.startsWith('0')) {
+        // Local format (e.g. 0812...) → replace leading 0 with dial code
+        num = dialCode + num.slice(1)
+    } else if (!num.startsWith(dialCode) && num.length <= 12) {
+        // No country code prefix and short enough to be local → prepend dial code
+        num = dialCode + num
+    }
+    return num
+}
+
 function getBotToken(): string {
     const token = process.env.TELEGRAM_BOT_TOKEN
     if (!token) throw new Error('TELEGRAM_BOT_TOKEN is not set')
@@ -40,6 +63,7 @@ interface ReminderProject {
     daysLeftPrint?: number
     printStatus?: string
     isExtra?: boolean
+    countryCode?: string
 }
 
 function compileTemplate(template: string, variables: Record<string, string>): string {
@@ -197,7 +221,7 @@ export function formatReminderMessage(
                 reminderText = parts.join('\n')
             }
 
-            const waNumber = p.clientWhatsapp.replace(/[^0-9]/g, '')
+            const waNumber = normalizeWhatsappNumber(p.clientWhatsapp, p.countryCode)
             const waLink = `https://api.whatsapp.com/send/?phone=${waNumber}&text=${encodeURIComponent(reminderText)}`
             lines.push(`💬 <a href="${waLink}">${isEn ? 'Send reminder via WhatsApp' : 'Kirim reminder via WhatsApp'}</a>`)
             lines.push('')

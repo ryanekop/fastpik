@@ -151,6 +151,7 @@ function PhotoCard({
                     key={`${photo.id}-${retryKey}`}
                     src={photo.url}
                     alt={photo.name}
+                    data-photo-id={photo.id}
                     className={cn(
                         "w-full h-full object-cover transition-opacity duration-200",
                         isLoading ? "opacity-0" : "opacity-100"
