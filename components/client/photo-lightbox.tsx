@@ -674,12 +674,15 @@ export function PhotoLightbox({
                                     style={{
                                         transform: `scale(${scale}) translate(${position.x / scale}px, ${position.y / scale}px)`,
                                         transformOrigin: transformOrigin,
-                                        transition: (isDragging || isSwiping || lastTouchDistance !== null || zoomAnimRef.current !== null) ? 'none' : 'transform 0.35s cubic-bezier(0.2, 0, 0, 1), opacity 0.3s ease',
+                                        transition: (isDragging || isSwiping || lastTouchDistance !== null || zoomAnimRef.current !== null) ? 'none' : 'transform 0.35s cubic-bezier(0.2, 0, 0, 1)',
                                         maxHeight: imageMaxH,
                                         willChange: 'transform',
-                                        opacity: isImageLoading ? 0 : currentOpacity,
+                                        opacity: currentOpacity,
                                     }}
-                                    className="max-w-[calc(100vw-40px)] object-contain pointer-events-none touch-none"
+                                    className={cn(
+                                        "max-w-[calc(100vw-40px)] object-contain pointer-events-none touch-none",
+                                        isImageLoading ? "opacity-0" : "opacity-100 transition-opacity duration-300"
+                                    )}
                                     draggable={false}
                                     onLoad={(e) => {
                                         setIsImageLoading(false)
