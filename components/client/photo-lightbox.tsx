@@ -86,13 +86,6 @@ export function PhotoLightbox({
         setScale(1)
         setPosition({ x: 0, y: 0 })
         setTransformOrigin('center center')
-        // Only show loading if next image is NOT in browser cache
-        const nextUrl = photos[currentIndex]?.full
-        if (nextUrl && isImageCached(nextUrl)) {
-            setIsImageLoading(false)
-        } else {
-            setIsImageLoading(true)
-        }
         setNaturalSize(null)
     }, [currentIndex, isOpen])
 
@@ -108,11 +101,34 @@ export function PhotoLightbox({
 
     const currentPhoto = photos[currentIndex]
     const [imgSrc, setImgSrc] = useState(currentPhoto?.full || '')
+    const preloadRef = useRef<HTMLImageElement | null>(null)
 
-    // Sync imgSrc when index changes
+    // Sync imgSrc when index changes — preload if not cached to avoid black screen
     useEffect(() => {
-        if (currentPhoto) {
-            setImgSrc(currentPhoto.full)
+        if (!currentPhoto) return
+        const nextUrl = currentPhoto.full
+
+        // Cancel any previous preload
+        if (preloadRef.current) {
+            preloadRef.current.onload = null
+            preloadRef.current = null
+        }
+
+        if (isImageCached(nextUrl)) {
+            // Already cached — swap instantly
+            setImgSrc(nextUrl)
+            setIsImageLoading(false)
+        } else {
+            // Not cached — show loading but keep old photo, preload in background
+            setIsImageLoading(true)
+            const preloader = new window.Image()
+            preloadRef.current = preloader
+            preloader.onload = () => {
+                setImgSrc(nextUrl)
+                setIsImageLoading(false)
+                preloadRef.current = null
+            }
+            preloader.src = nextUrl
         }
     }, [currentIndex]) // eslint-disable-line react-hooks/exhaustive-deps
 
