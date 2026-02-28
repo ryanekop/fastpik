@@ -119,8 +119,9 @@ export function PhotoLightbox({
             setImgSrc(nextUrl)
             setIsImageLoading(false)
         } else {
-            // Not cached — show loading but keep old photo, preload in background
+            // Not cached — keep old photo visible, show spinner overlay, preload
             setIsImageLoading(true)
+            // DON'T change imgSrc yet — old photo stays visible
             const preloader = new window.Image()
             preloadRef.current = preloader
             preloader.onload = () => {
@@ -696,8 +697,9 @@ export function PhotoLightbox({
                                         opacity: currentOpacity,
                                     }}
                                     className={cn(
-                                        "max-w-[calc(100vw-40px)] object-contain pointer-events-none touch-none",
-                                        isImageLoading ? "opacity-0" : "opacity-100 transition-opacity duration-300"
+                                        "max-w-[calc(100vw-40px)] object-contain pointer-events-none touch-none transition-opacity duration-300",
+                                        // Only hide if no image loaded yet (initial state)
+                                        (!imgSrc) ? "opacity-0" : "opacity-100"
                                     )}
                                     draggable={false}
                                     onLoad={(e) => {
