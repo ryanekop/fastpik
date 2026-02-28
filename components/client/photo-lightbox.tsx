@@ -101,35 +101,20 @@ export function PhotoLightbox({
 
     const currentPhoto = photos[currentIndex]
     const [imgSrc, setImgSrc] = useState(currentPhoto?.full || '')
-    const preloadRef = useRef<HTMLImageElement | null>(null)
 
-    // Sync imgSrc when index changes — preload if not cached to avoid black screen
+    // Sync imgSrc when index changes
     useEffect(() => {
         if (!currentPhoto) return
         const nextUrl = currentPhoto.full
 
-        // Cancel any previous preload
-        if (preloadRef.current) {
-            preloadRef.current.onload = null
-            preloadRef.current = null
-        }
-
         if (isImageCached(nextUrl)) {
-            // Already cached — swap instantly
+            // Already cached — swap instantly, no loading
             setImgSrc(nextUrl)
             setIsImageLoading(false)
         } else {
-            // Not cached — keep old photo visible, show spinner overlay, preload
+            // Not cached — show black + spinner, swap src so it starts loading
             setIsImageLoading(true)
-            // DON'T change imgSrc yet — old photo stays visible
-            const preloader = new window.Image()
-            preloadRef.current = preloader
-            preloader.onload = () => {
-                setImgSrc(nextUrl)
-                setIsImageLoading(false)
-                preloadRef.current = null
-            }
-            preloader.src = nextUrl
+            setImgSrc(nextUrl)
         }
     }, [currentIndex]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -697,9 +682,8 @@ export function PhotoLightbox({
                                         opacity: currentOpacity,
                                     }}
                                     className={cn(
-                                        "max-w-[calc(100vw-40px)] object-contain pointer-events-none touch-none transition-opacity duration-300",
-                                        // Only hide if no image loaded yet (initial state)
-                                        (!imgSrc) ? "opacity-0" : "opacity-100"
+                                        "max-w-[calc(100vw-40px)] object-contain pointer-events-none touch-none",
+                                        isImageLoading ? "opacity-0" : "opacity-100 transition-opacity duration-300"
                                     )}
                                     draggable={false}
                                     onLoad={(e) => {
