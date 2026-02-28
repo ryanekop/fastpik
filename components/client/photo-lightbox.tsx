@@ -69,7 +69,12 @@ export function PhotoLightbox({
     const dragStartPos = useRef({ x: 0, y: 0 })
     const mouseDownPos = useRef({ x: 0, y: 0 })
     const wasDrag = useRef(false)
-    const swipeCommitting = useRef(false)  // skip loading flash on swipe
+    // Check if an image URL is already in browser cache
+    const isImageCached = useCallback((url: string): boolean => {
+        const img = new Image()
+        img.src = url
+        return img.complete && img.naturalWidth > 0
+    }, [])
     const swipeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const pendingSwipeIdx = useRef<number | null>(null)
     const doubleTapRef = useRef(false)  // prevent swipe after double-tap
@@ -81,10 +86,13 @@ export function PhotoLightbox({
         setScale(1)
         setPosition({ x: 0, y: 0 })
         setTransformOrigin('center center')
-        if (!swipeCommitting.current) {
+        // Only show loading if next image is NOT in browser cache
+        const nextUrl = photos[currentIndex]?.full
+        if (nextUrl && isImageCached(nextUrl)) {
+            setIsImageLoading(false)
+        } else {
             setIsImageLoading(true)
         }
-        swipeCommitting.current = false
         setNaturalSize(null)
     }, [currentIndex, isOpen])
 
@@ -101,9 +109,9 @@ export function PhotoLightbox({
     const currentPhoto = photos[currentIndex]
     const [imgSrc, setImgSrc] = useState(currentPhoto?.full || '')
 
-    // Sync imgSrc when index changes (not via swipe — swipe sets it in commitSwipe)
+    // Sync imgSrc when index changes
     useEffect(() => {
-        if (!swipeCommitting.current && currentPhoto) {
+        if (currentPhoto) {
             setImgSrc(currentPhoto.full)
         }
     }, [currentIndex]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -161,7 +169,6 @@ export function PhotoLightbox({
             clearTimeout(swipeTimerRef.current)
             swipeTimerRef.current = null
             if (pendingSwipeIdx.current !== null) {
-                swipeCommitting.current = true
                 setImgSrc(photos[pendingSwipeIdx.current].full)
                 setCurrentIndex(pendingSwipeIdx.current)
                 pendingSwipeIdx.current = null
@@ -184,7 +191,6 @@ export function PhotoLightbox({
             swipeTimerRef.current = null
             pendingSwipeIdx.current = null
             setIsSwipeAnimating(false)
-            swipeCommitting.current = true
             setImgSrc(photos[newIdx].full)
             setSwipeDelta(0)
             setSlideDirection(direction === 'next' ? 'left' : 'right')
