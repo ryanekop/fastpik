@@ -12,7 +12,7 @@ import { motion } from "framer-motion"
 import {
     Link2, Zap, Smartphone, Moon, Lock, ArrowLeft, ArrowRight, Sparkles,
     Download, ZoomIn, Hash, ImagePlus, Timer, Globe, FolderOpen, GripVertical, MessageSquare,
-    Bot, Layers, ClipboardCheck
+    Bot, Layers, ClipboardCheck, Printer, Globe2
 } from "lucide-react"
 import { useTenant } from "@/lib/tenant-context"
 
@@ -20,9 +20,11 @@ const coreFeatures = [
     { icon: Link2, titleKey: 'feature1Title', descKey: 'feature1Desc', color: 'text-blue-500', bg: 'bg-blue-500/10' },
     { icon: Zap, titleKey: 'feature3Title', descKey: 'feature3Desc', color: 'text-yellow-500', bg: 'bg-yellow-500/10' },
     { icon: Download, titleKey: 'feature7Title', descKey: 'feature7Desc', color: 'text-cyan-500', bg: 'bg-cyan-500/10' },
+    { icon: Printer, titleKey: 'feature20Title', descKey: 'feature20Desc', color: 'text-rose-500', bg: 'bg-rose-500/10' },
     { icon: Timer, titleKey: 'feature11Title', descKey: 'feature11Desc', color: 'text-orange-500', bg: 'bg-orange-500/10' },
     { icon: Smartphone, titleKey: 'feature4Title', descKey: 'feature4Desc', color: 'text-purple-500', bg: 'bg-purple-500/10' },
     { icon: Lock, titleKey: 'feature6Title', descKey: 'feature6Desc', color: 'text-red-500', bg: 'bg-red-500/10' },
+    { icon: Globe2, titleKey: 'feature21Title', descKey: 'feature21Desc', color: 'text-emerald-600', bg: 'bg-emerald-600/10' },
 ]
 
 const additionalFeatures = [
@@ -96,7 +98,7 @@ export default function FeaturesPage() {
                         </Button>
                         <Badge variant="secondary">
                             <Sparkles className="h-3 w-3 mr-1" />
-                            17 {t('pageTitle').includes('Fitur') ? 'Fitur' : 'Features'}
+                            19 {t('pageTitle').includes('Fitur') ? 'Fitur' : 'Features'}
                         </Badge>
                         <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight">
                             {t('pageTitle')}
