@@ -679,12 +679,9 @@ export function PhotoLightbox({
                                         transition: (isDragging || isSwiping || lastTouchDistance !== null || zoomAnimRef.current !== null) ? 'none' : 'transform 0.35s cubic-bezier(0.2, 0, 0, 1)',
                                         maxHeight: imageMaxH,
                                         willChange: 'transform',
-                                        opacity: currentOpacity,
+                                        opacity: isImageLoading ? 0 : currentOpacity,
                                     }}
-                                    className={cn(
-                                        "max-w-[calc(100vw-40px)] object-contain pointer-events-none touch-none",
-                                        isImageLoading ? "opacity-0" : "opacity-100 transition-opacity duration-300"
-                                    )}
+                                    className="max-w-[calc(100vw-40px)] object-contain pointer-events-none touch-none transition-opacity duration-300"
                                     draggable={false}
                                     onLoad={(e) => {
                                         setIsImageLoading(false)
