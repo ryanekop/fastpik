@@ -2,47 +2,40 @@
 
 ## v1.4.1 (2026-02-28)
 
-### ✨ Photo Lightbox Improvements
+### ✨ Tampilan Foto (Photo Viewer)
 
-#### Swipe & Navigation
-- **Smooth swipe with dynamic opacity** — adjacent photos fade in/out as you swipe, with smooth opacity transition based on swipe position
-- **Fast swipe support** — rapid swipes cancel pending animation and chain correctly using `pendingSwipeIdx` tracking
-- **Touch swipe** — real-time finger-following swipe on mobile, matching native gallery feel
-- **Desktop mouse swipe** — click-and-drag to navigate between photos
+#### Navigasi
+- **Geser halus antar foto** — foto sebelah muncul dengan efek fade saat digeser
+- **Geser cepat** — geser berturut-turut tetap mulus tanpa gangguan
+- **Geser di mobile** — foto mengikuti jari seperti galeri asli
+- **Geser di desktop** — klik dan seret untuk pindah foto
 
 #### Zoom
-- **Desktop click-to-zoom** — progressive zoom (1x → 2x → 3x → MAX → reset) with zoom-to-cursor position on first click
-- **Mobile double-tap zoom** — toggle zoom in/out with animated transition (RAF-based `animateZoom`)
-- **Pinch-to-zoom jitter fix** — disabled CSS transition during pinch to prevent visual fighting
-- **Smooth zoom-out animation** — `transformOrigin` resets only after transition completes, preventing snap-to-center
+- **Klik untuk zoom di desktop** — zoom bertahap mengikuti posisi mouse
+- **Double-tap zoom di mobile** — ketuk dua kali untuk zoom ke titik yang diketuk
+- **Pinch-to-zoom lebih halus** — tidak ada getaran saat zoom pakai dua jari
+- **Zoom-out lebih natural** — animasi zoom keluar lebih mulus
 
-#### Zoom Indicator
-- **Animated zoom percentage** — `displayScale` state animates smoothly via `requestAnimationFrame` for the indicator, while actual scale uses CSS/JS transition
+#### Indikator Zoom
+- **Persentase zoom animasi** — indikator zoom bergerak halus saat zoom masuk/keluar
 
-#### Thumbnails
-- **Mouse wheel scroll** — vertical mouse wheel converted to horizontal thumbnail scroll
-- **Touchpad gesture support** — native browser handling preserved for trackpad gestures
-- **Centered thumbnails** — first/last photo thumbnails remain centered, not stuck to edges
+#### Thumbnail
+- **Scroll thumbnail pakai mouse** — scroll vertikal otomatis jadi scroll horizontal
+- **Thumbnail selalu di tengah** — foto pertama/terakhir tidak menempel di pinggir
 
-#### Mobile Optimizations
-- **Dynamic viewport height** — `imageMaxH` uses `dvh` instead of `vh` to account for mobile browser chrome bars
-- **Touch-only pinch zoom** — disabled click-to-zoom on touch devices (`isTouchDevice` ref) to prevent synthetic mouse events from interfering
-- **Double-tap guard** — `doubleTapRef` prevents swipe start from re-enabling swiping after double-tap detection
+#### Mobile
+- **Foto tidak terpotong** — ukuran foto menyesuaikan tampilan browser mobile
+- **Loading pintar** — foto yang sudah pernah dilihat langsung tampil tanpa loading
+- **Fade-in halus** — foto baru tampil dengan efek fade setelah dimuat
 
-#### Bug Fixes
-- Fixed empty `src` attribute console error by conditionally rendering `<img>` when `imgSrc` is non-empty
-- Fixed `transformOrigin` hardcoded to `'center center'` instead of using state variable
-- Fixed stale closure issue with `lastTapTime` by converting from state to ref
-- Removed duplicate/stale JSX code that was incorrectly placed outside the component
+#### Perbaikan Bug
+- Memperbaiki foto kadang tidak muncul saat loading
+- Memperbaiki double-tap zoom tidak zoom ke titik yang benar
+- Memperbaiki zoom yang kadang melompat ke posisi salah di desktop
 
-### 🔧 WhatsApp Number Normalization
+### 🔧 Format Nomor WhatsApp
 
-- **New helper `normalizeWhatsappNumber`** — properly normalizes phone numbers with country dial code lookup
-- **Multi-country support** — lookup table for 20+ countries (ID, MY, SG, TH, US, JP, KR, etc.)
-- **Fixed wrong country code in Telegram reminder** — numbers like `082-2720-4700` were incorrectly sent as `+82` (South Korea) instead of `+62` (Indonesia)
-- **Normalization rules:**
-  - `0812...` → `62812...` (local format, leading `0` replaced with dial code)
-  - `812...` → `62812...` (no prefix, dial code prepended)
-  - `62812...` → `62812...` (already correct, unchanged)
-  - Uses project's `country_code` for non-Indonesian vendors
-- **Applied in:** Telegram bot reminder link (`lib/telegram.ts`) and client WhatsApp button (`client-view.tsx`)
+- **Dukungan multi-negara** — format nomor telepon otomatis untuk 20+ negara
+- **Perbaikan kode negara salah** — nomor 08xx tidak lagi salah dikirim sebagai +82 (Korea), sekarang benar +62 (Indonesia)
+- **Format otomatis** — nomor `0812...`, `812...`, atau `62812...` semua dikenali dengan benar
+- **Sesuai pengaturan project** — menggunakan kode negara yang diset di pengaturan masing-masing project
