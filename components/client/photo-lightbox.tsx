@@ -676,7 +676,9 @@ export function PhotoLightbox({
                                     style={{
                                         transform: `scale(${scale}) translate(${position.x / scale}px, ${position.y / scale}px)`,
                                         transformOrigin: transformOrigin,
-                                        transition: (isDragging || isSwiping || lastTouchDistance !== null || zoomAnimRef.current !== null) ? 'none' : 'transform 0.35s cubic-bezier(0.2, 0, 0, 1), opacity 0.3s ease',
+                                        transition: (isDragging || isSwiping || lastTouchDistance !== null || zoomAnimRef.current !== null)
+                                            ? 'none'
+                                            : `transform 0.35s cubic-bezier(0.2, 0, 0, 1)${isImageLoading ? ', opacity 0.3s ease' : ''}`,
                                         maxHeight: imageMaxH,
                                         willChange: 'transform',
                                         opacity: isImageLoading ? 0 : currentOpacity,
