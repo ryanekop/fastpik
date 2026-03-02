@@ -12,7 +12,17 @@ import { ThemeToggle } from "@/components/theme-toggle"
 import { LanguageToggle } from "@/components/language-toggle"
 import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile"
 import { isDisposableEmail } from "@/lib/disposable-emails"
-import { createClient } from "@/lib/supabase/client"
+import { createClient as createSupabaseClient } from "@supabase/supabase-js"
+
+// Use implicit flow for registration so the confirmation link uses token hash
+// (works on any device, not tied to the original browser/device's PKCE verifier)
+function createImplicitClient() {
+    return createSupabaseClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        { auth: { flowType: 'implicit' } }
+    )
+}
 
 export function RegisterForm() {
     const t = useTranslations('Admin')
@@ -84,9 +94,10 @@ export function RegisterForm() {
                 return
             }
 
-            // Step 2: Call signUp client-side so PKCE verifier stays in the browser
+            // Step 2: Call signUp client-side with implicit flow so confirmation email
+            // uses token hash (works on any device, no PKCE verifier needed)
             const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin
-            const supabase = createClient()
+            const supabase = createImplicitClient()
             const { error: signUpError } = await supabase.auth.signUp({
                 email,
                 password,
