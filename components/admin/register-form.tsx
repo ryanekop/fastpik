@@ -12,6 +12,7 @@ import { ThemeToggle } from "@/components/theme-toggle"
 import { LanguageToggle } from "@/components/language-toggle"
 import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile"
 import { isDisposableEmail } from "@/lib/disposable-emails"
+import { createClient } from "@/lib/supabase/client"
 
 export function RegisterForm() {
     const t = useTranslations('Admin')
@@ -59,16 +60,40 @@ export function RegisterForm() {
         }
 
         try {
+            // Step 1: Server validates Turnstile + disposable email
             const res = await fetch('/api/auth/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password, turnstileToken }),
+                body: JSON.stringify({ email, turnstileToken }),
             })
 
             const data = await res.json()
 
             if (!res.ok) {
                 setError(data.error || 'Terjadi kesalahan')
+                turnstileRef.current?.reset()
+                setTurnstileToken(null)
+                setLoading(false)
+                return
+            }
+
+            // Step 2: Call signUp client-side so PKCE verifier stays in the browser
+            const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin
+            const supabase = createClient()
+            const { error: signUpError } = await supabase.auth.signUp({
+                email,
+                password,
+                options: {
+                    emailRedirectTo: `${siteUrl}/api/auth/callback?type=signup&locale=${locale}`,
+                },
+            })
+
+            if (signUpError) {
+                if (signUpError.message.includes('already registered') || signUpError.message.includes('User already registered')) {
+                    setError('Email ini sudah terdaftar. Silakan login.')
+                } else {
+                    setError(signUpError.message)
+                }
                 turnstileRef.current?.reset()
                 setTurnstileToken(null)
                 setLoading(false)
@@ -82,6 +107,7 @@ export function RegisterForm() {
             setLoading(false)
         }
     }
+
 
     // Success screen — check your email
     if (success) {
