@@ -58,7 +58,7 @@ export default function AuthCallbackPage() {
                             await fetch('/api/auth/callback', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ createTrial: true, userId: data.user?.id }),
+                                body: JSON.stringify({ createTrial: true, userId: data.user?.id, email: data.user?.email, fullName: data.user?.user_metadata?.full_name }),
                             })
                         } catch (_) { /* non-critical, trial will be checked on next login */ }
                         window.location.href = `/${locale}/dashboard`
@@ -88,7 +88,7 @@ export default function AuthCallbackPage() {
                             await fetch('/api/auth/callback', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ createTrial: true, userId: sessionData.user?.id }),
+                                body: JSON.stringify({ createTrial: true, userId: sessionData.user?.id, email: sessionData.user?.email, fullName: sessionData.user?.user_metadata?.full_name }),
                             })
                         } catch (_) { /* non-critical */ }
                         window.location.href = `/${locale}/dashboard`

@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createRateLimiter, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
+import { sendTelegramMessage } from '@/lib/telegram'
 
 function getSupabaseAdmin() {
     return createClient(
@@ -102,6 +103,23 @@ export async function POST(req: NextRequest) {
 
         if (subError) {
             console.error('Subscription error:', subError)
+        }
+
+        // Notify admin via Telegram (fire-and-forget)
+        const alertChatId = process.env.ALERT_TELEGRAM_CHAT_ID
+        if (alertChatId) {
+            const now = new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })
+            const days = parseInt(trialDays) || 5
+            const message = [
+                '📨 <b>User Baru (Invite)!</b>',
+                '',
+                `👤 Nama: ${name}`,
+                `📧 Email: ${email}`,
+                `🕐 Waktu: ${now}`,
+                '',
+                `Trial ${days} hari otomatis dibuat ✅`,
+            ].join('\n')
+            sendTelegramMessage(alertChatId, message).catch(() => { })
         }
 
         return NextResponse.json({
