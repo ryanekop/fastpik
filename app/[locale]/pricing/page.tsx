@@ -116,7 +116,6 @@ export default function PricingPage() {
                 "featureFullAccess",
                 "featureUnlimitedProject",
                 "featureUnlimitedPhotos",
-                "featureMax2Devices",
                 "featurePrioritySupport"
             ],
             link: "https://ryaneko.myr.id/m/fastpik-pro-access",
@@ -134,7 +133,6 @@ export default function PricingPage() {
                 "featureFullAccess",
                 "featureUnlimitedProject",
                 "featureUnlimitedPhotos",
-                "featureMax2Devices",
                 "featurePrioritySupport"
             ],
             link: "https://ryaneko.myr.id/m/fastpik-pro-access",
@@ -152,7 +150,6 @@ export default function PricingPage() {
                 "featureFullAccess",
                 "featureUnlimitedProject",
                 "featureUnlimitedPhotos",
-                "featureMax2Devices",
                 "featurePrioritySupport"
             ],
             link: "https://ryaneko.myr.id/m/fastpik-pro-access",
@@ -170,7 +167,6 @@ export default function PricingPage() {
                 "featureFullAccess",
                 "featureUnlimitedProject",
                 "featureUnlimitedPhotos",
-                "featureMax2Devices",
                 "featurePrioritySupport",
                 "featureFutureUpdates"
             ],

@@ -621,7 +621,7 @@
         "selectPlan": "Pilih Paket",
         "currentPlan": "Paket Saat Ini",
         "paymentNote": "Pembayaran diproses dengan aman oleh Mayar.id.",
-        "paymentMethods": "Mendukung QRIS, Virtual Account, dan E-Wallet."
+        "paymentMethods": "Hanya mendukung QRIS."
     },
     "Profile": {
         "title": "Profil Saya",
@@ -730,7 +730,7 @@
         "q6": "Berapa harga langganan Fastpik?",
         "a6": "Mulai dari Rp 15.000/bulan untuk paket 1 bulan. Ada juga paket 3 bulan, 1 tahun, dan lifetime. Semua paket mendapat akses Pro penuh.",
         "q7": "Metode pembayaran apa yang tersedia?",
-        "a7": "Kami mendukung QRIS, Virtual Account, dan E-Wallet melalui Mayar.id.",
+        "a7": "Kami hanya mendukung pembayaran melalui QRIS.",
         "q8": "Apakah ada trial gratis?",
         "a8": "Ya! Kamu bisa mencoba Fastpik gratis selama 5 hari dengan fitur Pro lengkap.",
         "q9": "Apakah link gallery bisa diproteksi password?",

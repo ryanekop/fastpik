@@ -621,7 +621,7 @@
         "selectPlan": "Select Plan",
         "currentPlan": "Current Plan",
         "paymentNote": "Payments are securely processed by Mayar.id.",
-        "paymentMethods": "Supports QRIS, Virtual Account, and E-Wallet."
+        "paymentMethods": "Only supports QRIS."
     },
     "Profile": {
         "title": "My Profile",
@@ -730,7 +730,7 @@
         "q6": "How much does Fastpik cost?",
         "a6": "Starting from Rp 15,000/month for the 1-month plan. There are also 3-month, 1-year, and lifetime plans. All plans get full Pro access.",
         "q7": "What payment methods are available?",
-        "a7": "We support QRIS, Virtual Account, and E-Wallet through Mayar.id.",
+        "a7": "We only support payment via QRIS.",
         "q8": "Is there a free trial?",
         "a8": "Yes! You can try Fastpik free for 5 days with full Pro features.",
         "q9": "Can gallery links be password protected?",
