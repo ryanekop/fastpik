@@ -79,3 +79,23 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${origin}/${locale}/dashboard/login?error=auth_code_error`)
 }
 
+/**
+ * POST handler: called from client-side callback page to create trial subscription
+ * after PKCE exchange happens in the browser (cross-device email confirmation).
+ */
+export async function POST(request: Request) {
+    try {
+        const { userId } = await request.json()
+        if (!userId) return NextResponse.json({ error: 'userId required' }, { status: 400 })
+
+        const existingSub = await getSubscription(userId)
+        if (!existingSub) {
+            await createTrialSubscription(userId)
+        }
+
+        return NextResponse.json({ success: true })
+    } catch (err) {
+        console.error('[Callback POST] Error creating trial:', err)
+        return NextResponse.json({ error: 'Failed' }, { status: 500 })
+    }
+}

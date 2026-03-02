@@ -84,7 +84,8 @@ export function RegisterForm() {
                 email,
                 password,
                 options: {
-                    emailRedirectTo: `${siteUrl}/api/auth/callback?type=signup&locale=${locale}`,
+                    // Point to client-side callback so PKCE exchange works on any device
+                    emailRedirectTo: `${siteUrl}/${locale}/auth/callback?type=signup`,
                 },
             })
 

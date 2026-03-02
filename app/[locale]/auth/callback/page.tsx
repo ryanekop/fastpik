@@ -52,8 +52,17 @@ export default function AuthCallbackPage() {
                     }
 
                     // Successfully exchanged code for session
-                    // Redirect based on type
-                    if (authType === 'recovery' || authType === 'invite') {
+                    // For new signups, create trial subscription via API
+                    if (authType === 'signup') {
+                        try {
+                            await fetch('/api/auth/callback', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ createTrial: true, userId: data.user?.id }),
+                            })
+                        } catch (_) { /* non-critical, trial will be checked on next login */ }
+                        window.location.href = `/${locale}/dashboard`
+                    } else if (authType === 'recovery' || authType === 'invite') {
                         window.location.href = `/${locale}/dashboard/reset-password`
                     } else {
                         window.location.href = `/${locale}/dashboard`
