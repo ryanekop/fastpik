@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { resolveTenant } from '@/lib/tenant-resolver'
+import { getSubscription, createTrialSubscription } from '@/lib/subscription-service'
 
 export async function GET(request: Request) {
     const { searchParams, origin } = new URL(request.url)
@@ -19,11 +20,21 @@ export async function GET(request: Request) {
 
         if (!error) {
             // =============================================
+            // AUTO-CREATE TRIAL for new signups
+            // =============================================
+            const userId = sessionData?.user?.id
+            if (userId) {
+                const existingSub = await getSubscription(userId)
+                if (!existingSub) {
+                    await createTrialSubscription(userId)
+                }
+            }
+
+            // =============================================
             // MULTI-TENANT: Auto-assign tenant_id to user
             // =============================================
             const hostname = request.headers.get('host') || ''
             const tenant = await resolveTenant(hostname)
-            const userId = sessionData?.user?.id
 
             if (userId && tenant.id !== 'default') {
                 // Check if user has settings, update tenant_id

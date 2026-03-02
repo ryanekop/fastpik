@@ -43,7 +43,7 @@ export interface SubscriptionCheck {
 }
 
 const FREE_PROJECT_LIMIT = 3
-const TRIAL_DAYS = 3
+const TRIAL_DAYS = 5
 
 export async function getSubscription(userId: string): Promise<Subscription | null> {
     const supabaseAdmin = getSupabaseAdmin()

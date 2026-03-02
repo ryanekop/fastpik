@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
-import { Loader2, Eye, EyeOff } from "lucide-react"
+import { Loader2, Eye, EyeOff, Lock } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { LanguageToggle } from "@/components/language-toggle"
 
@@ -120,7 +120,10 @@ export default function ResetPasswordPage() {
         <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
             <Card className="w-full max-w-sm shadow-lg">
                 <CardHeader className="space-y-1">
-                    <CardTitle className="text-2xl font-bold text-center">🔐 {t('title')}</CardTitle>
+                    <CardTitle className="text-2xl font-bold text-center flex items-center justify-center gap-2">
+                        <Lock className="h-6 w-6" />
+                        {t('title')}
+                    </CardTitle>
                     <CardDescription className="text-center">
                         {t('description')}
                     </CardDescription>
@@ -128,7 +131,7 @@ export default function ResetPasswordPage() {
                 <CardContent>
                     <form onSubmit={handleUpdate} className="space-y-4">
                         <div className="space-y-2">
-                            <Label htmlFor="password">🔑 {t('newPassword')}</Label>
+                            <Label htmlFor="password">{t('newPassword')}</Label>
                             <div className="relative">
                                 <Input
                                     id="password"
@@ -148,7 +151,7 @@ export default function ResetPasswordPage() {
                             </div>
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="confirmPassword">🔑 {t('confirmPassword')}</Label>
+                            <Label htmlFor="confirmPassword">{t('confirmPassword')}</Label>
                             <div className="relative">
                                 <Input
                                     id="confirmPassword"
@@ -181,7 +184,7 @@ export default function ResetPasswordPage() {
                                     {t('updating')}
                                 </>
                             ) : (
-                                <>✅ {t('updateButton')}</>
+                                <>{t('updateButton')}</>
                             )}
                         </Button>
                     </form>

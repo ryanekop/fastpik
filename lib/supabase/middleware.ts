@@ -65,7 +65,8 @@ export async function updateSession(request: NextRequest, response: NextResponse
     const isPublicDashboardRoute =
         pathname.includes('/dashboard/login') ||
         pathname.includes('/dashboard/forgot-password') ||
-        pathname.includes('/dashboard/reset-password')
+        pathname.includes('/dashboard/reset-password') ||
+        pathname.includes('/dashboard/register')
 
     if (isDashboardRoute && !isPublicDashboardRoute && !user) {
         // Redirect unauthenticated user to login
