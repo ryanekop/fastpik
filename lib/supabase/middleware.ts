@@ -76,30 +76,6 @@ export async function updateSession(request: NextRequest, response: NextResponse
         return NextResponse.redirect(loginUrl)
     }
 
-    // ENFORCE DEVICE LIMIT: Check if session is valid in our tracking table
-    if (user && isDashboardRoute && !isPublicDashboardRoute) {
-        const { data: { session } } = await supabase.auth.getSession()
-        if (session) {
-            const { data: validSession } = await supabase
-                .from('user_sessions')
-                .select('id')
-                .eq('session_token', session.access_token)
-                .single()
-
-            if (!validSession) {
-                // Session is not in our tracking table (means it was removed by a newer login)
-                // Force sign out
-                await supabase.auth.signOut()
-
-                const segments = pathname.split('/')
-                const locale = segments[1]
-                const loginUrl = request.nextUrl.clone()
-                loginUrl.pathname = `/${locale}/dashboard/login`
-                return NextResponse.redirect(loginUrl)
-            }
-        }
-    }
-
     // If user is logged in and tries to access login page, redirect to dashboard
     if (user && isPublicDashboardRoute && !pathname.includes('/dashboard/reset-password')) {
         const segments = pathname.split('/')

@@ -54,9 +54,6 @@ export function LoginForm() {
                 localStorage.setItem('fastpik_session_login_time', Date.now().toString())
             }
 
-            // Check device limit
-            await checkDeviceLimit()
-
             router.refresh()
             // Use locale-aware redirect
             router.push(`/${locale}/dashboard`)
@@ -67,13 +64,7 @@ export function LoginForm() {
         }
     }
 
-    const checkDeviceLimit = async () => {
-        try {
-            await fetch('/api/auth/check-device-limit', { method: 'POST' })
-        } catch (e) {
-            console.error("Failed to check device limit", e)
-        }
-    }
+
 
     return (
         <Card className="w-full max-w-sm mx-auto shadow-lg">

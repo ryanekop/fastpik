@@ -39,6 +39,9 @@ export async function POST(request: Request) {
         return NextResponse.json({ projects: created, count: created.length })
     } catch (error) {
         console.error('Failed to batch create projects:', error)
+        if (error instanceof Error && error.message === 'Unauthorized') {
+            return NextResponse.json({ error: 'Unauthorized', message: 'Sesi login Anda telah berakhir. Silakan login kembali.' }, { status: 401 })
+        }
         return NextResponse.json({ error: 'Failed to batch create projects' }, { status: 500 })
     }
 }

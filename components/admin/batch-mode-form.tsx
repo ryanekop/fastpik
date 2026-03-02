@@ -209,6 +209,10 @@ export function BatchModeForm({ onBack, onProjectsCreated, currentFolderId }: Ba
 
             if (!res.ok) {
                 const errData = await res.json()
+                if (res.status === 401) {
+                    window.location.href = `/${locale}/dashboard/login`
+                    return
+                }
                 if (res.status === 403 && errData.upgradeRequired) {
                     setGlobalError(errData.message)
                     setUpgradeRequired(true)

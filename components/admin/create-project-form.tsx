@@ -264,6 +264,10 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
                 const res = await fetch('/api/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(projectPayload) })
                 if (!res.ok) {
                     const errorData = await res.json()
+                    if (res.status === 401) {
+                        window.location.href = `/${locale}/dashboard/login`
+                        return
+                    }
                     if (res.status === 403 && errorData.upgradeRequired) {
                         setError(errorData.message)
                         setUpgradeRequired(true)
