@@ -122,9 +122,11 @@ export default function FeaturesPage() {
                         <h2 className="text-3xl font-bold mb-2">⭐ {t('coreFeatures')}</h2>
                     </motion.div>
 
-                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+                    <div className="flex flex-wrap justify-center gap-6 max-w-6xl mx-auto">
                         {coreFeatures.map((feature, index) => (
-                            <FeatureCard key={feature.titleKey} feature={feature} index={index} large />
+                            <div key={feature.titleKey} className="w-full md:w-[calc(50%-12px)] lg:w-[calc(33.333%-16px)]">
+                                <FeatureCard feature={feature} index={index} large />
+                            </div>
                         ))}
                     </div>
                 </div>
@@ -142,9 +144,11 @@ export default function FeaturesPage() {
                         <h2 className="text-3xl font-bold mb-2">✨ {t('additionalFeatures')}</h2>
                     </motion.div>
 
-                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+                    <div className="flex flex-wrap justify-center gap-6 max-w-6xl mx-auto">
                         {additionalFeatures.map((feature, index) => (
-                            <FeatureCard key={feature.titleKey} feature={feature} index={index} />
+                            <div key={feature.titleKey} className="w-full md:w-[calc(50%-12px)] lg:w-[calc(33.333%-16px)]">
+                                <FeatureCard feature={feature} index={index} />
+                            </div>
                         ))}
                     </div>
                 </div>
