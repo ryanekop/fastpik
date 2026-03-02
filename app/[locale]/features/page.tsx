@@ -55,6 +55,7 @@ export default function FeaturesPage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: index * 0.08 }}
+                className="h-full"
             >
                 <Card className={`h-full hover:shadow-xl transition-all duration-300 group border-0 shadow-md ${large ? 'hover:-translate-y-1' : ''}`}>
                     <CardContent className={large ? "pt-8 pb-8" : "pt-6"}>
@@ -66,6 +67,42 @@ export default function FeaturesPage() {
                     </CardContent>
                 </Card>
             </motion.div>
+        )
+    }
+
+    // Chunk array into rows of N, returns array of arrays
+    const chunkIntoRows = <T,>(arr: T[], cols: number): T[][] => {
+        const rows: T[][] = []
+        for (let i = 0; i < arr.length; i += cols) rows.push(arr.slice(i, i + cols))
+        return rows
+    }
+
+    // Render feature grid: full rows normal, last incomplete row centered
+    const FeatureGrid = ({ items, large = false, cols = 3 }: { items: typeof coreFeatures, large?: boolean, cols?: number }) => {
+        const rows = chunkIntoRows(items, cols)
+        return (
+            <div className="max-w-6xl mx-auto space-y-6">
+                {rows.map((row, rowIdx) => (
+                    <div
+                        key={rowIdx}
+                        className={`flex gap-6 ${row.length < cols ? 'justify-center' : ''
+                            }`}
+                    >
+                        {row.map((feature, colIdx) => (
+                            <div
+                                key={feature.titleKey}
+                                className="w-full lg:w-[calc(33.333%-16px)] shrink-0"
+                            >
+                                <FeatureCard
+                                    feature={feature}
+                                    index={rowIdx * cols + colIdx}
+                                    large={large}
+                                />
+                            </div>
+                        ))}
+                    </div>
+                ))}
+            </div>
         )
     }
 
@@ -122,13 +159,7 @@ export default function FeaturesPage() {
                         <h2 className="text-3xl font-bold mb-2">⭐ {t('coreFeatures')}</h2>
                     </motion.div>
 
-                    <div className="flex flex-wrap justify-center gap-6 max-w-6xl mx-auto">
-                        {coreFeatures.map((feature, index) => (
-                            <div key={feature.titleKey} className="w-full md:w-[calc(50%-12px)] lg:w-[calc(33.333%-16px)]">
-                                <FeatureCard feature={feature} index={index} large />
-                            </div>
-                        ))}
-                    </div>
+                    <FeatureGrid items={coreFeatures} large cols={3} />
                 </div>
             </section>
 
@@ -144,13 +175,7 @@ export default function FeaturesPage() {
                         <h2 className="text-3xl font-bold mb-2">✨ {t('additionalFeatures')}</h2>
                     </motion.div>
 
-                    <div className="flex flex-wrap justify-center gap-6 max-w-6xl mx-auto">
-                        {additionalFeatures.map((feature, index) => (
-                            <div key={feature.titleKey} className="w-full md:w-[calc(50%-12px)] lg:w-[calc(33.333%-16px)]">
-                                <FeatureCard feature={feature} index={index} />
-                            </div>
-                        ))}
-                    </div>
+                    <FeatureGrid items={additionalFeatures} cols={3} />
                 </div>
             </section>
 

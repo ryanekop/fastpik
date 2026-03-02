@@ -39,6 +39,11 @@ export function AnimatedHero({ children }: { children: React.ReactNode }) {
 
 export function AnimatedFeatures() {
     const t = useTranslations('Index')
+    const COLS = 3
+
+    // Chunk into rows, last incomplete row will be centered
+    const rows: typeof features[] = []
+    for (let i = 0; i < features.length; i += COLS) rows.push(features.slice(i, i + COLS))
 
     return (
         <>
@@ -52,31 +57,41 @@ export function AnimatedFeatures() {
                 <p className="text-muted-foreground text-lg">{t('featuresSubtitle')}</p>
             </motion.div>
 
-            <div className="flex flex-wrap justify-center gap-6 max-w-6xl mx-auto">
-                {features.map((feature, index) => {
-                    const Icon = feature.icon
-                    return (
-                        <div key={feature.titleKey} className="w-full md:w-[calc(50%-12px)] lg:w-[calc(33.333%-16px)]">
-                            <motion.div
-                                initial={{ opacity: 0, y: 20 }}
-                                whileInView={{ opacity: 1, y: 0 }}
-                                viewport={{ once: true }}
-                                transition={{ delay: index * 0.1 }}
-                                className="h-full"
-                            >
-                                <Card className="h-full hover:shadow-lg transition-shadow">
-                                    <CardContent className="pt-6">
-                                        <div className={`h-12 w-12 rounded-lg ${feature.bg} flex items-center justify-center mb-4`}>
-                                            <Icon className={`h-6 w-6 ${feature.color}`} />
-                                        </div>
-                                        <h3 className="font-semibold text-lg mb-2">{t(feature.titleKey)}</h3>
-                                        <p className="text-muted-foreground">{t(feature.descKey)}</p>
-                                    </CardContent>
-                                </Card>
-                            </motion.div>
-                        </div>
-                    )
-                })}
+            <div className="max-w-6xl mx-auto space-y-6">
+                {rows.map((row, rowIdx) => (
+                    <div
+                        key={rowIdx}
+                        className={`flex gap-6 ${row.length < COLS ? 'justify-center' : ''}`}
+                    >
+                        {row.map((feature, colIdx) => {
+                            const Icon = feature.icon
+                            return (
+                                <div
+                                    key={feature.titleKey}
+                                    className="w-full lg:w-[calc(33.333%-16px)] shrink-0"
+                                >
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 20 }}
+                                        whileInView={{ opacity: 1, y: 0 }}
+                                        viewport={{ once: true }}
+                                        transition={{ delay: (rowIdx * COLS + colIdx) * 0.1 }}
+                                        className="h-full"
+                                    >
+                                        <Card className="h-full hover:shadow-lg transition-shadow">
+                                            <CardContent className="pt-6">
+                                                <div className={`h-12 w-12 rounded-lg ${feature.bg} flex items-center justify-center mb-4`}>
+                                                    <Icon className={`h-6 w-6 ${feature.color}`} />
+                                                </div>
+                                                <h3 className="font-semibold text-lg mb-2">{t(feature.titleKey)}</h3>
+                                                <p className="text-muted-foreground">{t(feature.descKey)}</p>
+                                            </CardContent>
+                                        </Card>
+                                    </motion.div>
+                                </div>
+                            )
+                        })}
+                    </div>
+                ))}
             </div>
         </>
     )
