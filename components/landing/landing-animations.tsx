@@ -52,27 +52,29 @@ export function AnimatedFeatures() {
                 <p className="text-muted-foreground text-lg">{t('featuresSubtitle')}</p>
             </motion.div>
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+            <div className="flex flex-wrap justify-center gap-6 max-w-6xl mx-auto">
                 {features.map((feature, index) => {
                     const Icon = feature.icon
                     return (
-                        <motion.div
-                            key={feature.titleKey}
-                            initial={{ opacity: 0, y: 20 }}
-                            whileInView={{ opacity: 1, y: 0 }}
-                            viewport={{ once: true }}
-                            transition={{ delay: index * 0.1 }}
-                        >
-                            <Card className="h-full hover:shadow-lg transition-shadow">
-                                <CardContent className="pt-6">
-                                    <div className={`h-12 w-12 rounded-lg ${feature.bg} flex items-center justify-center mb-4`}>
-                                        <Icon className={`h-6 w-6 ${feature.color}`} />
-                                    </div>
-                                    <h3 className="font-semibold text-lg mb-2">{t(feature.titleKey)}</h3>
-                                    <p className="text-muted-foreground">{t(feature.descKey)}</p>
-                                </CardContent>
-                            </Card>
-                        </motion.div>
+                        <div key={feature.titleKey} className="w-full md:w-[calc(50%-12px)] lg:w-[calc(33.333%-16px)]">
+                            <motion.div
+                                initial={{ opacity: 0, y: 20 }}
+                                whileInView={{ opacity: 1, y: 0 }}
+                                viewport={{ once: true }}
+                                transition={{ delay: index * 0.1 }}
+                                className="h-full"
+                            >
+                                <Card className="h-full hover:shadow-lg transition-shadow">
+                                    <CardContent className="pt-6">
+                                        <div className={`h-12 w-12 rounded-lg ${feature.bg} flex items-center justify-center mb-4`}>
+                                            <Icon className={`h-6 w-6 ${feature.color}`} />
+                                        </div>
+                                        <h3 className="font-semibold text-lg mb-2">{t(feature.titleKey)}</h3>
+                                        <p className="text-muted-foreground">{t(feature.descKey)}</p>
+                                    </CardContent>
+                                </Card>
+                            </motion.div>
+                        </div>
                     )
                 })}
             </div>
