@@ -269,7 +269,7 @@ export default function PricingPage() {
                             {t('trialTitle')}
                         </h3>
                         <p className="text-muted-foreground mt-2">
-                            {t('trialDescription', { days: 3, projects: 3 })}
+                            {t('trialDescription', { days: 5, projects: 3 })}
                         </p>
                     </div>
                 </div>
@@ -345,6 +345,37 @@ export default function PricingPage() {
                         {t('paymentMethods')}
                     </p>
                 </div>
+
+                {/* CTA Register Section — shown to guest users only */}
+                {!user && !loading && (
+                    <div className="mt-16 rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-background border border-primary/20 p-10 text-center max-w-2xl mx-auto space-y-5">
+                        <div className="inline-flex items-center gap-2 bg-primary/10 text-primary text-sm font-medium px-4 py-1.5 rounded-full border border-primary/20">
+                            <Star className="h-4 w-4 fill-primary text-primary" />
+                            Gratis 5 Hari, Tanpa Kartu Kredit
+                        </div>
+                        <h2 className="text-2xl font-bold tracking-tight">
+                            Coba Fastpik Pro Sekarang — Gratis!
+                        </h2>
+                        <p className="text-muted-foreground">
+                            Buat akun dalam 30 detik dan langsung nikmati semua fitur Pro selama <strong>5 hari penuh</strong>. Tidak perlu kartu kredit, tidak ada syarat tersembunyi.
+                        </p>
+                        <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+                            <Button size="lg" className="gap-2 text-base font-semibold px-8" asChild>
+                                <Link href={`/${locale}/dashboard/register`}>
+                                    🚀 Buat Akun Gratis
+                                </Link>
+                            </Button>
+                            <Button size="lg" variant="outline" className="gap-2 text-base" asChild>
+                                <Link href={`/${locale}/dashboard/login`}>
+                                    Sudah punya akun? Login
+                                </Link>
+                            </Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground pt-1">
+                            ✅ Trial 5 hari &nbsp;·&nbsp; ✅ Akses penuh semua fitur &nbsp;·&nbsp; ✅ Tanpa kartu kredit
+                        </p>
+                    </div>
+                )}
             </main>
 
             <footer className="py-6 border-t text-center text-sm text-muted-foreground">
