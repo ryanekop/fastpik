@@ -72,7 +72,7 @@ export default function AuthCallbackPage() {
 
                 // Handle implicit flow (tokens in hash)
                 if (accessToken && refreshToken) {
-                    const { error: sessionError } = await supabase.auth.setSession({
+                    const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
                         access_token: accessToken,
                         refresh_token: refreshToken
                     })
@@ -82,7 +82,17 @@ export default function AuthCallbackPage() {
                         return
                     }
 
-                    if (authType === 'invite' || authType === 'recovery') {
+                    // For new signups, create trial subscription
+                    if (authType === 'signup') {
+                        try {
+                            await fetch('/api/auth/callback', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ createTrial: true, userId: sessionData.user?.id }),
+                            })
+                        } catch (_) { /* non-critical */ }
+                        window.location.href = `/${locale}/dashboard`
+                    } else if (authType === 'invite' || authType === 'recovery') {
                         window.location.href = `/${locale}/dashboard/reset-password`
                     } else {
                         window.location.href = `/${locale}/dashboard`
