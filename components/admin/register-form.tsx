@@ -18,6 +18,7 @@ export function RegisterForm() {
     const t = useTranslations('Admin')
     const locale = useLocale()
 
+    const [fullName, setFullName] = useState("")
     const [email, setEmail] = useState("")
     const [password, setPassword] = useState("")
     const [confirmPassword, setConfirmPassword] = useState("")
@@ -35,6 +36,12 @@ export function RegisterForm() {
         setError(null)
 
         // Client-side validation
+        if (!fullName.trim()) {
+            setError(t('fullNameRequired'))
+            setLoading(false)
+            return
+        }
+
         if (password !== confirmPassword) {
             setError(t('passwordMismatch'))
             setLoading(false)
@@ -86,6 +93,9 @@ export function RegisterForm() {
                 options: {
                     // Point to client-side callback so PKCE exchange works on any device
                     emailRedirectTo: `${siteUrl}/${locale}/auth/callback?type=signup`,
+                    data: {
+                        full_name: fullName.trim(),
+                    },
                 },
             })
 
@@ -149,6 +159,17 @@ export function RegisterForm() {
             </CardHeader>
             <CardContent>
                 <form onSubmit={handleRegister} className="space-y-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="fullName">{t('fullName')}</Label>
+                        <Input
+                            id="fullName"
+                            type="text"
+                            placeholder={t('fullNamePlaceholder')}
+                            required
+                            value={fullName}
+                            onChange={(e) => setFullName(e.target.value)}
+                        />
+                    </div>
                     <div className="space-y-2">
                         <Label htmlFor="email">{t('emailLabel')}</Label>
                         <Input
