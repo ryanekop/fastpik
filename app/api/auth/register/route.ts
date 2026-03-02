@@ -1,16 +1,8 @@
 
 export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createClient as createServerClient } from '@/lib/supabase/server'
 import { isDisposableEmail } from '@/lib/disposable-emails'
-
-function getSupabaseAdmin() {
-    return createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!,
-        { auth: { autoRefreshToken: false, persistSession: false } }
-    )
-}
 
 async function verifyTurnstile(token: string): Promise<boolean> {
     const secret = process.env.TURNSTILE_SECRET_KEY
@@ -59,39 +51,29 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Email sementara tidak diperbolehkan. Gunakan email asli.' }, { status: 400 })
         }
 
-        // Create user with Supabase Admin
-        const supabaseAdmin = getSupabaseAdmin()
+        // Use regular signUp — this automatically sends the confirmation email via Supabase
+        const supabase = await createServerClient()
         const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
 
-        const { data, error } = await supabaseAdmin.auth.admin.createUser({
+        const { error } = await supabase.auth.signUp({
             email,
             password,
-            email_confirm: false, // Requires email verification
+            options: {
+                emailRedirectTo: `${siteUrl}/api/auth/callback?type=signup&locale=id`,
+            },
         })
 
         if (error) {
             // Handle duplicate email
-            if (error.message.includes('already been registered') || error.message.includes('already exists')) {
+            if (
+                error.message.includes('already registered') ||
+                error.message.includes('already exists') ||
+                error.message.includes('User already registered')
+            ) {
                 return NextResponse.json({ error: 'Email ini sudah terdaftar. Silakan login.' }, { status: 409 })
             }
-            console.error('[Register] Create user error:', error)
+            console.error('[Register] SignUp error:', error)
             return NextResponse.json({ error: error.message }, { status: 400 })
-        }
-
-        // Send confirmation email using Supabase's built-in method
-        // The user was created without email confirmation, so we generate a signup link
-        const { error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-            type: 'signup',
-            email,
-            password,
-            options: {
-                redirectTo: `${siteUrl}/api/auth/callback?type=signup&locale=id`,
-            },
-        })
-
-        if (linkError) {
-            console.error('[Register] Generate link error:', linkError)
-            // User was created but link failed — still okay, they can use "forgot password"
         }
 
         return NextResponse.json({ success: true })
