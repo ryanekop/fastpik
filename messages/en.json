@@ -254,6 +254,8 @@
         "sendingLink": "Sending link...",
         "sendResetLink": "Send Reset Link",
         "backToLogin": "Back to Login",
+        "emailNotConfirmed": "Your email has not been verified. Please check your inbox and click the activation link we sent.",
+        "invalidCredentials": "Incorrect email or password.",
         "copied": "Copied!",
         "sendReminder": "Send Reminder",
         "waReminderMessage": "Hello {name},\n\nThis is a friendly reminder to select your photos.\n\nPlease select at the following link:\n{link}\n\nRemaining time: {duration}\n\nThank you!",

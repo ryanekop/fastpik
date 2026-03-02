@@ -254,6 +254,8 @@
         "sendingLink": "Mengirim link...",
         "sendResetLink": "Kirim Link Reset",
         "backToLogin": "Kembali ke Login",
+        "emailNotConfirmed": "Email Anda belum diverifikasi. Silakan cek inbox dan klik link aktivasi yang kami kirim.",
+        "invalidCredentials": "Email atau kata sandi salah.",
         "copied": "Tersalin!",
         "sendReminder": "Kirim Pengingat",
         "waReminderMessage": "Halo {name},\n\nIni adalah pengingat untuk segera memilih foto Anda.\n\nSilakan pilih di link berikut:\n{link}\n\nSisa waktu: {duration}\n\nTerima kasih!",

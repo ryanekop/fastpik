@@ -39,7 +39,13 @@ export function LoginForm() {
             })
 
             if (error) {
-                setError(error.message)
+                if (error.message.toLowerCase().includes('email not confirmed')) {
+                    setError(t('emailNotConfirmed'))
+                } else if (error.message.toLowerCase().includes('invalid login credentials')) {
+                    setError(t('invalidCredentials'))
+                } else {
+                    setError(error.message)
+                }
                 setLoading(false)
                 return
             }
