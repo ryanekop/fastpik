@@ -85,13 +85,12 @@ export default function FeaturesPage() {
                 {rows.map((row, rowIdx) => (
                     <div
                         key={rowIdx}
-                        className={`flex gap-6 ${row.length < cols ? 'justify-center' : ''
-                            }`}
+                        className="flex flex-col sm:flex-row gap-6"
                     >
                         {row.map((feature, colIdx) => (
                             <div
                                 key={feature.titleKey}
-                                className="w-full lg:w-[calc(33.333%-16px)] shrink-0"
+                                className="w-full sm:flex-1"
                             >
                                 <FeatureCard
                                     feature={feature}
