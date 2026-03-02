@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
         const supabaseAdmin = getSupabaseAdmin()
         const ADMIN_SECRET = getAdminSecret()
         const body = await req.json()
-        const { name, email, secretKey, trialDays = 3 } = body
+        const { name, email, secretKey, trialDays = 5 } = body
 
         // Validate secret key
         if (secretKey !== ADMIN_SECRET) {
