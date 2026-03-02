@@ -107,7 +107,8 @@ export async function POST(req: NextRequest) {
 
         // Notify admin via Telegram (fire-and-forget)
         const alertChatId = process.env.ALERT_TELEGRAM_CHAT_ID
-        if (alertChatId) {
+        const alertBotToken = process.env.ALERT_TELEGRAM_BOT_TOKEN
+        if (alertChatId && alertBotToken) {
             const now = new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })
             const days = parseInt(trialDays) || 5
             const message = [
@@ -119,7 +120,11 @@ export async function POST(req: NextRequest) {
                 '',
                 `Trial ${days} hari otomatis dibuat ✅`,
             ].join('\n')
-            sendTelegramMessage(alertChatId, message).catch(() => { })
+            fetch(`https://api.telegram.org/bot${alertBotToken}/sendMessage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chat_id: alertChatId, text: message, parse_mode: 'HTML' })
+            }).catch(() => { })
         }
 
         return NextResponse.json({

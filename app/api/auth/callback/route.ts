@@ -18,7 +18,8 @@ interface SignupAlertOptions {
 
 async function notifyNewSignup(opts: SignupAlertOptions) {
     const chatId = process.env.ALERT_TELEGRAM_CHAT_ID
-    if (!chatId) return
+    const botToken = process.env.ALERT_TELEGRAM_BOT_TOKEN
+    if (!chatId || !botToken) return
 
     const now = new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })
     const emoji = opts.type === 'invite' ? '📨' : '🎉'
@@ -40,7 +41,11 @@ async function notifyNewSignup(opts: SignupAlertOptions) {
     ].join('\n')
 
     try {
-        await sendTelegramMessage(chatId, message)
+        await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: chatId, text: message, parse_mode: 'HTML', disable_web_page_preview: true })
+        })
     } catch (err) {
         console.error('[Telegram Alert] Failed to send signup notification:', err)
     }
