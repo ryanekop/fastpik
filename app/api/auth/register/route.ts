@@ -59,22 +59,20 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Email sementara tidak diperbolehkan. Gunakan email asli.' }, { status: 400 })
         }
 
-        // Check if email already registered using admin generateLink trick:
-        // generateLink returns an error for non-existent users, success for existing ones.
+        // Check if email already registered using admin API
         const admin = getSupabaseAdmin()
-        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
-        const { error: genLinkError } = await admin.auth.admin.generateLink({
-            type: 'magiclink',
-            email: email.toLowerCase(),
-            options: { redirectTo: siteUrl },
-        })
+        const { data: { users } } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 })
+        const existingUser = users?.find((u) => u.email?.toLowerCase() === email.toLowerCase())
 
-        // If NO error → user already exists
-        if (!genLinkError) {
-            return NextResponse.json({ error: 'Email ini sudah terdaftar. Silakan login.' }, { status: 409 })
+        if (existingUser) {
+            if (existingUser.email_confirmed_at) {
+                // Confirmed user → block registration
+                return NextResponse.json({ error: 'Email ini sudah terdaftar. Silakan login.' }, { status: 409 })
+            } else {
+                // Unconfirmed (never verified email) → delete stale record so they can register again
+                await admin.auth.admin.deleteUser(existingUser.id)
+            }
         }
-        // If error contains "not found" → user does not exist → proceed
-        // Any other error → proceed anyway (fail open so legitimate users aren't blocked)
 
         // All good — tell the client to proceed with signUp()
         return NextResponse.json({ valid: true })
