@@ -21,6 +21,9 @@ const geistMono = Geist_Mono({
 
 export async function generateMetadata(): Promise<Metadata> {
   const tenant = await getTenantConfig()
+  const ogImage = tenant.logoUrl && tenant.logoUrl.startsWith('http')
+    ? tenant.logoUrl
+    : '/fastpik-logo.png'
   return {
     title: {
       default: `${tenant.name} - Photo Culling`,
@@ -35,6 +38,11 @@ export async function generateMetadata(): Promise<Metadata> {
           { url: '/icon-512.png', sizes: '512x512', type: 'image/png' },
         ],
       apple: tenant.faviconUrl || '/apple-touch-icon.png',
+    },
+    openGraph: {
+      title: `${tenant.name} - Photo Culling`,
+      description: 'Select your photos quickly and easily.',
+      images: [{ url: ogImage }],
     },
   }
 }
