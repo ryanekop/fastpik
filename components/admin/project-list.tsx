@@ -962,6 +962,11 @@ export function ProjectList({
     // Subfolders in current folder
     const currentSubfolders = sortByExpiry ? [] : folders.filter(f => (f.parentId || null) === currentFolderId)
 
+    // Filtered folders: search all folders globally, otherwise show current subfolders
+    const filteredFolders = searchQuery.trim()
+        ? folders.filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase()))
+        : currentSubfolders
+
     // Count projects in a folder (recursive)
     const countProjectsInFolder = (folderId: string): number => {
         const directCount = projects.filter(p => p.folderId === folderId).length
@@ -1301,7 +1306,7 @@ export function ProjectList({
             </div>
 
             {/* Folder Section */}
-            {currentSubfolders.length > 0 && !searchQuery.trim() && (
+            {filteredFolders.length > 0 && (
                 <div className="space-y-2">
                     <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                         <FolderOpen className="h-4 w-4" />
@@ -1309,7 +1314,7 @@ export function ProjectList({
                         <div className="flex-1 border-t border-border/50" />
                     </div>
                     <div className="grid gap-3 overflow-hidden max-w-full">
-                        {currentSubfolders.map((folder) => (
+                        {filteredFolders.map((folder) => (
                             <div
                                 key={folder.id}
                                 draggable={!isSelectMode}
@@ -1359,7 +1364,7 @@ export function ProjectList({
             {/* Project Section */}
             {filteredProjects.length > 0 && (
                 <div className="space-y-2">
-                    {currentSubfolders.length > 0 && !searchQuery.trim() && (
+                    {filteredFolders.length > 0 && (
                         <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                             <Users className="h-4 w-4" />
                             <span>Proyek</span>
