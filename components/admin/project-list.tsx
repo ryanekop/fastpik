@@ -1314,49 +1314,55 @@ export function ProjectList({
                         <div className="flex-1 border-t border-border/50" />
                     </div>
                     <div className="grid gap-3 overflow-hidden max-w-full">
-                        {filteredFolders.map((folder) => (
-                            <div
-                                key={folder.id}
-                                draggable={!isSelectMode}
-                                onDragStart={(e) => { e.dataTransfer.setData('text/plain', `folder:${folder.id}`); e.dataTransfer.effectAllowed = 'move' }}
-                                onDragOver={(e) => handleFolderDragOver(e, folder.id)}
-                                onDragLeave={handleFolderDragLeave}
-                                onDrop={(e) => handleFolderDrop(e, folder.id)}
-                            >
-                                <Card className={cn(
-                                    "overflow-hidden transition-all hover:shadow-md cursor-pointer",
-                                    selectedFolderIds.includes(folder.id) && "border-primary bg-primary/5",
-                                    dragOverFolder === folder.id && "ring-2 ring-primary bg-primary/10"
-                                )}>
-                                    <CardContent className="p-4">
-                                        <div className="flex items-center gap-4 w-full">
-                                            {isSelectMode && (
-                                                <button onClick={(e) => { e.stopPropagation(); toggleSelectFolder(folder.id) }} className="cursor-pointer">
-                                                    {selectedFolderIds.includes(folder.id) ? <CheckSquare className="h-5 w-5 text-primary" /> : <Square className="h-5 w-5 text-muted-foreground" />}
-                                                </button>
-                                            )}
-                                            <div className="flex-1 min-w-0 flex items-center gap-3" onClick={() => { setSearchQuery(""); onNavigateToFolder(folder.id) }}>
-                                                <FolderOpen className="h-5 w-5 text-amber-500 shrink-0" />
-                                                <div className="min-w-0 flex-1">
-                                                    <h4 className="font-semibold truncate">{folder.name}</h4>
-                                                    <p className="text-sm text-muted-foreground">{t('projectCount', { count: countProjectsInFolder(folder.id) })}</p>
+                        <AnimatePresence mode="popLayout">
+                            {filteredFolders.map((folder, index) => (
+                                <motion.div
+                                    key={folder.id}
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, x: -100 }}
+                                    transition={{ delay: index * 0.03 }}
+                                    draggable={!isSelectMode}
+                                    onDragStart={(e: any) => { e.dataTransfer.setData('text/plain', `folder:${folder.id}`); e.dataTransfer.effectAllowed = 'move' }}
+                                    onDragOver={(e: any) => handleFolderDragOver(e, folder.id)}
+                                    onDragLeave={handleFolderDragLeave}
+                                    onDrop={(e: any) => handleFolderDrop(e, folder.id)}
+                                >
+                                    <Card className={cn(
+                                        "overflow-hidden transition-all hover:shadow-md cursor-pointer",
+                                        selectedFolderIds.includes(folder.id) && "border-primary bg-primary/5",
+                                        dragOverFolder === folder.id && "ring-2 ring-primary bg-primary/10"
+                                    )}>
+                                        <CardContent className="p-4">
+                                            <div className="flex items-center gap-4 w-full">
+                                                {isSelectMode && (
+                                                    <button onClick={(e) => { e.stopPropagation(); toggleSelectFolder(folder.id) }} className="cursor-pointer">
+                                                        {selectedFolderIds.includes(folder.id) ? <CheckSquare className="h-5 w-5 text-primary" /> : <Square className="h-5 w-5 text-muted-foreground" />}
+                                                    </button>
+                                                )}
+                                                <div className="flex-1 min-w-0 flex items-center gap-3" onClick={() => { setSearchQuery(""); onNavigateToFolder(folder.id) }}>
+                                                    <FolderOpen className="h-5 w-5 text-amber-500 shrink-0" />
+                                                    <div className="min-w-0 flex-1">
+                                                        <h4 className="font-semibold truncate hover:underline">{folder.name}</h4>
+                                                        <p className="text-sm text-muted-foreground">{t('projectCount', { count: countProjectsInFolder(folder.id) })}</p>
+                                                    </div>
                                                 </div>
+                                                {!isSelectMode && (
+                                                    <div className="flex items-center gap-1">
+                                                        <Button size="icon" variant="ghost" className="h-8 w-8 cursor-pointer" title={t('renameFolder')} onClick={(e) => { e.stopPropagation(); setRenameFolderId(folder.id); setRenameFolderName(folder.name); setShowRenameFolderDialog(true) }}>
+                                                            <Edit className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:text-destructive cursor-pointer" title={t('deleteFolder')} onClick={(e) => { e.stopPropagation(); setDeleteFolderId(folder.id); setShowDeleteFolderDialog(true) }}>
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
+                                                )}
                                             </div>
-                                            {!isSelectMode && (
-                                                <div className="flex items-center gap-1">
-                                                    <Button size="icon" variant="ghost" className="h-8 w-8 cursor-pointer" title={t('renameFolder')} onClick={(e) => { e.stopPropagation(); setRenameFolderId(folder.id); setRenameFolderName(folder.name); setShowRenameFolderDialog(true) }}>
-                                                        <Edit className="h-4 w-4" />
-                                                    </Button>
-                                                    <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:text-destructive cursor-pointer" title={t('deleteFolder')} onClick={(e) => { e.stopPropagation(); setDeleteFolderId(folder.id); setShowDeleteFolderDialog(true) }}>
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            </div>
-                        ))}
+                                        </CardContent>
+                                    </Card>
+                                </motion.div>
+                            ))}
+                        </AnimatePresence>
                     </div>
                 </div>
             )}
