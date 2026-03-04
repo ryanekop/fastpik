@@ -27,6 +27,7 @@ interface ProjectListProps {
     onDeleteProject: (id: string) => Promise<void>
     onBatchDeleteProjects: (ids: string[]) => Promise<void>
     onFoldersChanged: () => void
+    onProjectsChanged?: (updater: (prev: Project[]) => Project[]) => void
 }
 
 export function ProjectList({
@@ -42,7 +43,8 @@ export function ProjectList({
     onEditProject,
     onDeleteProject,
     onBatchDeleteProjects,
-    onFoldersChanged
+    onFoldersChanged,
+    onProjectsChanged
 }: ProjectListProps) {
     const t = useTranslations('Admin')
     const tc = useTranslations('Client')
@@ -1039,6 +1041,9 @@ export function ProjectList({
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ projectIds: selectedIds, folderId: targetFolderId })
             })
+            // Optimistic update
+            const movedIds = [...selectedIds]
+            onProjectsChanged?.(prev => prev.map(p => movedIds.includes(p.id) ? { ...p, folderId: targetFolderId } : p))
             setSelectedIds([])
             setSelectedFolderIds([])
             setIsSelectMode(false)
@@ -1105,6 +1110,8 @@ export function ProjectList({
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ projectIds: [projectId], folderId: targetFolderId })
             })
+            // Optimistic update
+            onProjectsChanged?.(prev => prev.map(p => p.id === projectId ? { ...p, folderId: targetFolderId } : p))
             onFoldersChanged()
         } catch (err) {
             console.error('Failed to move project:', err)
@@ -1135,6 +1142,8 @@ export function ProjectList({
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ projectIds: [projectId], folderId: targetFolderId })
             })
+            // Optimistic update
+            onProjectsChanged?.(prev => prev.map(p => p.id === projectId ? { ...p, folderId: targetFolderId } : p))
             onFoldersChanged()
         } catch (err) {
             console.error('Failed to move project:', err)

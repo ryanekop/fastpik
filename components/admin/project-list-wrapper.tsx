@@ -262,6 +262,7 @@ export function ProjectListWrapper({ initialProjects, initialFolders }: ProjectL
                                 router.refresh()
                             }}
                             onFoldersChanged={refreshData}
+                            onProjectsChanged={setProjects}
                         />
                     </motion.div>
                 ) : view === 'import' ? (
