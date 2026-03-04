@@ -943,7 +943,7 @@ export function ProjectList({
 
     const filteredProjects = (() => {
         let result = searchQuery.trim()
-            ? currentFolderProjects.filter(p => p.clientName.toLowerCase().includes(searchQuery.toLowerCase()))
+            ? projects.filter(p => p.clientName.toLowerCase().includes(searchQuery.toLowerCase()))
             : currentFolderProjects
 
         if (sortByExpiry) {
