@@ -1335,7 +1335,7 @@ export function ProjectList({
                                                     {selectedFolderIds.includes(folder.id) ? <CheckSquare className="h-5 w-5 text-primary" /> : <Square className="h-5 w-5 text-muted-foreground" />}
                                                 </button>
                                             )}
-                                            <div className="flex-1 min-w-0 flex items-center gap-3" onClick={() => onNavigateToFolder(folder.id)}>
+                                            <div className="flex-1 min-w-0 flex items-center gap-3" onClick={() => { setSearchQuery(""); onNavigateToFolder(folder.id) }}>
                                                 <FolderOpen className="h-5 w-5 text-amber-500 shrink-0" />
                                                 <div className="min-w-0 flex-1">
                                                     <h4 className="font-semibold truncate">{folder.name}</h4>
