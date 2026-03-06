@@ -14,6 +14,7 @@ import { LandingNav, HeroCTA, BottomCTA, DesktopNav, MobileNav } from "@/compone
 import { AnimatedHero, AnimatedFeatures, AnimatedWorkflow, AnimatedSection, AnimatedCTA } from "@/components/landing/landing-animations"
 import { AnimatedFAQ } from "@/components/landing/faq-section"
 import { ProblemSection } from "@/components/landing/problem-section"
+import { ComparisonSection } from "@/components/landing/comparison-section"
 
 export default async function Home() {
   const t = await getTranslations('Index')
@@ -87,8 +88,15 @@ export default async function Home() {
         </div>
       </section>
 
+      {/* Comparison Section */}
+      <section id="comparison" className="py-20 bg-muted/20 scroll-mt-20">
+        <div className="container mx-auto px-4">
+          <ComparisonSection />
+        </div>
+      </section>
+
       {/* How It Works Section */}
-      <section id="workflow" className="py-20 bg-muted/20 scroll-mt-20">
+      <section id="workflow" className="py-20 scroll-mt-20">
         <div className="container mx-auto px-4">
           <AnimatedWorkflow />
         </div>

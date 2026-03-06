@@ -15,6 +15,7 @@ import {
     Bot, Layers, ClipboardCheck, Printer, Globe2
 } from "lucide-react"
 import { useTenant } from "@/lib/tenant-context"
+import { ComparisonSection } from "@/components/landing/comparison-section"
 
 const coreFeatures = [
     { icon: Link2, titleKey: 'feature1Title', descKey: 'feature1Desc', color: 'text-blue-500', bg: 'bg-blue-500/10' },
@@ -175,6 +176,13 @@ export default function FeaturesPage() {
                     </motion.div>
 
                     <FeatureGrid items={additionalFeatures} cols={3} />
+                </div>
+            </section>
+
+            {/* Comparison Section */}
+            <section className="py-16">
+                <div className="container mx-auto px-4">
+                    <ComparisonSection />
                 </div>
             </section>
 
