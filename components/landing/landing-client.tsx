@@ -35,6 +35,7 @@ export function DesktopNav() {
     const t = useTranslations('Index')
     const navItems = [
         { label: t('navFeatures'), id: 'features' },
+        { label: t('navComparison'), id: 'comparison' },
         { label: t('navWorkflow'), id: 'workflow' },
         { label: t('navPricing'), id: 'pricing' },
         { label: t('navFaq'), id: 'faq' },
@@ -89,6 +90,7 @@ export function MobileNav() {
 
     const navItems = [
         { label: t('navFeatures'), id: 'features' },
+        { label: t('navComparison'), id: 'comparison' },
         { label: t('navWorkflow'), id: 'workflow' },
         { label: t('navPricing'), id: 'pricing' },
         { label: t('navFaq'), id: 'faq' },
