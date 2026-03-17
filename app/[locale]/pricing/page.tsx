@@ -111,6 +111,17 @@ export default function PricingPage() {
         router.refresh()
     }
 
+    const fastpikCoreFeatures = [
+        "featureFullAccess",
+        "featureUnlimitedProject",
+        "featureUnlimitedPhotos",
+        "featurePrioritySupport"
+    ]
+
+    const bundleExtraFeatures = pricingMode === "bundle"
+        ? ["featureBundleAllClientDesk", "featureBundleSyncClientDesk"]
+        : []
+
     const plans = [
         {
             nameKey: "plan1Month",
@@ -119,16 +130,11 @@ export default function PricingPage() {
             durationKey: "perMonth",
             features: pricingMode === "bundle" ? [
                 "featureBundleIncludesBoth",
-                "featureFullAccess",
-                "featureUnlimitedProject",
-                "featureUnlimitedPhotos",
-                "featurePrioritySupport"
+                ...bundleExtraFeatures,
+                ...fastpikCoreFeatures
             ] : [
                 "coffeePrice",
-                "featureFullAccess",
-                "featureUnlimitedProject",
-                "featureUnlimitedPhotos",
-                "featurePrioritySupport"
+                ...fastpikCoreFeatures
             ],
             link: pricingMode === "bundle" ? BUNDLE_CHECKOUT_LINK : FASTPIK_CHECKOUT_LINK,
             popular: false,
@@ -142,10 +148,8 @@ export default function PricingPage() {
             durationKey: "per3Months",
             features: [
                 pricingMode === "bundle" ? "featureBundlePerMonth3" : "featureSave15",
-                "featureFullAccess",
-                "featureUnlimitedProject",
-                "featureUnlimitedPhotos",
-                "featurePrioritySupport"
+                ...bundleExtraFeatures,
+                ...fastpikCoreFeatures
             ],
             link: pricingMode === "bundle" ? BUNDLE_CHECKOUT_LINK : FASTPIK_CHECKOUT_LINK,
             popular: false,
@@ -159,10 +163,8 @@ export default function PricingPage() {
             durationKey: "perYear",
             features: [
                 pricingMode === "bundle" ? "featureBundlePerMonth12" : "featureSave50",
-                "featureFullAccess",
-                "featureUnlimitedProject",
-                "featureUnlimitedPhotos",
-                "featurePrioritySupport"
+                ...bundleExtraFeatures,
+                ...fastpikCoreFeatures
             ],
             link: pricingMode === "bundle" ? BUNDLE_CHECKOUT_LINK : FASTPIK_CHECKOUT_LINK,
             popular: true,  // Changed to true - 1 Year is now popular
@@ -175,19 +177,14 @@ export default function PricingPage() {
             originalPrice: pricingMode === "bundle" ? null : "549rb",
             durationKey: "oneTime",
             features: pricingMode === "bundle" ? [
-                "featureBundleIncludesBoth",
                 "featurePayOnce",
-                "featureFullAccess",
-                "featureUnlimitedProject",
-                "featureUnlimitedPhotos",
-                "featurePrioritySupport",
+                ...bundleExtraFeatures,
+                "featureBundleIncludesBoth",
+                ...fastpikCoreFeatures,
                 "featureFutureUpdates"
             ] : [
                 "featurePayOnce",
-                "featureFullAccess",
-                "featureUnlimitedProject",
-                "featureUnlimitedPhotos",
-                "featurePrioritySupport",
+                ...fastpikCoreFeatures,
                 "featureFutureUpdates"
             ],
             link: pricingMode === "bundle" ? BUNDLE_CHECKOUT_LINK : FASTPIK_CHECKOUT_LINK,

@@ -661,6 +661,8 @@
         "featureBundlePerMonth3": "Only ~42k/month",
         "featureBundlePerMonth12": "Only ~33k/month",
         "featureBundleIncludesBoth": "Bundle Client Desk + Fastpik",
+        "featureBundleAllClientDesk": "And all Client Desk features",
+        "featureBundleSyncClientDesk": "Can sync data to Client Desk",
         "featurePayOnce": "Limited to the first 100 users",
         "coffeePrice": "Just the price of a cup of coffee ☕",
         "billingAuto": "Auto-renewing subscription",

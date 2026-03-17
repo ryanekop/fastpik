@@ -661,6 +661,8 @@
         "featureBundlePerMonth3": "Hanya ~42rb/bulan",
         "featureBundlePerMonth12": "Hanya ~33rb/bulan",
         "featureBundleIncludesBoth": "Bundle Client Desk + Fastpik",
+        "featureBundleAllClientDesk": "Dan semua fitur Client Desk",
+        "featureBundleSyncClientDesk": "Bisa sync data ke Client Desk",
         "featurePayOnce": "Terbatas untuk 100 user pertama",
         "coffeePrice": "Seharga 1 gelas kopi ☕",
         "billingAuto": "Tagihan otomatis diperbarui",
