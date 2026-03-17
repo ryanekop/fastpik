@@ -14,6 +14,7 @@ export type IntegrationSettingsRow = {
     clientdesk_integration_enabled: boolean | null
     clientdesk_api_key_id: string | null
     clientdesk_api_key_hash: string | null
+    tenant_id: string | null
 }
 
 export function slugifyVendorName(value: string | null | undefined) {
@@ -43,6 +44,54 @@ export function createShortProjectId() {
     return id
 }
 
+function readFirstHeaderValue(value: string | null | undefined) {
+    const raw = (value || '').trim()
+    if (!raw) return ''
+    return raw.split(',')[0]?.trim() || ''
+}
+
+function normalizeHost(value: string | null | undefined) {
+    const raw = readFirstHeaderValue(value)
+    if (!raw) return ''
+    return raw
+        .replace(/^https?:\/\//i, '')
+        .split('/')[0]
+        .trim()
+}
+
+function isLocalHost(host: string) {
+    const normalized = host.split(':')[0]?.toLowerCase()
+    return normalized === 'localhost' || normalized === '127.0.0.1' || normalized === '::1'
+}
+
+export function resolveClientDeskPublicOrigin(request: NextRequest, tenantDomainInput?: string | null) {
+    const tenantDomain = normalizeHost(tenantDomainInput || '')
+    if (tenantDomain) {
+        const protocol = isLocalHost(tenantDomain) ? 'http' : 'https'
+        return `${protocol}://${tenantDomain}`
+    }
+
+    const forwardedHost = normalizeHost(request.headers.get('x-forwarded-host'))
+    const headerHost = normalizeHost(request.headers.get('host'))
+    const requestHost = normalizeHost(request.nextUrl.host)
+    const host = forwardedHost || headerHost || requestHost
+
+    if (host) {
+        const forwardedProto = readFirstHeaderValue(request.headers.get('x-forwarded-proto')).toLowerCase()
+        const requestProto = (request.nextUrl.protocol || '').replace(':', '').toLowerCase()
+        const protocol = forwardedProto === 'http' || forwardedProto === 'https'
+            ? forwardedProto
+            : isLocalHost(host)
+                ? 'http'
+                : requestProto === 'http' || requestProto === 'https'
+                    ? requestProto
+                    : 'https'
+        return `${protocol}://${host}`
+    }
+
+    return request.nextUrl.origin
+}
+
 export async function resolveClientDeskIntegrationContext(request: NextRequest) {
     const headerKey = request.headers.get('x-clientdesk-api-key') || request.headers.get('authorization')
     const normalizedRaw = headerKey?.toLowerCase().startsWith('bearer ')
@@ -56,7 +105,7 @@ export async function resolveClientDeskIntegrationContext(request: NextRequest) 
     const supabaseAdmin = createServiceClient()
     const { data, error } = await supabaseAdmin
         .from('settings')
-        .select('user_id, vendor_name, default_admin_whatsapp, default_country_code, default_max_photos, default_expiry_days, default_download_expiry_days, default_password, clientdesk_integration_enabled, clientdesk_api_key_id, clientdesk_api_key_hash')
+        .select('user_id, vendor_name, default_admin_whatsapp, default_country_code, default_max_photos, default_expiry_days, default_download_expiry_days, default_password, clientdesk_integration_enabled, clientdesk_api_key_id, clientdesk_api_key_hash, tenant_id')
         .eq('clientdesk_api_key_id', parsed.keyId)
         .maybeSingle()
 
@@ -73,12 +122,24 @@ export async function resolveClientDeskIntegrationContext(request: NextRequest) 
         return { error: 'Invalid API key', status: 401 as const, context: null }
     }
 
+    let tenantDomain: string | null = null
+    if (settings.tenant_id) {
+        const { data: tenantData } = await supabaseAdmin
+            .from('tenants')
+            .select('domain')
+            .eq('id', settings.tenant_id)
+            .maybeSingle()
+        const normalizedTenantDomain = normalizeHost((tenantData as { domain?: string | null } | null)?.domain || '')
+        tenantDomain = normalizedTenantDomain || null
+    }
+
     return {
         error: null,
         status: 200 as const,
         context: {
             supabaseAdmin,
             settings,
+            tenantDomain,
             keyId: parsed.keyId,
             rawKey: parsed.raw,
         },
@@ -100,4 +161,3 @@ export async function writeClientDeskSyncLog(
         })
         .eq('user_id', userId)
 }
-

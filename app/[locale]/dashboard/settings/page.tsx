@@ -228,15 +228,43 @@ export default function SettingsPage() {
 
     const handleGenerateClientDeskApiKey = async () => {
         setGeneratingClientDeskApiKey(true)
+        setError(null)
         try {
+            const { data: { user } } = await supabase.auth.getUser()
+            if (!user) {
+                throw new Error("Not authenticated")
+            }
+
             const keyId = `cdk_${randomHex(6)}`
             const secret = randomHex(24)
             const fullKey = `${keyId}.${secret}`
             const keyHash = await hashApiKey(fullKey)
+
+            const { error: upsertError } = await supabase
+                .from('settings')
+                .upsert({
+                    user_id: user.id,
+                    clientdesk_integration_enabled: true,
+                    clientdesk_api_key_id: keyId,
+                    clientdesk_api_key_hash: keyHash,
+                    updated_at: new Date().toISOString(),
+                }, {
+                    onConflict: 'user_id'
+                })
+
+            if (upsertError) {
+                throw upsertError
+            }
+
             setClientDeskApiKeyId(keyId)
             setClientDeskApiKeyHash(keyHash)
             setClientDeskIntegrationEnabled(true)
             setGeneratedClientDeskApiKey(fullKey)
+            setSuccess(true)
+            setTimeout(() => setSuccess(false), 3000)
+        } catch (err: any) {
+            console.error('Failed to generate ClientDesk API key:', err)
+            setError(err?.message || "Failed to generate API key")
         } finally {
             setGeneratingClientDeskApiKey(false)
         }

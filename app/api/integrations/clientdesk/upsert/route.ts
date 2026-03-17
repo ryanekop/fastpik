@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import {
     buildClientProjectLink,
     createShortProjectId,
+    resolveClientDeskPublicOrigin,
     resolveClientDeskIntegrationContext,
     writeClientDeskSyncLog,
 } from '../_lib'
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest) {
         )
     }
 
-    const { supabaseAdmin, settings } = resolved.context
+    const { supabaseAdmin, settings, tenantDomain } = resolved.context
 
     try {
         const body = (await request.json()) as UpsertPayload
@@ -98,6 +99,8 @@ export async function POST(request: NextRequest) {
             )
         }
 
+        const publicOrigin = resolveClientDeskPublicOrigin(request, tenantDomain)
+
         const { data: existingProject, error: findError } = await supabaseAdmin
             .from('projects')
             .select('id, link')
@@ -111,14 +114,26 @@ export async function POST(request: NextRequest) {
         }
 
         if (existingProject) {
+            const canonicalLink = buildClientProjectLink(
+                publicOrigin,
+                locale,
+                settings.vendor_name,
+                existingProject.id,
+            )
+            const shouldRepairLink = (existingProject.link || '') !== canonicalLink
+            const updatePayload: Record<string, unknown> = {
+                client_name: clientName,
+                client_whatsapp: clientWhatsapp || null,
+                gdrive_link: gdriveLink,
+                source_last_synced_at: syncAtIso,
+            }
+            if (shouldRepairLink) {
+                updatePayload.link = canonicalLink
+            }
+
             const { error: updateError } = await supabaseAdmin
                 .from('projects')
-                .update({
-                    client_name: clientName,
-                    client_whatsapp: clientWhatsapp || null,
-                    gdrive_link: gdriveLink,
-                    source_last_synced_at: syncAtIso,
-                })
+                .update(updatePayload)
                 .eq('id', existingProject.id)
                 .eq('user_id', settings.user_id)
 
@@ -136,7 +151,7 @@ export async function POST(request: NextRequest) {
                 success: true,
                 action: 'updated',
                 project_id: existingProject.id,
-                project_link: existingProject.link,
+                project_link: shouldRepairLink ? canonicalLink : existingProject.link,
             })
         }
 
@@ -167,7 +182,7 @@ export async function POST(request: NextRequest) {
             ? new Date(now + syncOffsetMs + defaultDownloadDays * 24 * 60 * 60 * 1000).toISOString()
             : null
         const link = buildClientProjectLink(
-            request.nextUrl.origin,
+            publicOrigin,
             locale,
             settings.vendor_name,
             projectId,
