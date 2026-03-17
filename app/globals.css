@@ -123,6 +123,15 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  button,
+  a,
+  select,
+  [role="button"],
+  [role="tab"],
+  summary {
+    cursor: pointer;
+  }
 }
 
 /* Hide scrollbar for scrollable tabs */

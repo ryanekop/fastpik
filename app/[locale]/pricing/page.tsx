@@ -346,7 +346,10 @@ export default function PricingPage() {
                                 )}
                                 {isCurrent && (
                                     <div className="absolute -top-4 left-0 right-0 flex justify-center">
-                                        <Badge className="bg-green-500 text-white px-3 py-1">✓ {t('currentPlan')}</Badge>
+                                        <Badge className="bg-green-500 text-white px-3 py-1 flex items-center gap-1.5">
+                                            <Check className="h-3.5 w-3.5" />
+                                            {t('currentPlan')}
+                                        </Badge>
                                     </div>
                                 )}
                                 <CardHeader>
