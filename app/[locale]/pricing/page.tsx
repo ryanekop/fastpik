@@ -39,6 +39,11 @@ const tierToPlanMap: Record<string, string> = {
     'lifetime': 'planLifetime'
 }
 
+type PricingMode = "single" | "bundle"
+
+const FASTPIK_CHECKOUT_LINK = "https://ryaneko.myr.id/m/fastpik-pro-access"
+const BUNDLE_CHECKOUT_LINK = "https://ryaneko.myr.id/m/bundling-client-desk-fastpik/"
+
 export default function PricingPage() {
     const t = useTranslations('Pricing')
     const tIndex = useTranslations('Index')
@@ -50,6 +55,7 @@ export default function PricingPage() {
     const [user, setUser] = useState<SupabaseUser | null>(null)
     const [userName, setUserName] = useState<string>("Admin")
     const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+    const [pricingMode, setPricingMode] = useState<PricingMode>("single")
     const tenant = useTenant()
 
     useEffect(() => {
@@ -108,61 +114,75 @@ export default function PricingPage() {
     const plans = [
         {
             nameKey: "plan1Month",
-            price: "15rb",
-            originalPrice: "45rb",
+            price: pricingMode === "bundle" ? "49rb" : "15rb",
+            originalPrice: pricingMode === "bundle" ? null : "45rb",
             durationKey: "perMonth",
-            features: [
+            features: pricingMode === "bundle" ? [
+                "featureBundleIncludesBoth",
+                "featureFullAccess",
+                "featureUnlimitedProject",
+                "featureUnlimitedPhotos",
+                "featurePrioritySupport"
+            ] : [
                 "coffeePrice",
                 "featureFullAccess",
                 "featureUnlimitedProject",
                 "featureUnlimitedPhotos",
                 "featurePrioritySupport"
             ],
-            link: "https://ryaneko.myr.id/m/fastpik-pro-access",
+            link: pricingMode === "bundle" ? BUNDLE_CHECKOUT_LINK : FASTPIK_CHECKOUT_LINK,
             popular: false,
             icon: Zap,
             isLifetime: false
         },
         {
             nameKey: "plan3Months",
-            price: "39rb",
-            originalPrice: "75rb",
+            price: pricingMode === "bundle" ? "125rb" : "39rb",
+            originalPrice: pricingMode === "bundle" ? null : "75rb",
             durationKey: "per3Months",
             features: [
-                "featureSave15",
+                pricingMode === "bundle" ? "featureBundlePerMonth3" : "featureSave15",
                 "featureFullAccess",
                 "featureUnlimitedProject",
                 "featureUnlimitedPhotos",
                 "featurePrioritySupport"
             ],
-            link: "https://ryaneko.myr.id/m/fastpik-pro-access",
+            link: pricingMode === "bundle" ? BUNDLE_CHECKOUT_LINK : FASTPIK_CHECKOUT_LINK,
             popular: false,
             icon: Star,
             isLifetime: false
         },
         {
             nameKey: "plan1Year",
-            price: "129rb",
-            originalPrice: "275rb",
+            price: pricingMode === "bundle" ? "399rb" : "129rb",
+            originalPrice: pricingMode === "bundle" ? null : "275rb",
             durationKey: "perYear",
             features: [
-                "featureSave50",
+                pricingMode === "bundle" ? "featureBundlePerMonth12" : "featureSave50",
                 "featureFullAccess",
                 "featureUnlimitedProject",
                 "featureUnlimitedPhotos",
                 "featurePrioritySupport"
             ],
-            link: "https://ryaneko.myr.id/m/fastpik-pro-access",
+            link: pricingMode === "bundle" ? BUNDLE_CHECKOUT_LINK : FASTPIK_CHECKOUT_LINK,
             popular: true,  // Changed to true - 1 Year is now popular
             icon: Crown,
             isLifetime: false
         },
         {
             nameKey: "planLifetime",
-            price: "349rb",
-            originalPrice: "549rb",
+            price: pricingMode === "bundle" ? "749rb" : "349rb",
+            originalPrice: pricingMode === "bundle" ? null : "549rb",
             durationKey: "oneTime",
-            features: [
+            features: pricingMode === "bundle" ? [
+                "featureBundleIncludesBoth",
+                "featurePayOnce",
+                "featureFullAccess",
+                "featureUnlimitedProject",
+                "featureUnlimitedPhotos",
+                "featurePrioritySupport",
+                "featureFutureUpdates"
+            ] : [
                 "featurePayOnce",
                 "featureFullAccess",
                 "featureUnlimitedProject",
@@ -170,7 +190,7 @@ export default function PricingPage() {
                 "featurePrioritySupport",
                 "featureFutureUpdates"
             ],
-            link: "https://ryaneko.myr.id/m/fastpik-pro-access",
+            link: pricingMode === "bundle" ? BUNDLE_CHECKOUT_LINK : FASTPIK_CHECKOUT_LINK,
             popular: false,
             icon: InfinityIcon,
             isLifetime: true
@@ -270,6 +290,46 @@ export default function PricingPage() {
                     </div>
                 </div>
 
+                <div className="mb-10 flex flex-col items-center gap-3">
+                    <div className="inline-flex items-center rounded-full border bg-muted p-1">
+                        <button
+                            type="button"
+                            onClick={() => setPricingMode("single")}
+                            className={cn(
+                                "rounded-full px-4 py-2 text-sm font-medium transition-colors",
+                                pricingMode === "single"
+                                    ? "bg-background text-foreground shadow-sm"
+                                    : "text-muted-foreground hover:text-foreground"
+                            )}
+                        >
+                            {t("modeSingleLabel")}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setPricingMode("bundle")}
+                            className={cn(
+                                "rounded-full px-4 py-2 text-sm font-medium transition-colors",
+                                pricingMode === "bundle"
+                                    ? "bg-primary text-primary-foreground shadow-sm"
+                                    : "text-muted-foreground hover:text-foreground"
+                            )}
+                        >
+                            {t("modeBundleLabel")}
+                        </button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                        {t("crossProductHint")}{" "}
+                        <a
+                            href={`https://clientdesk.ryanekoapp.web.id/${locale}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-medium text-primary hover:underline"
+                        >
+                            {t("crossProductLinkLabel")}
+                        </a>
+                    </p>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-7xl mx-auto">
                     {plans.map((plan) => {
                         const isCurrent = isCurrentPlan(plan.nameKey)
@@ -296,13 +356,15 @@ export default function PricingPage() {
                                     </div>
                                     <div className="flex items-end gap-2">
                                         <div className="flex flex-col">
-                                            <span className="text-xs text-muted-foreground line-through">{plan.originalPrice}</span>
+                                            {plan.originalPrice ? (
+                                                <span className="text-xs text-muted-foreground line-through">{plan.originalPrice}</span>
+                                            ) : null}
                                             <span className="text-3xl font-bold">{plan.price}</span>
                                         </div>
                                         <span className="text-muted-foreground text-sm mb-1">{t(plan.durationKey)}</span>
                                     </div>
                                     <CardDescription>
-                                        {plan.isLifetime ? t('billingOnce') : t('billingAuto')}
+                                        {plan.isLifetime ? t('billingOnce') : t('billingManualRenew')}
                                     </CardDescription>
                                 </CardHeader>
                                 <CardContent className="flex-1">
