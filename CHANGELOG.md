@@ -1,5 +1,20 @@
 # Changelog
 
+## v1.4.2 (2026-03-17)
+
+### 🔗 Integrasi ClientDesk
+
+- Tab baru **Integrasi ClientDesk** di Settings Fastpik
+- Dukungan **API key khusus ClientDesk** (generate/regenerate)
+- Tersedia **status koneksi** dan **last sync log** di Settings
+
+### ⚙️ Sinkronisasi Project
+
+- Endpoint baru untuk integrasi: `ping` dan `upsert`
+- Sync bersifat **idempoten** berdasarkan `source_app + source_ref_id`
+- Project dari ClientDesk otomatis dibuat di **root folder** Fastpik
+- Untuk project existing, sync hanya update field inti agar preset manual Fastpik tidak tertimpa
+
 ## v1.4.1 (2026-02-28)
 
 ### ✨ Tampilan Foto (Photo Viewer)
