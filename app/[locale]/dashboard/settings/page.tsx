@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { PhoneInput } from "@/components/ui/phone-input"
-import { Loader2, Save, ArrowLeft, MessageSquare, Send, Search, Bot, ClipboardPaste, Settings, Printer, Plus, Trash2, Check } from "lucide-react"
+import { Loader2, Save, ArrowLeft, MessageSquare, Send, Search, Bot, ClipboardPaste, Settings, Printer, Plus, Trash2, Check, Copy } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import Link from "next/link"
 import { AdminShell } from "@/components/admin/admin-shell"
@@ -63,6 +63,17 @@ export default function SettingsPage() {
     const [telegramLanguage, setTelegramLanguage] = useState<'id' | 'en'>('id')
     const [testingSend, setTestingSend] = useState(false)
     const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null)
+
+    // ClientDesk integration state
+    const [clientDeskIntegrationEnabled, setClientDeskIntegrationEnabled] = useState(false)
+    const [clientDeskApiKeyId, setClientDeskApiKeyId] = useState("")
+    const [clientDeskApiKeyHash, setClientDeskApiKeyHash] = useState("")
+    const [clientDeskLastSyncAt, setClientDeskLastSyncAt] = useState<string | null>(null)
+    const [clientDeskLastSyncStatus, setClientDeskLastSyncStatus] = useState<'idle' | 'success' | 'warning' | 'failed' | 'syncing'>('idle')
+    const [clientDeskLastSyncMessage, setClientDeskLastSyncMessage] = useState("")
+    const [generatedClientDeskApiKey, setGeneratedClientDeskApiKey] = useState<string | null>(null)
+    const [generatingClientDeskApiKey, setGeneratingClientDeskApiKey] = useState(false)
+    const [clientDeskApiKeyCopied, setClientDeskApiKeyCopied] = useState(false)
 
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
@@ -127,6 +138,13 @@ export default function SettingsPage() {
                 if (data.telegram_reminder_days) setTelegramReminderDays(data.telegram_reminder_days.map((d: any) => Number(d)))
                 if (data.telegram_reminder_type) setTelegramReminderType(data.telegram_reminder_type)
                 if (data.telegram_language) setTelegramLanguage(data.telegram_language)
+                // ClientDesk integration
+                setClientDeskIntegrationEnabled(Boolean(data.clientdesk_integration_enabled))
+                setClientDeskApiKeyId(data.clientdesk_api_key_id || "")
+                setClientDeskApiKeyHash(data.clientdesk_api_key_hash || "")
+                setClientDeskLastSyncAt(data.clientdesk_last_sync_at || null)
+                setClientDeskLastSyncStatus((data.clientdesk_last_sync_status || 'idle') as 'idle' | 'success' | 'warning' | 'failed' | 'syncing')
+                setClientDeskLastSyncMessage(data.clientdesk_last_sync_message || "")
                 // Print
                 setPrintEnabled(data.print_enabled || false)
                 setPrintTemplates(data.print_templates || [])
@@ -173,6 +191,9 @@ export default function SettingsPage() {
                     telegram_reminder_days: telegramReminderDays,
                     telegram_reminder_type: telegramReminderType,
                     telegram_language: telegramLanguage,
+                    clientdesk_integration_enabled: clientDeskIntegrationEnabled,
+                    clientdesk_api_key_id: clientDeskApiKeyId || null,
+                    clientdesk_api_key_hash: clientDeskApiKeyHash || null,
                     print_enabled: printEnabled,
                     print_templates: printTemplates,
                     default_print_expiry_days: defaultPrintExpiryDays ? parseInt(defaultPrintExpiryDays) : null,
@@ -189,6 +210,46 @@ export default function SettingsPage() {
             setError(err.message || "Failed to save settings")
         } finally {
             setSaving(false)
+        }
+    }
+
+    const hashApiKey = async (value: string) => {
+        const encoded = new TextEncoder().encode(value)
+        const digest = await crypto.subtle.digest('SHA-256', encoded)
+        const bytes = Array.from(new Uint8Array(digest))
+        return bytes.map((byte) => byte.toString(16).padStart(2, '0')).join('')
+    }
+
+    const randomHex = (size: number) => {
+        const bytes = new Uint8Array(size)
+        crypto.getRandomValues(bytes)
+        return Array.from(bytes).map((byte) => byte.toString(16).padStart(2, '0')).join('')
+    }
+
+    const handleGenerateClientDeskApiKey = async () => {
+        setGeneratingClientDeskApiKey(true)
+        try {
+            const keyId = `cdk_${randomHex(6)}`
+            const secret = randomHex(24)
+            const fullKey = `${keyId}.${secret}`
+            const keyHash = await hashApiKey(fullKey)
+            setClientDeskApiKeyId(keyId)
+            setClientDeskApiKeyHash(keyHash)
+            setClientDeskIntegrationEnabled(true)
+            setGeneratedClientDeskApiKey(fullKey)
+        } finally {
+            setGeneratingClientDeskApiKey(false)
+        }
+    }
+
+    const copyGeneratedClientDeskApiKey = async () => {
+        if (!generatedClientDeskApiKey) return
+        try {
+            await navigator.clipboard.writeText(generatedClientDeskApiKey)
+            setClientDeskApiKeyCopied(true)
+            setTimeout(() => setClientDeskApiKeyCopied(false), 2000)
+        } catch {
+            setClientDeskApiKeyCopied(false)
         }
     }
 
@@ -227,6 +288,7 @@ export default function SettingsPage() {
                             <TabsTrigger value="general">{t('generalTab')}</TabsTrigger>
                             <TabsTrigger value="templates">{t('templatesTab')}</TabsTrigger>
                             <TabsTrigger value="print">{t('printTab')}</TabsTrigger>
+                            <TabsTrigger value="clientdesk">{t('clientDeskTab')}</TabsTrigger>
                             <TabsTrigger value="telegram">{t('telegramTab')}</TabsTrigger>
                         </TabsList>
 
@@ -750,6 +812,92 @@ export default function SettingsPage() {
                             </div>
                         </TabsContent>
 
+                        {/* ClientDesk Integration Tab */}
+                        <TabsContent value="clientdesk">
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>🔗 {t('clientDeskTitle')}</CardTitle>
+                                    <CardDescription>{t('clientDeskDesc')}</CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-6">
+                                    <div className="flex items-center justify-between rounded-lg border p-4">
+                                        <div className="space-y-1">
+                                            <p className="text-sm font-medium">{t('clientDeskEnable')}</p>
+                                            <p className="text-xs text-muted-foreground">
+                                                {t('clientDeskEnableHint')}
+                                            </p>
+                                        </div>
+                                        <Switch
+                                            checked={clientDeskIntegrationEnabled}
+                                            onCheckedChange={setClientDeskIntegrationEnabled}
+                                            className="cursor-pointer"
+                                        />
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label>{t('clientDeskStatus')}</Label>
+                                        <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
+                                            {clientDeskIntegrationEnabled && clientDeskApiKeyId
+                                                ? `✅ ${t('clientDeskConnected')}`
+                                                : `⚪ ${t('clientDeskNotConnected')}`}
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label>{t('clientDeskApiKey')}</Label>
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={handleGenerateClientDeskApiKey}
+                                                disabled={generatingClientDeskApiKey}
+                                                className="cursor-pointer"
+                                            >
+                                                {generatingClientDeskApiKey
+                                                    ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                    : null}
+                                                {clientDeskApiKeyId ? t('clientDeskRegenerateKey') : t('clientDeskGenerateKey')}
+                                            </Button>
+                                            {clientDeskApiKeyId && (
+                                                <span className="text-xs text-muted-foreground">
+                                                    {t('clientDeskKeyId')}: <span className="font-mono">{clientDeskApiKeyId}</span>
+                                                </span>
+                                            )}
+                                        </div>
+                                        {generatedClientDeskApiKey && (
+                                            <div className="rounded-md border border-amber-300 bg-amber-50/70 dark:border-amber-800 dark:bg-amber-950/30 p-3 space-y-2">
+                                                <p className="text-xs font-medium">{t('clientDeskKeyGenerated')}</p>
+                                                <div className="flex items-center gap-2">
+                                                    <Input value={generatedClientDeskApiKey} readOnly />
+                                                    <Button type="button" variant="outline" size="icon" onClick={copyGeneratedClientDeskApiKey} className="cursor-pointer">
+                                                        {clientDeskApiKeyCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                                                    </Button>
+                                                </div>
+                                                <p className="text-xs text-muted-foreground">{t('clientDeskKeyWarning')}</p>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label>{t('clientDeskLastSync')}</Label>
+                                        <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm space-y-1">
+                                            <p className="text-xs text-muted-foreground">
+                                                {clientDeskLastSyncAt
+                                                    ? `${new Date(clientDeskLastSyncAt).toLocaleString(locale === 'id' ? 'id-ID' : 'en-US')}`
+                                                    : t('clientDeskNeverSynced')}
+                                            </p>
+                                            <p className="text-sm">
+                                                {t('clientDeskSyncStatus')}: <span className="font-medium">{clientDeskLastSyncStatus}</span>
+                                            </p>
+                                            {clientDeskLastSyncMessage && (
+                                                <p className="text-xs text-muted-foreground">{clientDeskLastSyncMessage}</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </TabsContent>
+
                         {/* Telegram Bot Tab */}
                         <TabsContent value="telegram">
                             <Card>
@@ -1036,4 +1184,3 @@ export default function SettingsPage() {
         </AdminShell>
     )
 }
-
