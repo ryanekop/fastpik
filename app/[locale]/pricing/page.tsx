@@ -126,7 +126,6 @@ export default function PricingPage() {
         {
             nameKey: "plan1Month",
             price: pricingMode === "bundle" ? "49rb" : "15rb",
-            originalPrice: pricingMode === "bundle" ? null : "45rb",
             durationKey: "perMonth",
             features: pricingMode === "bundle" ? [
                 "featureBundleIncludesBoth",
@@ -144,7 +143,6 @@ export default function PricingPage() {
         {
             nameKey: "plan3Months",
             price: pricingMode === "bundle" ? "125rb" : "39rb",
-            originalPrice: pricingMode === "bundle" ? null : "75rb",
             durationKey: "per3Months",
             features: [
                 pricingMode === "bundle" ? "featureBundlePerMonth3" : "featureSave15",
@@ -159,7 +157,6 @@ export default function PricingPage() {
         {
             nameKey: "plan1Year",
             price: pricingMode === "bundle" ? "399rb" : "129rb",
-            originalPrice: pricingMode === "bundle" ? null : "275rb",
             durationKey: "perYear",
             features: [
                 pricingMode === "bundle" ? "featureBundlePerMonth12" : "featureSave50",
@@ -174,7 +171,6 @@ export default function PricingPage() {
         {
             nameKey: "planLifetime",
             price: pricingMode === "bundle" ? "749rb" : "349rb",
-            originalPrice: pricingMode === "bundle" ? null : "549rb",
             durationKey: "oneTime",
             features: pricingMode === "bundle" ? [
                 "featurePayOnce",
@@ -356,9 +352,6 @@ export default function PricingPage() {
                                     </div>
                                     <div className="flex items-end gap-2">
                                         <div className="flex flex-col">
-                                            {plan.originalPrice ? (
-                                                <span className="text-xs text-muted-foreground line-through">{plan.originalPrice}</span>
-                                            ) : null}
                                             <span className="text-3xl font-bold">{plan.price}</span>
                                         </div>
                                         <span className="text-muted-foreground text-sm mb-1">{t(plan.durationKey)}</span>
