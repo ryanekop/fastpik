@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import {
     buildClientProjectLink,
+    buildDashboardProjectEditLink,
     createShortProjectId,
     resolveClientDeskPublicOrigin,
     resolveClientDeskIntegrationContext,
@@ -152,6 +153,11 @@ export async function POST(request: NextRequest) {
                 action: 'updated',
                 project_id: existingProject.id,
                 project_link: shouldRepairLink ? canonicalLink : existingProject.link,
+                project_edit_link: buildDashboardProjectEditLink(
+                    publicOrigin,
+                    locale,
+                    existingProject.id,
+                ),
             })
         }
 
@@ -229,6 +235,11 @@ export async function POST(request: NextRequest) {
             action: 'created',
             project_id: inserted.id,
             project_link: inserted.link,
+            project_edit_link: buildDashboardProjectEditLink(
+                publicOrigin,
+                locale,
+                inserted.id,
+            ),
         })
     } catch (error: any) {
         console.error('[ClientDesk upsert] failed:', error)

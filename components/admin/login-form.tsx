@@ -14,7 +14,20 @@ import Link from "next/link"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { LanguageToggle } from "@/components/language-toggle"
 
-export function LoginForm() {
+type LoginFormProps = {
+    nextPath?: string | null
+}
+
+function resolveSafeNextPath(locale: string, nextPath?: string | null) {
+    const fallback = `/${locale}/dashboard`
+    const raw = (nextPath || "").trim()
+    if (!raw) return fallback
+    if (!raw.startsWith("/") || raw.startsWith("//")) return fallback
+    if (!raw.startsWith(`/${locale}/dashboard`)) return fallback
+    return raw
+}
+
+export function LoginForm({ nextPath = null }: LoginFormProps) {
     const t = useTranslations('Admin')
     const locale = useLocale()
     const router = useRouter()
@@ -61,8 +74,7 @@ export function LoginForm() {
             }
 
             router.refresh()
-            // Use locale-aware redirect
-            router.push(`/${locale}/dashboard`)
+            router.push(resolveSafeNextPath(locale, nextPath))
 
         } catch (err) {
             setError("An unexpected error occurred")

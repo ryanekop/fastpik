@@ -35,6 +35,12 @@ export function buildClientProjectLink(origin: string, locale: string, vendorNam
     return `${origin}/${safeLocale}/client/${projectId}`
 }
 
+export function buildDashboardProjectEditLink(origin: string, locale: string, projectId: string) {
+    const safeLocale = locale?.trim() || 'id'
+    const safeProjectId = encodeURIComponent((projectId || '').trim())
+    return `${origin}/${safeLocale}/dashboard/projects/${safeProjectId}/edit`
+}
+
 export function createShortProjectId() {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'
     let id = ''

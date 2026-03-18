@@ -15,6 +15,10 @@ type Props = {
 export default async function LoginPage({ searchParams }: Props) {
     const params = await searchParams
     const paymentSuccess = params.payment_success === 'true'
+    const nextPath =
+        typeof params.next === 'string' && params.next.trim().length > 0
+            ? params.next.trim()
+            : null
 
     return (
         <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
@@ -28,7 +32,7 @@ export default async function LoginPage({ searchParams }: Props) {
                         </AlertDescription>
                     </Alert>
                 )}
-                <LoginForm />
+                <LoginForm nextPath={nextPath} />
             </div>
         </div>
     )

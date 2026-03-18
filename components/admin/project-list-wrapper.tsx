@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { ProjectList } from "@/components/admin/project-list"
 import { CreateProjectForm } from "@/components/admin/create-project-form"
@@ -11,7 +11,7 @@ import { ClientStatusTab } from "@/components/admin/client-status-tab"
 import { ClientPrintStatusTab } from "@/components/admin/client-print-status-tab"
 import type { Project } from "@/lib/project-store"
 import type { Folder } from "@/lib/supabase/folders"
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useTranslations } from "next-intl"
 import { cn } from "@/lib/utils"
 import { LayoutList, Eye, Printer } from "lucide-react"
@@ -23,9 +23,12 @@ interface ProjectListWrapperProps {
 
 export function ProjectListWrapper({ initialProjects, initialFolders }: ProjectListWrapperProps) {
     const router = useRouter()
+    const pathname = usePathname()
+    const searchParams = useSearchParams()
     const t = useTranslations('Admin')
     const [projects, setProjects] = useState<Project[]>(initialProjects)
     const [folders, setFolders] = useState<Folder[]>(initialFolders)
+    const deepLinkEditRef = useRef<string | null>(null)
 
     useEffect(() => {
         setProjects(initialProjects)
@@ -54,6 +57,42 @@ export function ProjectListWrapper({ initialProjects, initialFolders }: ProjectL
         }
         loadPrintSetting()
     }, [])
+
+    const syncEditQueryParam = (projectId: string | null) => {
+        const currentEdit = (searchParams.get('edit') || '').trim()
+        const nextEdit = (projectId || '').trim()
+        if (currentEdit === nextEdit) return
+
+        const nextParams = new URLSearchParams(searchParams.toString())
+        if (nextEdit) {
+            nextParams.set('edit', nextEdit)
+        } else {
+            nextParams.delete('edit')
+        }
+
+        const nextQuery = nextParams.toString()
+        router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false })
+    }
+
+    useEffect(() => {
+        const editId = (searchParams.get('edit') || '').trim()
+        if (!editId || projects.length === 0) return
+
+        if (
+            deepLinkEditRef.current === editId &&
+            view === 'edit' &&
+            editingProject?.id === editId
+        ) {
+            return
+        }
+
+        const target = projects.find((project) => project.id === editId)
+        if (!target) return
+
+        deepLinkEditRef.current = editId
+        setEditingProject(target)
+        setView('edit')
+    }, [searchParams, projects, view, editingProject?.id])
 
     // Folder navigation
     const [currentFolderId, setCurrentFolderId] = useState<string | null>(null)
@@ -85,11 +124,13 @@ export function ProjectListWrapper({ initialProjects, initialFolders }: ProjectL
     }
 
     const handleEditProject = (project: Project) => {
+        syncEditQueryParam(project.id)
         setEditingProject(project)
         setView('edit')
     }
 
     const handleCreateNew = () => {
+        syncEditQueryParam(null)
         setEditingProject(null)
         setView('create')
     }
@@ -115,6 +156,7 @@ export function ProjectListWrapper({ initialProjects, initialFolders }: ProjectL
     }
 
     const handleBack = () => {
+        syncEditQueryParam(null)
         setEditingProject(null)
         setView('list')
     }
@@ -125,6 +167,7 @@ export function ProjectListWrapper({ initialProjects, initialFolders }: ProjectL
     }
 
     const onEditComplete = () => {
+        syncEditQueryParam(null)
         setView('list')
         setEditingProject(null)
         router.refresh()
