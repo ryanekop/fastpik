@@ -9,13 +9,13 @@ type AnnouncementSegment = {
 };
 
 const ANNOUNCEMENT_SEGMENTS: AnnouncementSegment[] = [
-  { text: "Admin sedang libur lebaran dulu ygy mulai tanggal " },
-  { text: "20-27 Maret", bold: true },
+  { text: "Admin sedang libur lebaran dulu ygy mulai tanggal" },
+  { text: " 20-27 Maret", bold: true },
   {
     text: ". Segala konsultasi dan masalah akan dijawab slow respon di DM Instagram. Admin tidak akan mengupdate website (fitur & bug fixing) selama periode itu. ",
   },
   {
-    text: "✨🌙 Taqabbalallahu Minna wa minkum. Minal Aidzin Wal Faidzin, Mohon maaf lahir dan batin 🌙✨",
+    text: "✨🌙 Taqabbalallahu Minna wa minkum. Minal Aidzin Wal Faidzin, Mohon Maaf Lahir dan Batin 1447 H 🌙✨",
     bold: true,
   },
 ];
@@ -149,7 +149,10 @@ export function GlobalHolidayAnnouncement() {
   if (!isVisible) return null;
 
   return (
-    <div className="announcement-hover-zone sticky top-0 z-[60] h-10 border-b border-emerald-700 bg-emerald-600 text-emerald-50 shadow-sm">
+    <div
+      className="announcement-hover-zone sticky top-0 z-[60] h-10 border-b border-emerald-900 bg-emerald-700 text-white shadow-sm"
+      style={{ textShadow: "0 1px 1px rgba(0, 0, 0, 0.28)" }}
+    >
       <div
         ref={containerRef}
         className="relative flex h-full items-center overflow-hidden px-3 sm:px-4"
@@ -164,7 +167,7 @@ export function GlobalHolidayAnnouncement() {
 
         {shouldAnimate ? (
           <div
-            className="announcement-marquee-track text-sm font-medium"
+            className="announcement-marquee-track text-sm font-semibold"
             style={marqueeStyle}
           >
             <span
@@ -178,7 +181,7 @@ export function GlobalHolidayAnnouncement() {
             </span>
           </div>
         ) : (
-          <p className="w-full truncate whitespace-nowrap text-center text-sm font-medium">
+          <p className="w-full truncate whitespace-nowrap text-center text-sm font-semibold">
             {renderAnnouncementMessage("static")}
           </p>
         )}

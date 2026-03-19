@@ -198,7 +198,7 @@ export default function PricingPage() {
 
     return (
         <div className="flex flex-col min-h-screen font-[family-name:var(--font-geist-sans)]">
-            <header className="flex items-center justify-between p-4 border-b">
+            <header className="announcement-aware-sticky sticky top-0 z-50 flex items-center justify-between border-b bg-background/80 p-4 backdrop-blur-sm">
                 <Link href={`/${locale}`} className="font-bold text-xl tracking-tight flex items-center gap-3 hover:opacity-80 transition-opacity">
                     <Image src={tenant.logoUrl} alt={tenant.name} width={28} height={28} className="rounded-md" />
                     {tenant.name}
