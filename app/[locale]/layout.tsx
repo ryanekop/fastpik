@@ -6,6 +6,7 @@ import "../globals.css";
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages } from 'next-intl/server';
 import { ThemeProvider } from "@/components/theme-provider"
+import { GlobalHolidayAnnouncement } from "@/components/global-holiday-announcement"
 import { getTenantConfig } from "@/lib/tenant-config"
 import { TenantProvider } from "@/lib/tenant-context"
 
@@ -80,6 +81,7 @@ export default async function LocaleLayout({
               primaryColor: tenant.primaryColor || '',
               footerText: tenant.footerText || '',
             }}>
+              <GlobalHolidayAnnouncement />
               {children}
             </TenantProvider>
           </ThemeProvider>

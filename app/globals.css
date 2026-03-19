@@ -48,6 +48,7 @@
 
 :root {
   --radius: 0.625rem;
+  --global-announcement-height: 0px;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -79,6 +80,54 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+}
+
+@keyframes announcement-marquee {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+
+  to {
+    transform: translate3d(calc(-1 * var(--announcement-marquee-distance, 0px)), 0, 0);
+  }
+}
+
+.announcement-marquee-track {
+  display: inline-flex;
+  width: max-content;
+  min-width: 100%;
+  align-items: center;
+  white-space: nowrap;
+  animation-name: announcement-marquee;
+  animation-duration: var(--announcement-marquee-duration, 30s);
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform;
+  transform: translate3d(0, 0, 0);
+}
+
+.announcement-marquee-item {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  padding-right: 2.5rem;
+  white-space: nowrap;
+}
+
+.announcement-hover-zone:hover .announcement-marquee-track,
+.announcement-hover-zone:focus-within .announcement-marquee-track {
+  animation-play-state: paused;
+}
+
+.announcement-aware-sticky {
+  top: var(--global-announcement-height, 0px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .announcement-marquee-track {
+    animation: none;
+    transform: translate3d(0, 0, 0);
+  }
 }
 
 .dark {

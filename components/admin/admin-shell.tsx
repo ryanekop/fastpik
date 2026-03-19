@@ -134,7 +134,7 @@ export function AdminShell({ children, latestChangelog }: AdminShellProps) {
 
     return (
         <div className="flex flex-col min-h-screen">
-            <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background px-6 shadow-sm">
+            <header className="announcement-aware-sticky sticky z-30 flex h-16 items-center gap-4 border-b bg-background px-6 shadow-sm">
                 <Link href={`/${locale}`} className="flex items-center gap-3 font-bold text-lg hover:opacity-80 transition-opacity cursor-pointer">
                     <Image src="/fastpik-logo.png" alt="Fastpik" width={28} height={28} className="rounded-md" />
                     Fastpik
@@ -208,4 +208,3 @@ export function AdminShell({ children, latestChangelog }: AdminShellProps) {
         </div>
     )
 }
-
