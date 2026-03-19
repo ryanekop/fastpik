@@ -31,6 +31,17 @@ type UpsertPayload = {
     sync_offset_ms?: number
 }
 
+type SyncedProjectRow = {
+    id: string
+    link: string | null
+    max_photos: number | null
+    password: string | null
+    expires_at: string | null
+    download_expires_at: string | null
+}
+
+const DAY_IN_MS = 24 * 60 * 60 * 1000
+
 function toPositiveInt(value: unknown, fallback: number) {
     const parsed = Number(value)
     if (!Number.isFinite(parsed)) return fallback
@@ -47,6 +58,32 @@ function toNullableDays(value: unknown) {
 
 function sanitizeString(value: unknown) {
     return typeof value === 'string' ? value.trim() : ''
+}
+
+function toNullableNonNegativeInt(value: unknown) {
+    const parsed = Number(value)
+    if (!Number.isFinite(parsed)) return null
+    const normalized = Math.floor(parsed)
+    return normalized >= 0 ? normalized : null
+}
+
+function toRemainingDays(expiresAt: string | null | undefined, referenceTimeMs: number) {
+    const raw = sanitizeString(expiresAt)
+    if (!raw) return null
+    const timestamp = Date.parse(raw)
+    if (!Number.isFinite(timestamp)) return null
+    const diff = timestamp - referenceTimeMs
+    if (diff <= 0) return 0
+    return Math.ceil(diff / DAY_IN_MS)
+}
+
+function buildProjectInfoSnapshot(project: SyncedProjectRow, referenceTimeMs: number) {
+    return {
+        password: sanitizeString(project.password) || null,
+        max_photos: toNullableNonNegativeInt(project.max_photos),
+        selection_days: toRemainingDays(project.expires_at, referenceTimeMs),
+        download_days: toRemainingDays(project.download_expires_at, referenceTimeMs),
+    }
 }
 
 export async function POST(request: NextRequest) {
@@ -71,7 +108,8 @@ export async function POST(request: NextRequest) {
         const gdriveLink = sanitizeString(body.gdrive_link)
         const now = Date.now()
         const syncOffsetMs = Math.max(0, Math.floor(Number(body.sync_offset_ms) || 0))
-        const syncAtIso = new Date(now + syncOffsetMs).toISOString()
+        const syncAtMs = now + syncOffsetMs
+        const syncAtIso = new Date(syncAtMs).toISOString()
 
         if (!sourceRefId) {
             await writeClientDeskSyncLog(settings.user_id, {
@@ -104,7 +142,7 @@ export async function POST(request: NextRequest) {
 
         const { data: existingProject, error: findError } = await supabaseAdmin
             .from('projects')
-            .select('id, link')
+            .select('id, link, max_photos, password, expires_at, download_expires_at')
             .eq('user_id', settings.user_id)
             .eq('source_app', sourceApp)
             .eq('source_ref_id', sourceRefId)
@@ -115,13 +153,14 @@ export async function POST(request: NextRequest) {
         }
 
         if (existingProject) {
+            const existingProjectRow = existingProject as SyncedProjectRow
             const canonicalLink = buildClientProjectLink(
                 publicOrigin,
                 locale,
                 settings.vendor_name,
-                existingProject.id,
+                existingProjectRow.id,
             )
-            const shouldRepairLink = (existingProject.link || '') !== canonicalLink
+            const shouldRepairLink = (existingProjectRow.link || '') !== canonicalLink
             const updatePayload: Record<string, unknown> = {
                 client_name: clientName,
                 client_whatsapp: clientWhatsapp || null,
@@ -135,7 +174,7 @@ export async function POST(request: NextRequest) {
             const { error: updateError } = await supabaseAdmin
                 .from('projects')
                 .update(updatePayload)
-                .eq('id', existingProject.id)
+                .eq('id', existingProjectRow.id)
                 .eq('user_id', settings.user_id)
 
             if (updateError) {
@@ -144,20 +183,27 @@ export async function POST(request: NextRequest) {
 
             await writeClientDeskSyncLog(settings.user_id, {
                 status: 'success',
-                message: `Updated project ${existingProject.id} from ClientDesk`,
+                message: `Updated project ${existingProjectRow.id} from ClientDesk`,
                 at: syncAtIso,
             })
 
+            const projectInfo = buildProjectInfoSnapshot(existingProjectRow, syncAtMs)
+            const projectLink = shouldRepairLink ? canonicalLink : existingProjectRow.link
             return NextResponse.json({
                 success: true,
                 action: 'updated',
-                project_id: existingProject.id,
-                project_link: shouldRepairLink ? canonicalLink : existingProject.link,
+                project_id: existingProjectRow.id,
+                project_link: projectLink,
                 project_edit_link: buildDashboardProjectEditLink(
                     publicOrigin,
                     locale,
-                    existingProject.id,
+                    existingProjectRow.id,
                 ),
+                password: projectInfo.password,
+                max_photos: projectInfo.max_photos,
+                selection_days: projectInfo.selection_days,
+                download_days: projectInfo.download_days,
+                project_info: projectInfo,
             })
         }
 
@@ -180,12 +226,12 @@ export async function POST(request: NextRequest) {
             : sanitizeString(settings.default_password) || null
 
         const projectId = createShortProjectId()
-        const createdAtIso = new Date(now + syncOffsetMs).toISOString()
+        const createdAtIso = new Date(syncAtMs).toISOString()
         const expiresAt = defaultSelectionDays
-            ? new Date(now + syncOffsetMs + defaultSelectionDays * 24 * 60 * 60 * 1000).toISOString()
+            ? new Date(syncAtMs + defaultSelectionDays * DAY_IN_MS).toISOString()
             : null
         const downloadExpiresAt = defaultDownloadDays
-            ? new Date(now + syncOffsetMs + defaultDownloadDays * 24 * 60 * 60 * 1000).toISOString()
+            ? new Date(syncAtMs + defaultDownloadDays * DAY_IN_MS).toISOString()
             : null
         const link = buildClientProjectLink(
             publicOrigin,
@@ -217,29 +263,36 @@ export async function POST(request: NextRequest) {
                 source_ref_id: sourceRefId,
                 source_last_synced_at: syncAtIso,
             })
-            .select('id, link')
+            .select('id, link, max_photos, password, expires_at, download_expires_at')
             .single()
 
         if (insertError) {
             throw insertError
         }
 
+        const insertedProject = inserted as SyncedProjectRow
         await writeClientDeskSyncLog(settings.user_id, {
             status: 'success',
-            message: `Created project ${inserted.id} from ClientDesk`,
+            message: `Created project ${insertedProject.id} from ClientDesk`,
             at: syncAtIso,
         })
 
+        const projectInfo = buildProjectInfoSnapshot(insertedProject, syncAtMs)
         return NextResponse.json({
             success: true,
             action: 'created',
-            project_id: inserted.id,
-            project_link: inserted.link,
+            project_id: insertedProject.id,
+            project_link: insertedProject.link,
             project_edit_link: buildDashboardProjectEditLink(
                 publicOrigin,
                 locale,
-                inserted.id,
+                insertedProject.id,
             ),
+            password: projectInfo.password,
+            max_photos: projectInfo.max_photos,
+            selection_days: projectInfo.selection_days,
+            download_days: projectInfo.download_days,
+            project_info: projectInfo,
         })
     } catch (error: any) {
         console.error('[ClientDesk upsert] failed:', error)
