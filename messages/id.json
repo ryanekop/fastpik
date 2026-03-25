@@ -273,6 +273,8 @@
         "registerNow": "Daftar Sekarang",
         "checkEmail": "Cek Email Anda",
         "checkEmailDesc": "Kami telah mengirim link verifikasi ke email Anda. Klik link tersebut untuk mengaktifkan akun.",
+        "checkEmailSpamHintPrefix": "Jika email belum masuk ke inbox, cek folder",
+        "checkEmailSpamHintSuffix": "di email Anda.",
         "disposableEmailError": "Email sementara tidak diperbolehkan. Gunakan email asli.",
         "passwordMismatch": "Kata sandi tidak cocok",
         "passwordMinLength": "Kata sandi minimal 6 karakter",
