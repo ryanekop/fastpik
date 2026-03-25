@@ -3,7 +3,10 @@ type TenantBrandingContext = {
   domain?: string | null;
 };
 
-const BRANDING_EXCEPTION_DOMAINS = new Set(["ryanekoapp.web.id"]);
+const BRANDING_EXCEPTION_DOMAINS = new Set([
+  "ryanekoapp.web.id",
+  "fastpik.ryanekoapp.web.id",
+]);
 
 function normalizeDomain(value: string | null | undefined) {
   if (!value) return "";
