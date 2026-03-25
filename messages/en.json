@@ -279,6 +279,7 @@
         "passwordMismatch": "Passwords do not match",
         "passwordMinLength": "Password must be at least 6 characters",
         "captchaRequired": "CAPTCHA verification required",
+        "captchaConfigMissing": "CAPTCHA is not configured. Please contact admin.",
         "protectedAdminArea": "Protected Admin Area",
         "resetPasswordTitle": "Reset Password",
         "resetPasswordDesc": "Enter your email to receive a reset link",

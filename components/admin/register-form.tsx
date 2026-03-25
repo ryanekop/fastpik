@@ -27,6 +27,8 @@ function createImplicitClient() {
 export function RegisterForm() {
     const t = useTranslations('Admin')
     const locale = useLocale()
+    const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim() || ""
+    const isTurnstileConfigured = Boolean(turnstileSiteKey)
 
     const [fullName, setFullName] = useState("")
     const [email, setEmail] = useState("")
@@ -44,6 +46,12 @@ export function RegisterForm() {
         e.preventDefault()
         setLoading(true)
         setError(null)
+
+        if (!isTurnstileConfigured) {
+            setError(t('captchaConfigMissing'))
+            setLoading(false)
+            return
+        }
 
         // Client-side validation
         if (!fullName.trim()) {
@@ -238,17 +246,23 @@ export function RegisterForm() {
 
                     {/* Cloudflare Turnstile */}
                     <div className="flex justify-center">
-                        <Turnstile
-                            ref={turnstileRef}
-                            siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'}
-                            onSuccess={(token) => setTurnstileToken(token)}
-                            onError={() => setTurnstileToken(null)}
-                            onExpire={() => setTurnstileToken(null)}
-                            options={{
-                                theme: 'auto',
-                                size: 'normal',
-                            }}
-                        />
+                        {isTurnstileConfigured ? (
+                            <Turnstile
+                                ref={turnstileRef}
+                                siteKey={turnstileSiteKey}
+                                onSuccess={(token) => setTurnstileToken(token)}
+                                onError={() => setTurnstileToken(null)}
+                                onExpire={() => setTurnstileToken(null)}
+                                options={{
+                                    theme: 'auto',
+                                    size: 'normal',
+                                }}
+                            />
+                        ) : (
+                            <div className="w-full rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+                                {t('captchaConfigMissing')}
+                            </div>
+                        )}
                     </div>
 
                     {error && (
@@ -257,7 +271,7 @@ export function RegisterForm() {
                         </div>
                     )}
 
-                    <Button type="submit" className="w-full cursor-pointer hover:opacity-90 transition-opacity" disabled={loading || !turnstileToken}>
+                    <Button type="submit" className="w-full cursor-pointer hover:opacity-90 transition-opacity" disabled={loading || !turnstileToken || !isTurnstileConfigured}>
                         {loading ? (
                             <>
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

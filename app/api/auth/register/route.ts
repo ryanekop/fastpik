@@ -12,13 +12,7 @@ function getSupabaseAdmin() {
     )
 }
 
-async function verifyTurnstile(token: string): Promise<boolean> {
-    const secret = process.env.TURNSTILE_SECRET_KEY
-    if (!secret) {
-        console.warn('[Register] TURNSTILE_SECRET_KEY not set, skipping verification')
-        return true
-    }
-
+async function verifyTurnstile(token: string, secret: string): Promise<boolean> {
     try {
         const res = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
             method: 'POST',
@@ -45,11 +39,16 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Email wajib diisi' }, { status: 400 })
         }
 
+        const turnstileSecret = process.env.TURNSTILE_SECRET_KEY
+        if (!turnstileSecret) {
+            return NextResponse.json({ error: 'Konfigurasi CAPTCHA server belum lengkap. Hubungi admin.' }, { status: 503 })
+        }
+
         // Verify Turnstile CAPTCHA server-side
         if (!turnstileToken) {
             return NextResponse.json({ error: 'Verifikasi CAPTCHA diperlukan' }, { status: 400 })
         }
-        const turnstileValid = await verifyTurnstile(turnstileToken)
+        const turnstileValid = await verifyTurnstile(turnstileToken, turnstileSecret)
         if (!turnstileValid) {
             return NextResponse.json({ error: 'Verifikasi CAPTCHA gagal. Silakan coba lagi.' }, { status: 400 })
         }

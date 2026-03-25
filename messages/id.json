@@ -279,6 +279,7 @@
         "passwordMismatch": "Kata sandi tidak cocok",
         "passwordMinLength": "Kata sandi minimal 6 karakter",
         "captchaRequired": "Verifikasi CAPTCHA diperlukan",
+        "captchaConfigMissing": "CAPTCHA belum dikonfigurasi. Hubungi admin.",
         "protectedAdminArea": "Area Admin Terlindungi",
         "resetPasswordTitle": "Reset Password",
         "resetPasswordDesc": "Masukkan email Anda untuk menerima link reset",
