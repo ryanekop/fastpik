@@ -112,6 +112,7 @@ export default function CustomDomainPage() {
                                 <p className="text-4xl font-bold">Rp 150.000</p>
                                 <span className="inline-block mt-2 px-3 py-1 text-xs font-semibold bg-red-500 text-white rounded-full animate-pulse">🔥 10 orang tercepat</span>
                                 <p className="text-sm opacity-70 mt-2">{t('domainPage.pricingOneTime')}</p>
+                                <p className="text-sm font-semibold opacity-95 mt-1">{t('domainPage.pricingAppliesBoth')}</p>
                             </div>
                             <div className="p-6 space-y-3">
                                 <div className="flex items-start gap-3">

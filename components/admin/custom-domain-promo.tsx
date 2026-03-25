@@ -81,6 +81,9 @@ export function CustomDomainPromo() {
                     <p className="text-2xl font-bold text-foreground">
                         Rp 150.000
                     </p>
+                    <p className="mt-1 text-xs font-semibold text-foreground/85">
+                        {t('domainPromo.oneTimeAppliesBoth')}
+                    </p>
                     <span className="inline-block mt-1 px-2 py-0.5 text-xs font-semibold bg-red-500 text-white rounded-full animate-pulse">🔥 10 orang tercepat</span>
                     <p className="text-xs text-muted-foreground mt-1">{t('domainPromo.setupFee')}</p>
                 </div>

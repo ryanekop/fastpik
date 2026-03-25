@@ -475,6 +475,7 @@
             "benefit2": "Shorter & easier-to-remember URLs for clients",
             "benefit3": "Look more professional and trustworthy to clients",
             "startingFrom": "Starting from",
+            "oneTimeAppliesBoth": "one-time payment, valid for Fastpik & Client Desk",
             "setupFee": "setup fee (domain not included)",
             "viewDetail": "View Details",
             "dontShowAgain": "Don't show again"
@@ -508,6 +509,7 @@
             "pricingTitle": "Setup Pricing",
             "pricingSetup": "Custom Domain Setup Fee",
             "pricingOneTime": "one-time payment",
+            "pricingAppliesBoth": "Valid for Fastpik & Client Desk",
             "pricingInc1": "Server Setup & Configuration",
             "pricingInc1Desc": "SSL, Nginx, DNS — all handled by us",
             "pricingInc2": "Brand Customization",

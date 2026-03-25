@@ -475,6 +475,7 @@
             "benefit2": "URL lebih pendek & mudah diingat oleh klien",
             "benefit3": "Tampil lebih profesional dan terpercaya di mata klien",
             "startingFrom": "Mulai dari",
+            "oneTimeAppliesBoth": "sekali bayar, berlaku untuk Fastpik & Client Desk",
             "setupFee": "biaya setup (belum termasuk domain)",
             "viewDetail": "Lihat Detail",
             "dontShowAgain": "Jangan tampilkan lagi"
@@ -508,6 +509,7 @@
             "pricingTitle": "Harga Setup",
             "pricingSetup": "Biaya Setup Domain Custom",
             "pricingOneTime": "sekali bayar",
+            "pricingAppliesBoth": "Berlaku untuk Fastpik & Client Desk",
             "pricingInc1": "Setup & Konfigurasi Server",
             "pricingInc1Desc": "SSL, Nginx, DNS — semua diurus oleh kami",
             "pricingInc2": "Kustomisasi Branding",
