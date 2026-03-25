@@ -5,6 +5,8 @@ import { ArrowLeft, FolderPlus, Share2, CheckCircle2, Settings, FileSpreadsheet,
 import Link from "next/link"
 import { AdminShell } from "@/components/admin/admin-shell"
 import { Card, CardContent } from "@/components/ui/card"
+import { useTenant } from "@/lib/tenant-context"
+import { shouldHideTenantBranding } from "@/lib/tenant-branding"
 
 const tutorialSteps = [
     {
@@ -53,6 +55,11 @@ export default function TutorialPage() {
     const t = useTranslations("Tutorial")
     const admin = useTranslations("Admin")
     const locale = useLocale()
+    const tenant = useTenant()
+    const showAttribution = !shouldHideTenantBranding({
+        id: tenant.id,
+        domain: tenant.domain,
+    })
 
     return (
         <AdminShell>
@@ -154,28 +161,30 @@ export default function TutorialPage() {
                 </div>
 
                 {/* Footer */}
-                <div className="mt-8 pt-6 border-t text-center text-sm text-muted-foreground">
-                    <p>
-                        {admin("footer")}{" "}
-                        <a
-                            href="https://instagram.com/ryanekopram"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-primary hover:underline"
-                        >
-                            @ryanekopram
-                        </a>{" "}
-                        &{" "}
-                        <a
-                            href="https://instagram.com/ryanekoapps"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-primary hover:underline"
-                        >
-                            @ryanekoapps
-                        </a>
-                    </p>
-                </div>
+                {showAttribution ? (
+                    <div className="mt-8 pt-6 border-t text-center text-sm text-muted-foreground">
+                        <p>
+                            {admin("footer")}{" "}
+                            <a
+                                href="https://instagram.com/ryanekopram"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-primary hover:underline"
+                            >
+                                @ryanekopram
+                            </a>{" "}
+                            &{" "}
+                            <a
+                                href="https://instagram.com/ryanekoapps"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-primary hover:underline"
+                            >
+                                @ryanekoapps
+                            </a>
+                        </p>
+                    </div>
+                ) : null}
             </div>
         </AdminShell>
     )

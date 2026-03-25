@@ -17,12 +17,19 @@ import { MessageTemplateEditor } from "@/components/admin/message-template-edito
 import { Switch } from "@/components/ui/switch"
 import { PopupDialog } from "@/components/ui/popup-dialog"
 import type { PrintSize, PrintTemplate } from "@/lib/supabase/settings"
+import { useTenant } from "@/lib/tenant-context"
+import { shouldHideTenantBranding } from "@/lib/tenant-branding"
 
 export default function SettingsPage() {
     const t = useTranslations('Admin')
     const locale = useLocale()
     const router = useRouter()
     const supabase = createClient()
+    const tenant = useTenant()
+    const showAttribution = !shouldHideTenantBranding({
+        id: tenant.id,
+        domain: tenant.domain,
+    })
 
     const [defaultAdminWhatsapp, setDefaultAdminWhatsapp] = useState("")
     const [vendorName, setVendorName] = useState("")
@@ -1154,9 +1161,11 @@ export default function SettingsPage() {
                     </div>
                 </form>
 
-                <div className="mt-8 pt-6 border-t text-center text-sm text-muted-foreground">
-                    <p>{t('footer')} <a href="https://instagram.com/ryanekopram" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">@ryanekopram</a> & <a href="https://instagram.com/ryanekoapps" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">@ryanekoapps</a></p>
-                </div>
+                {showAttribution ? (
+                    <div className="mt-8 pt-6 border-t text-center text-sm text-muted-foreground">
+                        <p>{t('footer')} <a href="https://instagram.com/ryanekopram" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">@ryanekopram</a> & <a href="https://instagram.com/ryanekoapps" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">@ryanekoapps</a></p>
+                    </div>
+                ) : null}
             </div>
 
             {showCustomDefaultExpiryDialog && (

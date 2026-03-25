@@ -16,13 +16,20 @@ export const metadata: Metadata = {
 
 import { getLatestChangelog } from "@/lib/supabase/changelogs"
 import { getLocale } from "next-intl/server"
+import { getTenantConfig } from "@/lib/tenant-config"
+import { shouldHideTenantBranding } from "@/lib/tenant-branding"
 
 export default async function DashboardPage() {
     const t = await getTranslations('Admin')
     const locale = await getLocale()
+    const tenant = await getTenantConfig()
     const projects = await getProjects()
     const folders = await getFolders()
     const latestChangelog = await getLatestChangelog(locale)
+    const showAttribution = !shouldHideTenantBranding({
+        id: tenant.id,
+        domain: tenant.domain,
+    })
 
     return (
         <AdminShell latestChangelog={latestChangelog}>
@@ -40,8 +47,12 @@ export default async function DashboardPage() {
 
                 <div className="mt-8 pt-6 border-t text-center text-sm text-muted-foreground">
                     <p>
-                        {t('footer')} <a href="https://instagram.com/ryanekopram" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">@ryanekopram</a> & <a href="https://instagram.com/ryanekoapps" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">@ryanekoapps</a>
-                        <span className="mx-2 text-muted-foreground/50">•</span>
+                        {showAttribution ? (
+                            <>
+                                {t('footer')} <a href="https://instagram.com/ryanekopram" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">@ryanekopram</a> & <a href="https://instagram.com/ryanekoapps" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">@ryanekoapps</a>
+                                <span className="mx-2 text-muted-foreground/50">•</span>
+                            </>
+                        ) : null}
                         <a href={`/${locale}/dashboard/changelog`} className="text-muted-foreground hover:text-primary transition-colors text-xs">{t('changelog')} v{latestChangelog?.version || '1.0.0'}</a>
                     </p>
                 </div>
