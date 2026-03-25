@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.4.3 (2026-03-25)
+
+### 🌐 Penawaran Custom Domain
+
+- Popup promo Custom Domain sekarang menampilkan info **sekali bayar** dan berlaku untuk **Fastpik & Client Desk**
+- Halaman detail `/dashboard/custom-domain` juga menampilkan keterangan yang sama pada area harga
+- Harga promo tetap **Rp 150.000** dari harga normal **Rp 200.000**
+
 ## v1.4.2 (2026-03-17)
 
 ### 🔗 Integrasi ClientDesk
