@@ -477,6 +477,9 @@
             "startingFrom": "Starting from",
             "oneTimeAppliesBoth": "one-time payment, valid for Fastpik & Client Desk",
             "setupFee": "setup fee (domain not included)",
+            "quotaOwnedLabel": "{count} Vendors already have a domain",
+            "quotaRemainingLabel": "Remaining Quota: {count}",
+            "quotaProgressAria": "Domain promo quota progress",
             "viewDetail": "View Details",
             "dontShowAgain": "Don't show again"
         },

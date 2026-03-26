@@ -60,21 +60,21 @@ export function WhatsNewPopup({ latestChangelog }: WhatsNewPopupProps) {
 
     return (
         <Dialog open={open} onOpenChange={(val) => !val && handleClose()}>
-            <DialogContent className="sm:max-w-md">
-                <DialogHeader>
+            <DialogContent className="top-[calc(var(--global-announcement-height,0px)+env(safe-area-inset-top,0px)+0.5rem)] max-h-[calc(100dvh-var(--global-announcement-height,0px)-env(safe-area-inset-top,0px)-1rem)] translate-y-0 overflow-hidden p-4 sm:top-[50%] sm:max-h-[85vh] sm:max-w-md sm:translate-y-[-50%] sm:p-6 [&>button]:right-3 [&>button]:top-3 sm:[&>button]:right-4 sm:[&>button]:top-4">
+                <DialogHeader className="mb-0 gap-1">
                     <div className="flex items-center gap-2 mb-2">
                         <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">v{latestChangelog.version}</Badge>
                         <span className="text-xs text-muted-foreground" suppressHydrationWarning>{new Date(latestChangelog.releaseDate).toLocaleDateString()}</span>
                     </div>
-                    <DialogTitle className="text-xl flex items-center gap-2">
+                    <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
                         🎉 {t('whatsNew')}
                     </DialogTitle>
-                    <DialogDescription>
+                    <DialogDescription className="text-sm">
                         Update terbaru Fastpik telah hadir! Berikut adalah penambahan dan perbaikan yang kami lakukan.
                     </DialogDescription>
                 </DialogHeader>
 
-                <ScrollArea className="h-[300px] pr-4 rounded-md border p-4 bg-muted/20">
+                <ScrollArea className="h-[min(270px,40dvh)] rounded-md border bg-muted/20 p-3 pr-3 sm:h-[300px] sm:p-4 sm:pr-4">
                     <div className="space-y-6">
                         {latestChangelog.changes.map((group, idx) => (
                             <div key={idx} className="space-y-3">
@@ -95,9 +95,9 @@ export function WhatsNewPopup({ latestChangelog }: WhatsNewPopupProps) {
                     </div>
                 </ScrollArea>
 
-                <div className="flex items-center space-x-2 py-2">
+                <div className="flex items-center space-x-2 py-1 sm:py-2">
                     <Checkbox id="dont-show" checked={dontShowAgain} onCheckedChange={(c) => setDontShowAgain(!!c)} />
-                    <Label htmlFor="dont-show" className="text-sm font-normal text-muted-foreground cursor-pointer">
+                    <Label htmlFor="dont-show" className="cursor-pointer text-xs font-normal text-muted-foreground sm:text-sm">
                         {t('dontShowAgain')}
                     </Label>
                 </div>
