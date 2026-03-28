@@ -1,29 +1,31 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { useTranslations, useLocale } from "next-intl"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { PhoneInput } from "@/components/ui/phone-input"
-import { Loader2, Save, ArrowLeft, MessageSquare, Send, Search, Bot, ClipboardPaste, Settings, Printer, Plus, Trash2, Check, Copy } from "lucide-react"
+import { Loader2, Save, ArrowLeft, Send, Search, Bot, ClipboardPaste, Settings, Plus, Trash2, Check, Copy } from "lucide-react"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import Link from "next/link"
 import { AdminShell } from "@/components/admin/admin-shell"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { MessageTemplateEditor } from "@/components/admin/message-template-editor"
 import { Switch } from "@/components/ui/switch"
 import { PopupDialog } from "@/components/ui/popup-dialog"
-import type { PrintSize, PrintTemplate } from "@/lib/supabase/settings"
+import type { PrintTemplate } from "@/lib/supabase/settings"
 import { useTenant } from "@/lib/tenant-context"
 import { shouldHideTenantBranding } from "@/lib/tenant-branding"
+
+type LocalizedText = { id: string; en: string }
+const getErrorMessage = (error: unknown, fallback: string) => error instanceof Error ? error.message : fallback
 
 export default function SettingsPage() {
     const t = useTranslations('Admin')
     const locale = useLocale()
-    const router = useRouter()
     const supabase = createClient()
     const tenant = useTenant()
     const showAttribution = !shouldHideTenantBranding({
@@ -33,6 +35,7 @@ export default function SettingsPage() {
 
     const [defaultAdminWhatsapp, setDefaultAdminWhatsapp] = useState("")
     const [vendorName, setVendorName] = useState("")
+    const [clientChooseActionText, setClientChooseActionText] = useState<LocalizedText>({ id: "", en: "" })
     const [dashboardDurationDisplay, setDashboardDurationDisplay] = useState<'selection' | 'download'>('selection')
     const [defaultMaxPhotos, setDefaultMaxPhotos] = useState("")
     const [defaultExpiryDays, setDefaultExpiryDays] = useState("")
@@ -96,7 +99,7 @@ export default function SettingsPage() {
             const { data: { user } } = await supabase.auth.getUser()
             if (!user) return
 
-            const { data, error } = await supabase
+            const { data } = await supabase
                 .from('settings')
                 .select('*')
                 .eq('user_id', user.id)
@@ -105,6 +108,7 @@ export default function SettingsPage() {
             if (data) {
                 setDefaultAdminWhatsapp(data.default_admin_whatsapp || "")
                 setVendorName(data.vendor_name || "")
+                setClientChooseActionText(data.client_choose_action_text || { id: "", en: "" })
                 setDashboardDurationDisplay(data.dashboard_duration_display || 'selection')
                 setDefaultMaxPhotos(data.default_max_photos?.toString() || "")
                 const standardOptions = ['', '1', '3', '5', '7', '14', '30']
@@ -142,7 +146,7 @@ export default function SettingsPage() {
                 if (data.msg_tmpl_reminder_print) setTmplReminderPrint(data.msg_tmpl_reminder_print)
                 // Telegram
                 setTelegramChatId(data.telegram_chat_id || "")
-                if (data.telegram_reminder_days) setTelegramReminderDays(data.telegram_reminder_days.map((d: any) => Number(d)))
+                if (data.telegram_reminder_days) setTelegramReminderDays(data.telegram_reminder_days.map((d: number | string) => Number(d)))
                 if (data.telegram_reminder_type) setTelegramReminderType(data.telegram_reminder_type)
                 if (data.telegram_language) setTelegramLanguage(data.telegram_language)
                 // ClientDesk integration
@@ -180,6 +184,7 @@ export default function SettingsPage() {
                     user_id: user.id,
                     default_admin_whatsapp: defaultAdminWhatsapp,
                     vendor_name: vendorName || null,
+                    client_choose_action_text: clientChooseActionText,
                     dashboard_duration_display: dashboardDurationDisplay,
                     default_max_photos: defaultMaxPhotos ? parseInt(defaultMaxPhotos) : null,
                     default_expiry_days: defaultExpiryDays ? parseInt(defaultExpiryDays) : null,
@@ -213,8 +218,8 @@ export default function SettingsPage() {
 
             setSuccess(true)
             setTimeout(() => setSuccess(false), 3000)
-        } catch (err: any) {
-            setError(err.message || "Failed to save settings")
+        } catch (err: unknown) {
+            setError(getErrorMessage(err, "Failed to save settings"))
         } finally {
             setSaving(false)
         }
@@ -269,9 +274,9 @@ export default function SettingsPage() {
             setGeneratedClientDeskApiKey(fullKey)
             setSuccess(true)
             setTimeout(() => setSuccess(false), 3000)
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('Failed to generate ClientDesk API key:', err)
-            setError(err?.message || "Failed to generate API key")
+            setError(getErrorMessage(err, "Failed to generate API key"))
         } finally {
             setGeneratingClientDeskApiKey(false)
         }
@@ -369,6 +374,36 @@ export default function SettingsPage() {
                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M2 12h20" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" /></svg>
                                             {t('customDomainPromo')}
                                         </a>
+                                    </div>
+                                    <div className="space-y-4">
+                                        <div className="space-y-1">
+                                            <Label>{t('clientChooseActionText')}</Label>
+                                            <p className="text-xs text-muted-foreground">
+                                                {t('clientChooseActionTextHint')}
+                                            </p>
+                                        </div>
+                                        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                                            <div className="space-y-2">
+                                                <Label htmlFor="clientChooseActionTextId">{t('languageIndonesian')}</Label>
+                                                <Textarea
+                                                    id="clientChooseActionTextId"
+                                                    value={clientChooseActionText.id}
+                                                    onChange={(e) => setClientChooseActionText((prev) => ({ ...prev, id: e.target.value }))}
+                                                    placeholder={t('clientChooseActionTextPlaceholderId')}
+                                                    className="min-h-24"
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label htmlFor="clientChooseActionTextEn">{t('languageEnglish')}</Label>
+                                                <Textarea
+                                                    id="clientChooseActionTextEn"
+                                                    value={clientChooseActionText.en}
+                                                    onChange={(e) => setClientChooseActionText((prev) => ({ ...prev, en: e.target.value }))}
+                                                    placeholder={t('clientChooseActionTextPlaceholderEn')}
+                                                    className="min-h-24"
+                                                />
+                                            </div>
+                                        </div>
                                     </div>
                                     <div className="space-y-2">
                                         <Label>⏱️ {t('dashboardDurationDisplay')}</Label>

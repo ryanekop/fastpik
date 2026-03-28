@@ -53,11 +53,13 @@ interface ClientViewProps {
         resultExtra: { id: string, en: string } | null
         resultPrint?: { id: string, en: string } | null
     } | null
+    customChooseActionText?: { id: string, en: string } | null
 }
 
-export function ClientView({ config, messageTemplates }: ClientViewProps) {
+export function ClientView({ config, messageTemplates, customChooseActionText }: ClientViewProps) {
     const t = useTranslations('Client')
     const currentLocale = useLocale()
+    const chooseActionHeading = customChooseActionText?.[currentLocale as 'id' | 'en']?.trim() || t('chooseAction')
     const { selected, toggleSelection, clearSelection, setSelection, setProjectId, projectId } = useSelectionStore()
     const isHydrated = useStoreHydration() // Use proper Zustand hydration detection
     const [photos, setPhotos] = useState<Photo[]>([])
@@ -577,7 +579,7 @@ export function ClientView({ config, messageTemplates }: ClientViewProps) {
                         <div className="text-center space-y-3">
                             <div className="text-5xl mb-2">📸</div>
                             <h1 className="text-2xl font-bold tracking-tight">{config.clientName}</h1>
-                            <p className="text-muted-foreground">{t('chooseAction')}</p>
+                            <p className="text-muted-foreground">{chooseActionHeading}</p>
                         </div>
 
                         <div className="grid gap-4">

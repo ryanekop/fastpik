@@ -3,6 +3,8 @@ import { getProjectById } from "@/lib/supabase/projects";
 
 export const revalidate = 0;
 
+type LocalizedText = { id: string; en: string }
+
 export default async function ClientPage({ params }: { params: Promise<{ slug: string[] }> }) {
     const { slug } = await params;
 
@@ -26,7 +28,7 @@ export default async function ClientPage({ params }: { params: Promise<{ slug: s
             }
             isLegacy = true;
         }
-    } catch (e) {
+    } catch {
         // Not a base64 config, proceed to DB
     }
 
@@ -52,6 +54,7 @@ export default async function ClientPage({ params }: { params: Promise<{ slug: s
 
     // 3. Fetch Message Templates (only if DB project)
     let templates = null;
+    let chooseActionText: LocalizedText | null = null
     if (!isLegacy && config && config.id) {
         try {
             const { createServiceClient } = await import("@/lib/supabase/service");
@@ -65,7 +68,7 @@ export default async function ClientPage({ params }: { params: Promise<{ slug: s
             if (project?.user_id) {
                 const { data: settings } = await supabase
                     .from('settings')
-                    .select('msg_tmpl_result_initial, msg_tmpl_result_extra, msg_tmpl_result_print')
+                    .select('msg_tmpl_result_initial, msg_tmpl_result_extra, msg_tmpl_result_print, client_choose_action_text')
                     .eq('user_id', project.user_id)
                     .maybeSingle();
 
@@ -75,6 +78,7 @@ export default async function ClientPage({ params }: { params: Promise<{ slug: s
                         resultExtra: settings.msg_tmpl_result_extra,
                         resultPrint: settings.msg_tmpl_result_print
                     }
+                    chooseActionText = settings.client_choose_action_text || null
                 }
             }
         } catch (err) {
@@ -90,5 +94,5 @@ export default async function ClientPage({ params }: { params: Promise<{ slug: s
         projectId: config.id || projectId,
     }
 
-    return <ClientView config={clientConfig} messageTemplates={templates} />;
+    return <ClientView config={clientConfig} messageTemplates={templates} customChooseActionText={chooseActionText} />;
 }

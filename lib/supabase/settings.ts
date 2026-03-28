@@ -19,6 +19,7 @@ export interface Settings {
     printEnabled: boolean
     printTemplates: PrintTemplate[]
     defaultPrintExpiryDays: number | null
+    clientChooseActionText: { id: string; en: string }
 }
 
 export async function getSettings(): Promise<Settings> {
@@ -38,7 +39,8 @@ export async function getSettings(): Promise<Settings> {
             dashboardDurationDisplay: 'selection',
             printEnabled: false,
             printTemplates: [],
-            defaultPrintExpiryDays: null
+            defaultPrintExpiryDays: null,
+            clientChooseActionText: { id: '', en: '' }
         }
     }
 
@@ -49,7 +51,8 @@ export async function getSettings(): Promise<Settings> {
         dashboardDurationDisplay: data.dashboard_duration_display || 'selection',
         printEnabled: data.print_enabled || false,
         printTemplates: data.print_templates || [],
-        defaultPrintExpiryDays: data.default_print_expiry_days ?? null
+        defaultPrintExpiryDays: data.default_print_expiry_days ?? null,
+        clientChooseActionText: data.client_choose_action_text || { id: '', en: '' }
     }
 }
 
@@ -74,6 +77,7 @@ export async function updateSettings(settings: Partial<Settings>) {
     if (settings.printEnabled !== undefined) dbData.print_enabled = settings.printEnabled
     if (settings.printTemplates !== undefined) dbData.print_templates = settings.printTemplates
     if (settings.defaultPrintExpiryDays !== undefined) dbData.default_print_expiry_days = settings.defaultPrintExpiryDays
+    if (settings.clientChooseActionText !== undefined) dbData.client_choose_action_text = settings.clientChooseActionText
 
     let error;
     if (count === 0) {

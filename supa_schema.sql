@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS settings (
   default_expiry_days INTEGER DEFAULT 7,
   default_admin_whatsapp TEXT,
   vendor_name TEXT,
+  client_choose_action_text JSONB DEFAULT '{"id": "", "en": ""}',
   msg_tmpl_link_initial JSONB DEFAULT '{"id": "", "en": ""}',
   msg_tmpl_link_extra JSONB DEFAULT '{"id": "", "en": ""}',
   msg_tmpl_result_initial JSONB DEFAULT '{"id": "", "en": ""}',
