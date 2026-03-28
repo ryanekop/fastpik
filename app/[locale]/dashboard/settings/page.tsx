@@ -36,6 +36,7 @@ export default function SettingsPage() {
     const [defaultAdminWhatsapp, setDefaultAdminWhatsapp] = useState("")
     const [vendorName, setVendorName] = useState("")
     const [clientChooseActionText, setClientChooseActionText] = useState<LocalizedText>({ id: "", en: "" })
+    const [clientChooseActionTab, setClientChooseActionTab] = useState<'id' | 'en'>('id')
     const [dashboardDurationDisplay, setDashboardDurationDisplay] = useState<'selection' | 'download'>('selection')
     const [defaultMaxPhotos, setDefaultMaxPhotos] = useState("")
     const [defaultExpiryDays, setDefaultExpiryDays] = useState("")
@@ -382,28 +383,37 @@ export default function SettingsPage() {
                                                 {t('clientChooseActionTextHint')}
                                             </p>
                                         </div>
-                                        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                                            <div className="space-y-2">
-                                                <Label htmlFor="clientChooseActionTextId">{t('languageIndonesian')}</Label>
-                                                <Textarea
-                                                    id="clientChooseActionTextId"
-                                                    value={clientChooseActionText.id}
-                                                    onChange={(e) => setClientChooseActionText((prev) => ({ ...prev, id: e.target.value }))}
-                                                    placeholder={t('clientChooseActionTextPlaceholderId')}
-                                                    className="min-h-24"
-                                                />
+                                        <Tabs
+                                            value={clientChooseActionTab}
+                                            onValueChange={(value) => setClientChooseActionTab(value === 'en' ? 'en' : 'id')}
+                                            className="w-full"
+                                        >
+                                            <TabsList className="grid w-full grid-cols-2">
+                                                <TabsTrigger value="id">{t('languageIndonesian')}</TabsTrigger>
+                                                <TabsTrigger value="en">{t('languageEnglish')}</TabsTrigger>
+                                            </TabsList>
+
+                                            <div className="mt-3">
+                                                <TabsContent value="id" className="mt-0">
+                                                    <Textarea
+                                                        id="clientChooseActionTextId"
+                                                        value={clientChooseActionText.id}
+                                                        onChange={(e) => setClientChooseActionText((prev) => ({ ...prev, id: e.target.value }))}
+                                                        placeholder={t('clientChooseActionTextPlaceholderId')}
+                                                        className="min-h-32"
+                                                    />
+                                                </TabsContent>
+                                                <TabsContent value="en" className="mt-0">
+                                                    <Textarea
+                                                        id="clientChooseActionTextEn"
+                                                        value={clientChooseActionText.en}
+                                                        onChange={(e) => setClientChooseActionText((prev) => ({ ...prev, en: e.target.value }))}
+                                                        placeholder={t('clientChooseActionTextPlaceholderEn')}
+                                                        className="min-h-32"
+                                                    />
+                                                </TabsContent>
                                             </div>
-                                            <div className="space-y-2">
-                                                <Label htmlFor="clientChooseActionTextEn">{t('languageEnglish')}</Label>
-                                                <Textarea
-                                                    id="clientChooseActionTextEn"
-                                                    value={clientChooseActionText.en}
-                                                    onChange={(e) => setClientChooseActionText((prev) => ({ ...prev, en: e.target.value }))}
-                                                    placeholder={t('clientChooseActionTextPlaceholderEn')}
-                                                    className="min-h-24"
-                                                />
-                                            </div>
-                                        </div>
+                                        </Tabs>
                                     </div>
                                     <div className="space-y-2">
                                         <Label>⏱️ {t('dashboardDurationDisplay')}</Label>
