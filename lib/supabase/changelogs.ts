@@ -15,6 +15,47 @@ export interface Changelog {
 
 const FALLBACK_CHANGELOGS = [
     {
+        id: 'v144',
+        version: '1.4.4',
+        release_date: '2026-04-03T00:00:00.000Z',
+        changes_en: [
+            {
+                category: "Features", items: [
+                    "A Reload button is now available on the client page to manually check the latest photos."
+                ]
+            },
+            {
+                category: "Improvements", items: [
+                    "Reload now has a short cooldown to avoid repeated taps and keep the process stable.",
+                    "Photo detection from Shared Drive folders is now more consistent."
+                ]
+            },
+            {
+                category: "Fixes", items: [
+                    "Domain promo and What's New popups now appear only on the main dashboard page."
+                ]
+            }
+        ],
+        changes_id: [
+            {
+                category: "Fitur", items: [
+                    "Tombol Muat Ulang (Reload) sekarang tersedia di halaman klien untuk cek foto terbaru secara manual."
+                ]
+            },
+            {
+                category: "Peningkatan", items: [
+                    "Muat ulang sekarang memakai jeda singkat agar tidak kepencet berulang dan proses tetap stabil.",
+                    "Deteksi foto dari Shared Drive (Drive bersama) sekarang lebih konsisten."
+                ]
+            },
+            {
+                category: "Perbaikan", items: [
+                    "Popup Domain dan Apa yang Baru sekarang hanya muncul di dashboard utama."
+                ]
+            }
+        ]
+    },
+    {
         id: 'v130',
         version: '1.3.0',
         release_date: '2026-02-22T00:00:00.000Z',

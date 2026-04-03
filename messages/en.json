@@ -548,6 +548,7 @@
         "noPhotos": "No photos found",
         "allPhotos": "All Photos",
         "reload": "Reload",
+        "reloadCooldown": "Please wait {seconds} seconds before reloading again.",
         "tryAgain": "Try Again",
         "linkExpired": "Link Has Expired",
         "linkExpiredDesc": "The link to select photos is no longer valid. Please contact admin for a new link.",

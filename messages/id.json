@@ -548,6 +548,7 @@
         "noPhotos": "Tidak ada foto ditemukan",
         "allPhotos": "Semua Foto",
         "reload": "Muat Ulang",
+        "reloadCooldown": "Tunggu {seconds} detik sebelum memuat ulang lagi.",
         "tryAgain": "Coba Lagi",
         "linkExpired": "Link Sudah Kadaluarsa",
         "linkExpiredDesc": "Link untuk memilih foto sudah tidak berlaku. Silakan hubungi admin untuk mendapatkan link baru.",

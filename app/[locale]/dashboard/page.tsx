@@ -32,7 +32,7 @@ export default async function DashboardPage() {
     })
 
     return (
-        <AdminShell latestChangelog={latestChangelog}>
+        <AdminShell latestChangelog={latestChangelog} showEntryPopups={true}>
             <div className="space-y-6">
                 <div>
                     <h1 className="text-2xl font-bold flex items-center gap-2"><LayoutDashboard className="h-6 w-6" /> {t('dashboardTitle')}</h1>

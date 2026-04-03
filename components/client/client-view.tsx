@@ -59,11 +59,15 @@ interface ClientViewProps {
 export function ClientView({ config, messageTemplates, customChooseActionText }: ClientViewProps) {
     const t = useTranslations('Client')
     const currentLocale = useLocale()
+    const RELOAD_COOLDOWN_MS = 10 * 1000
+    const RELOAD_TOAST_THROTTLE_MS = 2 * 1000
     const chooseActionHeading = customChooseActionText?.[currentLocale as 'id' | 'en']?.trim() || t('chooseAction')
     const { selected, toggleSelection, clearSelection, setSelection, setProjectId, projectId } = useSelectionStore()
     const isHydrated = useStoreHydration() // Use proper Zustand hydration detection
     const [photos, setPhotos] = useState<Photo[]>([])
     const [loading, setLoading] = useState(true)
+    const [isRefreshing, setIsRefreshing] = useState(false)
+    const [isReloadCooldown, setIsReloadCooldown] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [alertMax, setAlertMax] = useState(false)
     const [copied, setCopied] = useState(false)
@@ -140,6 +144,9 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
     const lastSyncedRef = useRef<string>('')
     const printSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const lastPrintSyncedRef = useRef<string>('')
+    const reloadCooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const reloadCooldownEndsAtRef = useRef<number>(0)
+    const lastReloadToastAtRef = useRef<number>(0)
 
     // Time remaining state for countdown
     const [timeRemaining, setTimeRemaining] = useState<{ days: number, hours: number, minutes: number } | null>(null)
@@ -151,6 +158,12 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
     const [isSelectionExpired, setIsSelectionExpired] = useState(false)
     const [isDownloadExpired, setIsDownloadExpired] = useState(false)
     const [isPrintExpired, setIsPrintExpired] = useState(false)
+
+    useEffect(() => {
+        return () => {
+            if (reloadCooldownTimerRef.current) clearTimeout(reloadCooldownTimerRef.current)
+        }
+    }, [])
 
     useEffect(() => {
         setIsSelectionExpired(config.expiresAt ? Date.now() > config.expiresAt : false)
@@ -283,7 +296,7 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
         if (!hasPendingSelection) {
             // For culling: need authentication. For download and initial: always fetch photos
             if (isAuthenticated || viewMode === 'download' || viewMode === 'initial') {
-                fetchPhotos()
+                fetchPhotos({ forceRefreshIfEmpty: false })
             }
         }
     }, [isAuthenticated, hasPendingSelection, viewMode])
@@ -417,7 +430,7 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
         }
     }
 
-    const fetchPhotos = async () => {
+    const fetchPhotos = async ({ forceRefreshIfEmpty = false }: { forceRefreshIfEmpty?: boolean } = {}) => {
         setLoading(true)
         setError(null)
 
@@ -444,6 +457,10 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
                 gdriveLink: config.gdriveLink,
                 detectSubfolders: config.detectSubfolders ? 'true' : 'false'
             })
+            const shouldForceRefresh = forceRefreshIfEmpty && photos.length === 0
+            if (shouldForceRefresh) {
+                params.set('forceRefresh', 'true')
+            }
 
             const response = await fetch(`/api/photos?${params}`)
             const result = await response.json()
@@ -496,6 +513,38 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
             setPhotos(mockPhotos)
         } finally {
             setLoading(false)
+        }
+    }
+
+    const handleManualReload = async () => {
+        const now = Date.now()
+        if (isRefreshing) return
+        if (isReloadCooldown) {
+            const sinceLastToast = now - lastReloadToastAtRef.current
+            if (sinceLastToast >= RELOAD_TOAST_THROTTLE_MS) {
+                const remainingMs = Math.max(0, reloadCooldownEndsAtRef.current - now)
+                const remainingSeconds = Math.max(1, Math.ceil(remainingMs / 1000))
+                setToastMessage(t('reloadCooldown', { seconds: remainingSeconds }))
+                setShowToast(true)
+                lastReloadToastAtRef.current = now
+            }
+            return
+        }
+
+        setIsRefreshing(true)
+        setIsReloadCooldown(true)
+        reloadCooldownEndsAtRef.current = now + RELOAD_COOLDOWN_MS
+        if (reloadCooldownTimerRef.current) clearTimeout(reloadCooldownTimerRef.current)
+        reloadCooldownTimerRef.current = setTimeout(() => {
+            setIsReloadCooldown(false)
+            reloadCooldownTimerRef.current = null
+            reloadCooldownEndsAtRef.current = 0
+        }, RELOAD_COOLDOWN_MS)
+
+        try {
+            await fetchPhotos({ forceRefreshIfEmpty: true })
+        } finally {
+            setIsRefreshing(false)
         }
     }
 
@@ -1171,131 +1220,162 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
         thumbnail: p.url,
         full: p.fullUrl
     }))
+    const isReloadDisabled = isRefreshing
+    const reloadButton = (
+        <Button
+            variant="outline"
+            size="icon"
+            onClick={handleManualReload}
+            disabled={isReloadDisabled}
+            className="cursor-pointer"
+        >
+            <RefreshCw className={cn("h-[1.2rem] w-[1.2rem]", isRefreshing && "animate-spin")} />
+            <span className="sr-only">{t('reload')}</span>
+        </Button>
+    )
 
     return (
         <div className="min-h-screen bg-background pb-36">
             {/* Header + Countdown Banner - Sticky as one unit */}
             <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-md transition-all">
-                <div className="border-b p-4 flex justify-between items-center">
-                    {viewMode === 'download' ? (
-                        <>
-                            {/* Download Mode Header */}
-                            <div className="flex items-center gap-3">
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => setViewMode('initial')}
-                                    className="cursor-pointer"
-                                >
-                                    <ArrowLeft className="h-5 w-5" />
-                                </Button>
-                                <div>
-                                    <h1 className="font-bold text-lg">{config.clientName}</h1>
-                                    <p className="text-xs text-muted-foreground">
-                                        {downloadSelected.length > 0
-                                            ? `${downloadSelected.length} ${t('photosToDownload')}`
-                                            : t('selectToDownload')}
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                {isDownloading ? (
-                                    <>
-                                        <span className="text-xs text-muted-foreground hidden sm:inline">{downloadProgress}%</span>
-                                        <Button
-                                            onClick={handleStopDownload}
-                                            size="sm"
-                                            className="bg-red-600 hover:bg-red-700 text-white cursor-pointer"
-                                        >
-                                            <Square className="h-3 w-3 mr-1 fill-current" />
-                                            {t('stopDownload')}
-                                        </Button>
-                                    </>
-                                ) : (
+                <div className="border-b p-4">
+                    <div className="flex justify-between items-center">
+                        {viewMode === 'download' ? (
+                            <>
+                                {/* Download Mode Header */}
+                                <div className="flex items-center gap-3">
                                     <Button
-                                        onClick={() => setShowDownloadAllDialog(true)}
-                                        disabled={photos.length === 0}
-                                        size="sm"
-                                        className="bg-blue-600 hover:bg-blue-700 text-white cursor-pointer"
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => setViewMode('initial')}
+                                        className="cursor-pointer"
                                     >
-                                        <Download className="h-4 w-4 mr-1" />
-                                        <span className="hidden sm:inline">{t('downloadAll')}</span>
+                                        <ArrowLeft className="h-5 w-5" />
                                     </Button>
-                                )}
-                                <ThemeToggle />
-                                <LanguageToggle />
-                            </div>
-                        </>
-                    ) : viewMode === 'review' ? (
-                        <>
-                            {/* Review Mode Header */}
-                            <div className="flex items-center gap-3">
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => setViewMode('culling')}
-                                    className="cursor-pointer"
-                                >
-                                    <ArrowLeft className="h-5 w-5" />
-                                </Button>
-                                <div>
-                                    <h1 className="font-bold text-lg">{t('reviewTitle')}</h1>
-                                    <p className="text-xs text-muted-foreground">
-                                        {isPrintProject
-                                            ? `${totalPrintSelected} / ${totalPrintQuota} ${t('selected')}`
-                                            : `${selected.length} / ${config.maxPhotos} ${t('selected')}`
-                                        }
-                                    </p>
+                                    <div>
+                                        <h1 className="font-bold text-lg">{config.clientName}</h1>
+                                        <p className="text-xs text-muted-foreground">
+                                            {downloadSelected.length > 0
+                                                ? `${downloadSelected.length} ${t('photosToDownload')}`
+                                                : t('selectToDownload')}
+                                        </p>
+                                    </div>
                                 </div>
-                            </div>
-                            <div className="flex items-center gap-3">
-                                <ThemeToggle />
-                                <LanguageToggle />
-                            </div>
-                        </>
-                    ) : (
-                        <>
-                            {/* Culling Mode Header */}
-                            <div className="flex items-center gap-3">
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => setViewMode('initial')}
-                                    className="cursor-pointer"
-                                >
-                                    <ArrowLeft className="h-5 w-5" />
-                                </Button>
-                                <div>
-                                    <h1 className="font-bold text-lg">{config.clientName}</h1>
-                                    <p className={cn(
-                                        "text-xs transition-colors",
-                                        alertMax ? "text-red-500 font-semibold" : "text-muted-foreground"
-                                    )}>
-                                        {isPrintProject
-                                            ? `${activePrintSize}: ${currentSelected.length} / ${currentMaxPhotos} ${t('selected')} (${totalPrintSelected}/${totalPrintQuota} ${t('total')})`
-                                            : `${selected.length} / ${config.maxPhotos} ${t('selected')}`
-                                        }
-                                        {lockedPhotoNames.length > 0 && (
-                                            <span className="ml-2 text-amber-600 dark:text-amber-400">
-                                                🔒 {lockedPhotoNames.length} {t('lockedPhotosCount')}
-                                            </span>
-                                        )}
-                                        {alertMax && ` ⚠️ ${t('maxLimit')}`}
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-3">
-                                <Progress
-                                    value={(currentSelected.length / (currentMaxPhotos || 1)) * 100}
-                                    className={cn(
-                                        "w-24 transition-colors",
-                                        alertMax && "bg-red-200"
+                                <div className="flex items-center gap-2">
+                                    {isDownloading ? (
+                                        <>
+                                            <span className="text-xs text-muted-foreground hidden sm:inline">{downloadProgress}%</span>
+                                            <Button
+                                                onClick={handleStopDownload}
+                                                size="sm"
+                                                className="bg-red-600 hover:bg-red-700 text-white cursor-pointer"
+                                            >
+                                                <Square className="h-3 w-3 mr-1 fill-current" />
+                                                {t('stopDownload')}
+                                            </Button>
+                                        </>
+                                    ) : (
+                                        <Button
+                                            onClick={() => setShowDownloadAllDialog(true)}
+                                            disabled={photos.length === 0}
+                                            size="sm"
+                                            className="bg-blue-600 hover:bg-blue-700 text-white cursor-pointer"
+                                        >
+                                            <Download className="h-4 w-4 mr-1" />
+                                            <span className="hidden sm:inline">{t('downloadAll')}</span>
+                                        </Button>
                                     )}
-                                />
-                                <ThemeToggle />
-                                <LanguageToggle />
-                            </div>
-                        </>
+                                    {reloadButton}
+                                    <ThemeToggle />
+                                    <LanguageToggle />
+                                </div>
+                            </>
+                        ) : viewMode === 'review' ? (
+                            <>
+                                {/* Review Mode Header */}
+                                <div className="flex items-center gap-3">
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => setViewMode('culling')}
+                                        className="cursor-pointer"
+                                    >
+                                        <ArrowLeft className="h-5 w-5" />
+                                    </Button>
+                                    <div>
+                                        <h1 className="font-bold text-lg">{t('reviewTitle')}</h1>
+                                        <p className="text-xs text-muted-foreground">
+                                            {isPrintProject
+                                                ? `${totalPrintSelected} / ${totalPrintQuota} ${t('selected')}`
+                                                : `${selected.length} / ${config.maxPhotos} ${t('selected')}`
+                                            }
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2 sm:gap-3">
+                                    {reloadButton}
+                                    <ThemeToggle />
+                                    <LanguageToggle />
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                {/* Culling Mode Header */}
+                                <div className="flex items-center gap-3">
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => setViewMode('initial')}
+                                        className="cursor-pointer"
+                                    >
+                                        <ArrowLeft className="h-5 w-5" />
+                                    </Button>
+                                    <div>
+                                        <h1 className="font-bold text-lg">{config.clientName}</h1>
+                                        <p className={cn(
+                                            "text-xs transition-colors",
+                                            alertMax ? "text-red-500 font-semibold" : "text-muted-foreground"
+                                        )}>
+                                            {isPrintProject
+                                                ? `${activePrintSize}: ${currentSelected.length} / ${currentMaxPhotos} ${t('selected')} (${totalPrintSelected}/${totalPrintQuota} ${t('total')})`
+                                                : `${selected.length} / ${config.maxPhotos} ${t('selected')}`
+                                            }
+                                            {lockedPhotoNames.length > 0 && (
+                                                <span className="ml-2 text-amber-600 dark:text-amber-400">
+                                                    🔒 {lockedPhotoNames.length} {t('lockedPhotosCount')}
+                                                </span>
+                                            )}
+                                            {alertMax && ` ⚠️ ${t('maxLimit')}`}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2 sm:gap-3">
+                                    <Progress
+                                        value={(currentSelected.length / (currentMaxPhotos || 1)) * 100}
+                                        className={cn(
+                                            "hidden md:block w-24 transition-colors",
+                                            alertMax && "bg-red-200"
+                                        )}
+                                    />
+                                    {reloadButton}
+                                    <ThemeToggle />
+                                    <LanguageToggle />
+                                </div>
+                            </>
+                        )}
+                    </div>
+
+                    {/* Mobile progress bar in culling mode only */}
+                    {viewMode === 'culling' && (
+                        <div className="md:hidden mt-3">
+                            <Progress
+                                value={(currentSelected.length / (currentMaxPhotos || 1)) * 100}
+                                className={cn(
+                                    "w-full transition-colors",
+                                    alertMax && "bg-red-200"
+                                )}
+                            />
+                        </div>
                     )}
                 </div>
 
@@ -1356,7 +1436,7 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
             {error && (
                 <div className="flex flex-col items-center justify-center py-20 gap-4">
                     <p className="text-red-500">{error}</p>
-                    <Button size="sm" variant="ghost" onClick={fetchPhotos} className="cursor-pointer">
+                    <Button size="sm" variant="ghost" onClick={handleManualReload} className="cursor-pointer" disabled={isReloadDisabled}>
                         <RefreshCw className="h-4 w-4 mr-1" /> {t('tryAgain')}
                     </Button>
                 </div>
@@ -1372,7 +1452,7 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
                 <div className="flex flex-col items-center justify-center py-20 gap-4">
                     <ImageOff className="h-12 w-12 text-muted-foreground" />
                     <p className="text-muted-foreground">{t('noPhotos')}</p>
-                    <Button onClick={fetchPhotos} variant="outline" className="cursor-pointer">
+                    <Button onClick={handleManualReload} variant="outline" className="cursor-pointer" disabled={isReloadDisabled}>
                         <RefreshCw className="h-4 w-4 mr-2" /> {t('reload')}
                     </Button>
                 </div>

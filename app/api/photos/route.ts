@@ -20,10 +20,14 @@ interface CacheData {
     fetchedAt: number
 }
 
+const FORCE_REFRESH_THROTTLE_MS = 15 * 1000
+const forceRefreshTracker = new Map<string, number>()
+
 export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams
     const gdriveLink = searchParams.get('gdriveLink')
     const detectSubfolders = searchParams.get('detectSubfolders') === 'true'
+    const forceRefresh = searchParams.get('forceRefresh') === 'true'
 
     if (!gdriveLink) {
         return NextResponse.json(
@@ -44,13 +48,36 @@ export async function GET(request: NextRequest) {
     const cacheKey = generateCacheKey(folderId, detectSubfolders)
     const cached = photoCache.get<CacheData>(cacheKey)
 
-    if (cached) {
+    if (cached && !forceRefresh) {
         console.log(`[Cache HIT] ${cacheKey} - ${cached.photos.length} photos`)
         return NextResponse.json({
             photos: cached.photos,
             cached: true,
             cachedAt: cached.fetchedAt
         })
+    }
+
+    if (forceRefresh) {
+        const now = Date.now()
+        const lastRefreshAt = forceRefreshTracker.get(cacheKey) || 0
+        const elapsed = now - lastRefreshAt
+
+        if (elapsed < FORCE_REFRESH_THROTTLE_MS && cached) {
+            const retryAfterMs = FORCE_REFRESH_THROTTLE_MS - elapsed
+            console.log(`[Force Refresh THROTTLED] ${cacheKey} - retry in ${retryAfterMs}ms`)
+            return NextResponse.json({
+                photos: cached.photos,
+                cached: true,
+                cachedAt: cached.fetchedAt,
+                throttled: true,
+                retryAfterMs
+            })
+        }
+
+        // Always clear stale cache before a force refresh fetch.
+        photoCache.delete(cacheKey)
+        forceRefreshTracker.set(cacheKey, now)
+        console.log(`[Force Refresh] ${cacheKey} - cache bypass requested`)
     }
 
     console.log(`[Cache MISS] ${cacheKey} - fetching from Google Drive...`)
@@ -91,7 +118,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
         photos,
         cached: false,
-        fetchedAt: cacheData.fetchedAt
+        fetchedAt: cacheData.fetchedAt,
+        forceRefreshed: forceRefresh
     })
 }
 
@@ -118,6 +146,7 @@ export async function POST(request: NextRequest) {
 
         const cacheKey = generateCacheKey(folderId, detectSubfolders)
         photoCache.delete(cacheKey)
+        forceRefreshTracker.delete(cacheKey)
 
         console.log(`[Cache INVALIDATE] ${cacheKey}`)
 

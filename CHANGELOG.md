@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.4.4 (2026-04-03)
+
+### ✨ Pembaruan Utama
+
+- Tombol **Muat Ulang (Reload)** sekarang tersedia di halaman klien untuk cek foto terbaru secara manual
+- Muat ulang sekarang memakai jeda singkat agar tidak kepencet berulang dan proses tetap stabil
+- Deteksi foto dari **Shared Drive (Drive bersama)** sekarang lebih konsisten
+- Popup **Domain** dan **Apa yang Baru** sekarang hanya muncul di dashboard utama
+
 ## v1.4.3 (2026-03-25)
 
 ### 🌐 Penawaran Custom Domain

@@ -121,6 +121,7 @@ export async function fetchDrivePhotos(
 
     try {
         let allFiles: any[] = []
+        const sharedDriveParams = 'supportsAllDrives=true&includeItemsFromAllDrives=true'
 
         // 1. Fetch files in the root folder (with pagination)
         const query = `'${folderId}' in parents and (mimeType contains 'image/')`
@@ -134,7 +135,8 @@ export async function fetchDrivePhotos(
                 `fields=${encodeURIComponent(fields)}&` +
                 `key=${key}&` +
                 `pageSize=1000&` +
-                `orderBy=name`
+                `orderBy=name&` +
+                `${sharedDriveParams}`
 
             const url = pageToken ? `${baseUrl}&pageToken=${pageToken}` : baseUrl
 
@@ -181,7 +183,8 @@ export async function fetchDrivePhotos(
                     `q=${encodeURIComponent(folderQuery)}&` +
                     `fields=files(id,name)&` +
                     `key=${key}&` +
-                    `pageSize=100`
+                    `pageSize=100&` +
+                    `${sharedDriveParams}`
 
                 let collectedFiles: any[] = []
 
@@ -210,7 +213,8 @@ export async function fetchDrivePhotos(
                                 `fields=${encodeURIComponent(fields)}&` +
                                 `key=${key}&` +
                                 `pageSize=1000&` +
-                                `orderBy=name`
+                                `orderBy=name&` +
+                                `${sharedDriveParams}`
 
                             const subUrl = subPageToken ? `${subBaseUrl}&pageToken=${subPageToken}` : subBaseUrl
 

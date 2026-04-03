@@ -29,9 +29,10 @@ interface Subscription {
 interface AdminShellProps {
     children: React.ReactNode
     latestChangelog?: any // Using any to avoid complex type import issues, or duplicate interface
+    showEntryPopups?: boolean
 }
 
-export function AdminShell({ children, latestChangelog }: AdminShellProps) {
+export function AdminShell({ children, latestChangelog, showEntryPopups = false }: AdminShellProps) {
     const router = useRouter()
     const supabase = createClient()
     const t = useTranslations('Admin')
@@ -203,8 +204,8 @@ export function AdminShell({ children, latestChangelog }: AdminShellProps) {
                     {children}
                 </div>
             </main>
-            <CustomDomainPromo />
-            {latestChangelog && <WhatsNewPopup latestChangelog={latestChangelog} />}
+            {showEntryPopups && <CustomDomainPromo />}
+            {showEntryPopups && latestChangelog && <WhatsNewPopup latestChangelog={latestChangelog} />}
         </div>
     )
 }
