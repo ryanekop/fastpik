@@ -93,7 +93,7 @@ export function BatchModeForm({ onBack, onProjectsCreated, currentFolderId }: Ba
 
             const { data } = await supabase
                 .from('settings')
-                .select('default_admin_whatsapp, vendor_name, default_max_photos, default_expiry_days, default_download_expiry_days, default_country_code, default_password, print_enabled, default_print_expiry_days')
+                .select('default_admin_whatsapp, vendor_name, default_max_photos, default_detect_subfolders, default_expiry_days, default_download_expiry_days, default_country_code, default_password, print_enabled, default_print_expiry_days')
                 .eq('user_id', user.id)
                 .maybeSingle()
 
@@ -102,7 +102,7 @@ export function BatchModeForm({ onBack, onProjectsCreated, currentFolderId }: Ba
                     defaultMaxPhotos: data.default_max_photos || 10,
                     defaultExpiryDays: data.default_expiry_days || 0,
                     defaultDownloadExpiryDays: data.default_download_expiry_days || 0,
-                    defaultDetectSubfolders: false,
+                    defaultDetectSubfolders: Boolean(data.default_detect_subfolders),
                     defaultAdminWhatsapp: data.default_admin_whatsapp || '',
                     defaultCountryCode: data.default_country_code || 'ID',
                     defaultPassword: data.default_password || '',

@@ -24,7 +24,7 @@ interface Photo {
     id: string
     name: string
     url: string
-    fullUrl: string
+    fullUrl?: string
     downloadUrl?: string
     folderName?: string   // Immediate parent folder name
     folderPath?: string   // Full path for grouping
@@ -105,6 +105,7 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
     // Lightbox state
     const [lightboxOpen, setLightboxOpen] = useState(false)
     const [lightboxIndex, setLightboxIndex] = useState(0)
+    const [lightboxSourcePhotos, setLightboxSourcePhotos] = useState<Photo[]>([])
 
     // Popup state
     const [showClearDialog, setShowClearDialog] = useState(false)
@@ -774,9 +775,13 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
         toggleSelection(id, config.maxPhotos)
     }
 
-    const handleZoom = (photo: any) => {
-        const index = photos.findIndex(p => p.id === photo.id)
-        setLightboxIndex(index)
+    const handleZoom = (photo: Photo, sourcePhotos?: Photo[]) => {
+        const source = sourcePhotos && sourcePhotos.length > 0 ? sourcePhotos : photos
+        if (source.length === 0) return
+
+        const index = source.findIndex(p => p.id === photo.id)
+        setLightboxSourcePhotos(source)
+        setLightboxIndex(index >= 0 ? index : 0)
         setLightboxOpen(true)
     }
 
@@ -1213,12 +1218,13 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
     const effectiveCount = effectiveSelected.length
     const selectedPhotoNames = effectiveSelected.slice(0, 5).map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name))
 
-    // Format photos for lightbox
-    const lightboxPhotos = photos.map(p => ({
+    // Format photos for lightbox using the active source list from the clicked section/grid
+    const activeLightboxSource = lightboxSourcePhotos.length > 0 ? lightboxSourcePhotos : photos
+    const lightboxPhotos = activeLightboxSource.map(p => ({
         id: p.id,
         name: p.name,
         thumbnail: p.url,
-        full: p.fullUrl
+        full: p.fullUrl || p.url
     }))
     const isReloadDisabled = isRefreshing
     const reloadButton = (
@@ -1505,7 +1511,7 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
                                                 <div
                                                     key={photo.id}
                                                     className="relative group aspect-[4/3] rounded-lg overflow-hidden cursor-pointer border-2 bg-muted border-purple-400 dark:border-purple-600"
-                                                    onClick={() => { setActivePrintSize(size.name); handleZoom(photo); }}
+                                                    onClick={() => { setActivePrintSize(size.name); handleZoom(photo, sizePhotos); }}
                                                 >
                                                     <img src={photo.url} alt={photo.name} className="w-full h-full object-cover" loading="lazy" />
                                                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-20">
@@ -1535,7 +1541,7 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
                                     <div
                                         key={photo.id}
                                         className={cn("relative group aspect-[4/3] rounded-lg overflow-hidden cursor-pointer border-2 bg-muted", borderColor)}
-                                        onClick={() => handleZoom(photo)}
+                                        onClick={() => handleZoom(photo, photoList)}
                                     >
                                         <img
                                             src={photo.url}

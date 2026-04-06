@@ -130,7 +130,7 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
 
             const { data } = await supabase
                 .from('settings')
-                .select('default_admin_whatsapp, vendor_name, default_max_photos, default_expiry_days, default_download_expiry_days, default_password, msg_tmpl_link_initial')
+                .select('default_admin_whatsapp, vendor_name, default_max_photos, default_detect_subfolders, default_expiry_days, default_download_expiry_days, default_password, msg_tmpl_link_initial')
                 .eq('user_id', user.id)
                 .maybeSingle()
 
@@ -143,6 +143,9 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
             }
             if (data?.default_max_photos) {
                 form.setValue('maxPhotos', data.default_max_photos.toString())
+            }
+            if (data?.default_detect_subfolders !== undefined && data?.default_detect_subfolders !== null) {
+                form.setValue('detectSubfolders', Boolean(data.default_detect_subfolders))
             }
             const standardOptions = ['', '1', '3', '5', '7', '14', '30']
             if (data?.default_expiry_days) {

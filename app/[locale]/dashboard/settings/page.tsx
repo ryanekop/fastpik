@@ -39,6 +39,7 @@ export default function SettingsPage() {
     const [clientChooseActionTab, setClientChooseActionTab] = useState<'id' | 'en'>('id')
     const [dashboardDurationDisplay, setDashboardDurationDisplay] = useState<'selection' | 'download'>('selection')
     const [defaultMaxPhotos, setDefaultMaxPhotos] = useState("")
+    const [defaultDetectSubfolders, setDefaultDetectSubfolders] = useState(false)
     const [defaultExpiryDays, setDefaultExpiryDays] = useState("")
     const [defaultDownloadExpiryDays, setDefaultDownloadExpiryDays] = useState("")
     const [defaultPassword, setDefaultPassword] = useState("")
@@ -112,6 +113,7 @@ export default function SettingsPage() {
                 setClientChooseActionText(data.client_choose_action_text || { id: "", en: "" })
                 setDashboardDurationDisplay(data.dashboard_duration_display || 'selection')
                 setDefaultMaxPhotos(data.default_max_photos?.toString() || "")
+                setDefaultDetectSubfolders(Boolean(data.default_detect_subfolders))
                 const standardOptions = ['', '1', '3', '5', '7', '14', '30']
                 const expiryVal = data.default_expiry_days?.toString() || ""
                 setDefaultExpiryDays(expiryVal)
@@ -188,6 +190,7 @@ export default function SettingsPage() {
                     client_choose_action_text: clientChooseActionText,
                     dashboard_duration_display: dashboardDurationDisplay,
                     default_max_photos: defaultMaxPhotos ? parseInt(defaultMaxPhotos) : null,
+                    default_detect_subfolders: defaultDetectSubfolders,
                     default_expiry_days: defaultExpiryDays ? parseInt(defaultExpiryDays) : null,
                     default_download_expiry_days: defaultDownloadExpiryDays ? parseInt(defaultDownloadExpiryDays) : null,
                     default_password: defaultPassword || null,
@@ -546,6 +549,14 @@ export default function SettingsPage() {
                                                 </select>
                                             </div>
                                         </div>
+                                    </div>
+                                    <div className="flex items-center justify-between rounded-lg border p-3">
+                                        <Label className="cursor-pointer">📂 {t('detectSubfolders')}</Label>
+                                        <Switch
+                                            checked={defaultDetectSubfolders}
+                                            onCheckedChange={setDefaultDetectSubfolders}
+                                            className="cursor-pointer"
+                                        />
                                     </div>
                                     <p className="text-xs text-muted-foreground">{t('defaultProjectHint')}</p>
                                 </CardContent>

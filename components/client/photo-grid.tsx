@@ -27,7 +27,7 @@ interface PhotoGridProps {
     photos: Photo[]
     selected: string[]
     onToggle: (id: string) => void
-    onZoom: (photo: Photo) => void
+    onZoom: (photo: Photo, sourcePhotos: Photo[]) => void
     detectSubfolders?: boolean
     lockedPhotoNames?: string[] // Names of photos that are locked (previously selected)
     headerPortalRef?: React.RefObject<HTMLDivElement | null> // Portal target for header
@@ -513,7 +513,7 @@ export function PhotoGrid({ photos, selected, onToggle, onZoom, detectSubfolders
                             isSelected={selected.includes(photo.id) || isPhotoLocked(photo)}
                             isLocked={isPhotoLocked(photo)}
                             onToggle={() => onToggle(photo.id)}
-                            onZoom={() => onZoom(photo)}
+                            onZoom={() => onZoom(photo, currentPhotos)}
                         />
                     </div>
                 ))}

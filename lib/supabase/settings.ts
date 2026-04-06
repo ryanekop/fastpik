@@ -13,6 +13,7 @@ export interface PrintTemplate {
 
 export interface Settings {
     defaultMaxPhotos: number
+    defaultDetectSubfolders: boolean
     defaultCountryCode: string
     defaultExpiryDays: number
     dashboardDurationDisplay: 'selection' | 'download'
@@ -34,6 +35,7 @@ export async function getSettings(): Promise<Settings> {
         // Return defaults if no settings found (or error)
         return {
             defaultMaxPhotos: 10,
+            defaultDetectSubfolders: false,
             defaultCountryCode: '+62',
             defaultExpiryDays: 7,
             dashboardDurationDisplay: 'selection',
@@ -46,6 +48,7 @@ export async function getSettings(): Promise<Settings> {
 
     return {
         defaultMaxPhotos: data.default_max_photos,
+        defaultDetectSubfolders: data.default_detect_subfolders || false,
         defaultCountryCode: data.default_country_code,
         defaultExpiryDays: data.default_expiry_days,
         dashboardDurationDisplay: data.dashboard_duration_display || 'selection',
@@ -71,6 +74,7 @@ export async function updateSettings(settings: Partial<Settings>) {
     }
 
     if (settings.defaultMaxPhotos !== undefined) dbData.default_max_photos = settings.defaultMaxPhotos
+    if (settings.defaultDetectSubfolders !== undefined) dbData.default_detect_subfolders = settings.defaultDetectSubfolders
     if (settings.defaultCountryCode !== undefined) dbData.default_country_code = settings.defaultCountryCode
     if (settings.defaultExpiryDays !== undefined) dbData.default_expiry_days = settings.defaultExpiryDays
     if (settings.dashboardDurationDisplay !== undefined) dbData.dashboard_duration_display = settings.dashboardDurationDisplay

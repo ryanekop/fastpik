@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS settings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE UNIQUE, -- One settings row per user
   default_max_photos INTEGER DEFAULT 10,
+  default_detect_subfolders BOOLEAN DEFAULT false,
   default_country_code TEXT DEFAULT '+62',
   default_expiry_days INTEGER DEFAULT 7,
   default_admin_whatsapp TEXT,

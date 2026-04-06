@@ -8,6 +8,7 @@ export type IntegrationSettingsRow = {
     default_admin_whatsapp: string | null
     default_country_code: string | null
     default_max_photos: number | null
+    default_detect_subfolders: boolean | null
     default_expiry_days: number | null
     default_download_expiry_days: number | null
     default_password: string | null
@@ -111,7 +112,7 @@ export async function resolveClientDeskIntegrationContext(request: NextRequest) 
     const supabaseAdmin = createServiceClient()
     const { data, error } = await supabaseAdmin
         .from('settings')
-        .select('user_id, vendor_name, default_admin_whatsapp, default_country_code, default_max_photos, default_expiry_days, default_download_expiry_days, default_password, clientdesk_integration_enabled, clientdesk_api_key_id, clientdesk_api_key_hash, tenant_id')
+        .select('user_id, vendor_name, default_admin_whatsapp, default_country_code, default_max_photos, default_detect_subfolders, default_expiry_days, default_download_expiry_days, default_password, clientdesk_integration_enabled, clientdesk_api_key_id, clientdesk_api_key_hash, tenant_id')
         .eq('clientdesk_api_key_id', parsed.keyId)
         .maybeSingle()
 

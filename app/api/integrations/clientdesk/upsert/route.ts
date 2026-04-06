@@ -35,6 +35,7 @@ type SyncedProjectRow = {
     id: string
     link: string | null
     max_photos: number | null
+    detect_subfolders: boolean | null
     password: string | null
     expires_at: string | null
     download_expires_at: string | null
@@ -81,6 +82,7 @@ function buildProjectInfoSnapshot(project: SyncedProjectRow, referenceTimeMs: nu
     return {
         password: sanitizeString(project.password) || null,
         max_photos: toNullableNonNegativeInt(project.max_photos),
+        detect_subfolders: Boolean(project.detect_subfolders),
         selection_days: toRemainingDays(project.expires_at, referenceTimeMs),
         download_days: toRemainingDays(project.download_expires_at, referenceTimeMs),
     }
@@ -142,7 +144,7 @@ export async function POST(request: NextRequest) {
 
         const { data: existingProject, error: findError } = await supabaseAdmin
             .from('projects')
-            .select('id, link, max_photos, password, expires_at, download_expires_at')
+            .select('id, link, max_photos, detect_subfolders, password, expires_at, download_expires_at')
             .eq('user_id', settings.user_id)
             .eq('source_app', sourceApp)
             .eq('source_ref_id', sourceRefId)
@@ -220,7 +222,7 @@ export async function POST(request: NextRequest) {
             : toNullableDays(settings.default_download_expiry_days)
         const defaultDetectSubfolders = presetSource === 'clientdesk'
             ? Boolean(fromClientDesk.detect_subfolders)
-            : false
+            : Boolean(settings.default_detect_subfolders)
         const defaultPassword = presetSource === 'clientdesk'
             ? sanitizeString(fromClientDesk.default_password) || null
             : sanitizeString(settings.default_password) || null
@@ -263,7 +265,7 @@ export async function POST(request: NextRequest) {
                 source_ref_id: sourceRefId,
                 source_last_synced_at: syncAtIso,
             })
-            .select('id, link, max_photos, password, expires_at, download_expires_at')
+            .select('id, link, max_photos, detect_subfolders, password, expires_at, download_expires_at')
             .single()
 
         if (insertError) {
