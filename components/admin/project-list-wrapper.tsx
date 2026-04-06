@@ -29,6 +29,7 @@ export function ProjectListWrapper({ initialProjects, initialFolders }: ProjectL
     const [projects, setProjects] = useState<Project[]>(initialProjects)
     const [folders, setFolders] = useState<Folder[]>(initialFolders)
     const deepLinkEditRef = useRef<string | null>(null)
+    const isClosingEditRef = useRef(false)
 
     useEffect(() => {
         setProjects(initialProjects)
@@ -76,15 +77,15 @@ export function ProjectListWrapper({ initialProjects, initialFolders }: ProjectL
 
     useEffect(() => {
         const editId = (searchParams.get('edit') || '').trim()
-        if (!editId || projects.length === 0) return
-
-        if (
-            deepLinkEditRef.current === editId &&
-            view === 'edit' &&
-            editingProject?.id === editId
-        ) {
+        if (!editId) {
+            isClosingEditRef.current = false
+            deepLinkEditRef.current = null
             return
         }
+
+        if (isClosingEditRef.current) return
+        if (projects.length === 0) return
+        if (deepLinkEditRef.current === editId) return
 
         const target = projects.find((project) => project.id === editId)
         if (!target) return
@@ -92,7 +93,7 @@ export function ProjectListWrapper({ initialProjects, initialFolders }: ProjectL
         deepLinkEditRef.current = editId
         setEditingProject(target)
         setView('edit')
-    }, [searchParams, projects, view, editingProject?.id])
+    }, [searchParams, projects])
 
     // Folder navigation
     const [currentFolderId, setCurrentFolderId] = useState<string | null>(null)
@@ -124,13 +125,17 @@ export function ProjectListWrapper({ initialProjects, initialFolders }: ProjectL
     }
 
     const handleEditProject = (project: Project) => {
+        isClosingEditRef.current = false
+        deepLinkEditRef.current = project.id
         syncEditQueryParam(project.id)
         setEditingProject(project)
         setView('edit')
     }
 
     const handleCreateNew = () => {
+        isClosingEditRef.current = false
         syncEditQueryParam(null)
+        deepLinkEditRef.current = null
         setEditingProject(null)
         setView('create')
     }
@@ -156,7 +161,9 @@ export function ProjectListWrapper({ initialProjects, initialFolders }: ProjectL
     }
 
     const handleBack = () => {
+        isClosingEditRef.current = true
         syncEditQueryParam(null)
+        deepLinkEditRef.current = null
         setEditingProject(null)
         setView('list')
     }
@@ -167,7 +174,9 @@ export function ProjectListWrapper({ initialProjects, initialFolders }: ProjectL
     }
 
     const onEditComplete = () => {
+        isClosingEditRef.current = true
         syncEditQueryParam(null)
+        deepLinkEditRef.current = null
         setView('list')
         setEditingProject(null)
         router.refresh()
