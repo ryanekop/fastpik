@@ -14,7 +14,7 @@ interface MessageTemplateEditorProps {
     variables: { key: string; label: string }[]
     value: { id: string; en: string }
     onChange: (newValue: { id: string; en: string }) => void
-    colorScheme?: 'default' | 'yellow' | 'purple'
+    colorScheme?: 'default' | 'yellow' | 'purple' | 'green'
 }
 
 export function MessageTemplateEditor({
@@ -62,6 +62,7 @@ export function MessageTemplateEditor({
         default: 'border-muted',
         yellow: 'border-l-4 border-l-amber-400 border-amber-200 dark:border-amber-800 bg-amber-50/30 dark:bg-amber-950/10',
         purple: 'border-l-4 border-l-purple-400 border-purple-200 dark:border-purple-800 bg-purple-50/30 dark:bg-purple-950/10',
+        green: 'border-l-4 border-l-emerald-400 border-emerald-200 dark:border-emerald-800 bg-emerald-50/30 dark:bg-emerald-950/10',
     }
 
     return (
@@ -123,7 +124,7 @@ export function MessageTemplateEditor({
                             count: "50",
                             selected_count: "50",
                             list: "IMG_001.jpg, IMG_002.jpg...",
-                            selected_list: "IMG_001.jpg\nIMG_002.jpg\nIMG_003.jpg",
+                            selected_list: "IMG_001\nIMG_002\nIMG_003",
                             password: "secret123",
                             duration: "7 hari",
                             download_duration: "14 hari",

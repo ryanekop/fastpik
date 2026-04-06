@@ -214,13 +214,16 @@ export function ClientStatusTab({ projects: initialProjects, folders, onProjects
         if (!selectedFreelancer) return
 
         const selectedPhotos = rawTargetProject.selectedPhotos || []
-        if (selectedPhotos.length === 0) return
+        const normalizedSelectedPhotos = selectedPhotos
+            .map((name) => (name || '').trim().replace(/\.[^/.]+$/, ''))
+            .filter(Boolean)
+        if (normalizedSelectedPhotos.length === 0) return
 
-        const selectedList = selectedPhotos.join('\n')
+        const selectedList = normalizedSelectedPhotos.join('\n')
         const projectLink = buildProjectLink(rawTargetProject.id)
         const variables = {
             client_name: rawTargetProject.clientName,
-            selected_count: selectedPhotos.length.toString(),
+            selected_count: normalizedSelectedPhotos.length.toString(),
             selected_list: selectedList,
             project_link: projectLink,
         }
@@ -228,7 +231,7 @@ export function ClientStatusTab({ projects: initialProjects, folders, onProjects
         const fallbackMessage = t('waRawRequestMessage', {
             freelancer: selectedFreelancer.name,
             name: rawTargetProject.clientName,
-            count: selectedPhotos.length,
+            count: normalizedSelectedPhotos.length,
             link: projectLink,
             list: selectedList,
         })

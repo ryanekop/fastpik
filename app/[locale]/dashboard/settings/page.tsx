@@ -991,6 +991,7 @@ export default function SettingsPage() {
                                 <MessageTemplateEditor
                                     title={t('tmplRawRequestTitle')}
                                     description={t('tmplRawRequestDesc')}
+                                    colorScheme="green"
                                     variables={[
                                         { key: "client_name", label: t('varClientName') },
                                         { key: "selected_count", label: t('varSelectedCount') },
