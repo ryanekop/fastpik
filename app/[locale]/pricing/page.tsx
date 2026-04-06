@@ -8,7 +8,7 @@ import { LanguageToggle } from "@/components/language-toggle"
 import { Button } from "@/components/ui/button"
 import Link from 'next/link'
 import Image from 'next/image'
-import { Check, Star, Zap, Crown, Infinity as InfinityIcon, LogOut, Settings, LayoutDashboard, User } from "lucide-react"
+import { Check, Star, Zap, Crown, LogOut, Settings, LayoutDashboard, User } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import {
     Card,
@@ -35,8 +35,7 @@ import { useTenant } from "@/lib/tenant-context"
 const tierToPlanMap: Record<string, string> = {
     'pro_monthly': 'plan1Month',
     'pro_quarterly': 'plan3Months',
-    'pro_yearly': 'plan1Year',
-    'lifetime': 'planLifetime'
+    'pro_yearly': 'plan1Year'
 }
 
 type PricingMode = "single" | "bundle"
@@ -137,8 +136,7 @@ export default function PricingPage() {
             ],
             link: pricingMode === "bundle" ? BUNDLE_CHECKOUT_LINK : FASTPIK_CHECKOUT_LINK,
             popular: false,
-            icon: Zap,
-            isLifetime: false
+            icon: Zap
         },
         {
             nameKey: "plan3Months",
@@ -151,8 +149,7 @@ export default function PricingPage() {
             ],
             link: pricingMode === "bundle" ? BUNDLE_CHECKOUT_LINK : FASTPIK_CHECKOUT_LINK,
             popular: false,
-            icon: Star,
-            isLifetime: false
+            icon: Star
         },
         {
             nameKey: "plan1Year",
@@ -165,28 +162,7 @@ export default function PricingPage() {
             ],
             link: pricingMode === "bundle" ? BUNDLE_CHECKOUT_LINK : FASTPIK_CHECKOUT_LINK,
             popular: true,  // Changed to true - 1 Year is now popular
-            icon: Crown,
-            isLifetime: false
-        },
-        {
-            nameKey: "planLifetime",
-            price: pricingMode === "bundle" ? "749rb" : "349rb",
-            durationKey: "oneTime",
-            features: pricingMode === "bundle" ? [
-                "featurePayOnce",
-                ...bundleExtraFeatures,
-                "featureBundleIncludesBoth",
-                ...fastpikCoreFeatures,
-                "featureFutureUpdates"
-            ] : [
-                "featurePayOnce",
-                ...fastpikCoreFeatures,
-                "featureFutureUpdates"
-            ],
-            link: pricingMode === "bundle" ? BUNDLE_CHECKOUT_LINK : FASTPIK_CHECKOUT_LINK,
-            popular: false,
-            icon: InfinityIcon,
-            isLifetime: true
+            icon: Crown
         }
     ]
 
@@ -323,7 +299,7 @@ export default function PricingPage() {
                     </p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-7xl mx-auto">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-7xl mx-auto">
                     {plans.map((plan) => {
                         const isCurrent = isCurrentPlan(plan.nameKey)
                         return (
@@ -357,7 +333,7 @@ export default function PricingPage() {
                                         <span className="text-muted-foreground text-sm mb-1">{t(plan.durationKey)}</span>
                                     </div>
                                     <CardDescription>
-                                        {plan.isLifetime ? t('billingOnce') : t('billingManualRenew')}
+                                        {t('billingManualRenew')}
                                     </CardDescription>
                                 </CardHeader>
                                 <CardContent className="flex-1">
