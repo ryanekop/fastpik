@@ -1,6 +1,12 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
+export interface ProjectFreelancerSnapshot {
+    id?: string
+    name: string
+    whatsapp: string
+}
+
 export interface Project {
     id: string
     clientName: string
@@ -31,6 +37,7 @@ export interface Project {
     printStatus?: string // 'pending' | 'in_progress' | 'submitted' | 'reviewed'
     printSubmittedAt?: number | null
     printLastSyncedAt?: number | null
+    freelancersSnapshot?: ProjectFreelancerSnapshot[] // Snapshot from ClientDesk (max 5)
     // Legacy support for old projects
     whatsapp?: string
 }

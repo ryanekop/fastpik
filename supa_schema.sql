@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS projects (
   selection_status TEXT DEFAULT 'pending',
   selection_submitted_at TIMESTAMPTZ,
   selection_last_synced_at TIMESTAMPTZ,
+  freelancers_snapshot JSONB DEFAULT '[]'::jsonb,
   -- Legacy support columns (optional)
   whatsapp TEXT
 );
@@ -60,6 +61,7 @@ CREATE TABLE IF NOT EXISTS settings (
   msg_tmpl_link_extra JSONB DEFAULT '{"id": "", "en": ""}',
   msg_tmpl_result_initial JSONB DEFAULT '{"id": "", "en": ""}',
   msg_tmpl_result_extra JSONB DEFAULT '{"id": "", "en": ""}',
+  msg_tmpl_raw_request JSONB DEFAULT '{"id": "", "en": ""}',
   msg_tmpl_reminder JSONB DEFAULT '{"id": "", "en": ""}',
   telegram_chat_id TEXT,
   telegram_reminder_days INTEGER[] DEFAULT '{7,3}',

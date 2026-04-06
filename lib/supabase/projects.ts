@@ -1,7 +1,7 @@
 
 import { createClient } from './server'
 import { createServiceClient } from './service'
-import type { Project } from '@/lib/project-store'
+import type { Project, ProjectFreelancerSnapshot } from '@/lib/project-store'
 
 export async function getUserId(): Promise<string | null> {
     const supabase = await createClient()
@@ -106,6 +106,7 @@ export async function updateProject(id: string, updates: Partial<Project>) {
     if (updates.projectType !== undefined) dbUpdates.project_type = updates.projectType
     if (updates.printSizes !== undefined) dbUpdates.print_sizes = updates.printSizes
     if (updates.folderId !== undefined) dbUpdates.folder_id = updates.folderId || null
+    if (updates.freelancersSnapshot !== undefined) dbUpdates.freelancers_snapshot = updates.freelancersSnapshot || []
 
     const { error } = await supabase
         .from('projects')
@@ -128,6 +129,23 @@ export async function deleteProject(id: string) {
 }
 
 // --- Helpers ---
+
+function sanitizeFreelancersSnapshot(value: unknown): ProjectFreelancerSnapshot[] {
+    if (!Array.isArray(value)) return []
+    return value
+        .map((entry) => {
+            if (!entry || typeof entry !== 'object') return null
+            const typed = entry as { id?: unknown; name?: unknown; whatsapp?: unknown }
+            const name = typeof typed.name === 'string' ? typed.name.trim() : ''
+            const whatsapp = typeof typed.whatsapp === 'string' ? typed.whatsapp.trim() : ''
+            const id = typeof typed.id === 'string' ? typed.id.trim() : ''
+            if (!name || !whatsapp) return null
+            return id
+                ? { id, name, whatsapp }
+                : { name, whatsapp }
+        })
+        .filter((entry): entry is ProjectFreelancerSnapshot => Boolean(entry))
+}
 
 function transformProjectFromDB(db: any): Project {
     return {
@@ -159,6 +177,7 @@ function transformProjectFromDB(db: any): Project {
         printStatus: db.print_status || 'pending',
         printSubmittedAt: db.print_submitted_at ? new Date(db.print_submitted_at).getTime() : null,
         printLastSyncedAt: db.print_last_synced_at ? new Date(db.print_last_synced_at).getTime() : null,
+        freelancersSnapshot: sanitizeFreelancersSnapshot(db.freelancers_snapshot),
     }
 }
 
@@ -185,5 +204,6 @@ function transformProjectToDB(project: Project, userId: string) {
         print_enabled: project.printEnabled || false,
         print_expires_at: project.printExpiresAt ? new Date(project.printExpiresAt).toISOString() : null,
         print_sizes: project.printSizes || [],
+        freelancers_snapshot: project.freelancersSnapshot || [],
     }
 }

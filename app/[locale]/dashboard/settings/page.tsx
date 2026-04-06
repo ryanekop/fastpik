@@ -78,6 +78,7 @@ export default function SettingsPage() {
     const [tmplResultInitial, setTmplResultInitial] = useState({ id: "", en: "" })
     const [tmplResultExtra, setTmplResultExtra] = useState({ id: "", en: "" })
     const [tmplResultPrint, setTmplResultPrint] = useState({ id: "", en: "" })
+    const [tmplRawRequest, setTmplRawRequest] = useState({ id: "", en: "" })
     const [tmplReminder, setTmplReminder] = useState({ id: "", en: "" })
     const [tmplReminderExtra, setTmplReminderExtra] = useState({ id: "", en: "" })
     const [tmplReminderPrint, setTmplReminderPrint] = useState({ id: "", en: "" })
@@ -157,6 +158,7 @@ export default function SettingsPage() {
                 if (data.msg_tmpl_result_initial) setTmplResultInitial(data.msg_tmpl_result_initial)
                 if (data.msg_tmpl_result_extra) setTmplResultExtra(data.msg_tmpl_result_extra)
                 if (data.msg_tmpl_result_print) setTmplResultPrint(data.msg_tmpl_result_print)
+                if (data.msg_tmpl_raw_request) setTmplRawRequest(data.msg_tmpl_raw_request)
                 if (data.msg_tmpl_reminder) setTmplReminder(data.msg_tmpl_reminder)
                 if (data.msg_tmpl_reminder_extra) setTmplReminderExtra(data.msg_tmpl_reminder_extra)
                 if (data.msg_tmpl_reminder_print) setTmplReminderPrint(data.msg_tmpl_reminder_print)
@@ -220,6 +222,7 @@ export default function SettingsPage() {
                     msg_tmpl_result_initial: tmplResultInitial,
                     msg_tmpl_result_extra: tmplResultExtra,
                     msg_tmpl_result_print: tmplResultPrint,
+                    msg_tmpl_raw_request: tmplRawRequest,
                     msg_tmpl_reminder: tmplReminder,
                     msg_tmpl_reminder_extra: tmplReminderExtra,
                     msg_tmpl_reminder_print: tmplReminderPrint,
@@ -984,6 +987,19 @@ export default function SettingsPage() {
                                         onChange={setTmplResultPrint}
                                     />
                                 )}
+
+                                <MessageTemplateEditor
+                                    title={t('tmplRawRequestTitle')}
+                                    description={t('tmplRawRequestDesc')}
+                                    variables={[
+                                        { key: "client_name", label: t('varClientName') },
+                                        { key: "selected_count", label: t('varSelectedCount') },
+                                        { key: "selected_list", label: t('varSelectedList') },
+                                        { key: "project_link", label: t('varProjectLink') }
+                                    ]}
+                                    value={tmplRawRequest}
+                                    onChange={setTmplRawRequest}
+                                />
 
                                 {/* === REMINDER === */}
                                 <MessageTemplateEditor

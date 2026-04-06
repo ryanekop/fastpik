@@ -6,13 +6,15 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { PopupDialog } from "@/components/ui/popup-dialog"
-import { Bell, CheckCircle, Clock, Eye, FolderOpen, Loader2, RefreshCw, Search, Timer, XCircle, Undo2 } from "lucide-react"
+import { Bell, CheckCircle, Clock, Eye, FolderOpen, Loader2, MessageCircle, RefreshCw, Search, Timer, XCircle, Undo2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
-import { getClientWhatsapp, type Project } from "@/lib/project-store"
+import { getClientWhatsapp, type Project, type ProjectFreelancerSnapshot } from "@/lib/project-store"
 import type { Folder } from "@/lib/supabase/folders"
 import { createClient } from "@/lib/supabase/client"
 import { motion, AnimatePresence } from "framer-motion"
+import { normalizeWhatsappNumber } from "@/lib/telegram"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 interface ClientStatusTabProps {
     projects: Project[]
@@ -40,12 +42,16 @@ export function ClientStatusTab({ projects: initialProjects, folders, onProjects
     const [markTargetId, setMarkTargetId] = useState<string | null>(null)
     const [showUnmarkDialog, setShowUnmarkDialog] = useState(false)
     const [unmarkTargetId, setUnmarkTargetId] = useState<string | null>(null)
+    const [showRawDialog, setShowRawDialog] = useState(false)
+    const [rawTargetProject, setRawTargetProject] = useState<Project | null>(null)
+    const [selectedFreelancerIdx, setSelectedFreelancerIdx] = useState(0)
 
     // Templates for reminder
     const [templates, setTemplates] = useState<{
         reminderLink: { id: string, en: string } | null
         reminderExtraLink: { id: string, en: string } | null
-    }>({ reminderLink: null, reminderExtraLink: null })
+        rawRequest: { id: string, en: string } | null
+    }>({ reminderLink: null, reminderExtraLink: null, rawRequest: null })
     const [vendorSlug, setVendorSlug] = useState<string | null>(null)
     const [dashboardDurationDisplay, setDashboardDurationDisplay] = useState<'selection' | 'download'>('selection')
 
@@ -63,13 +69,14 @@ export function ClientStatusTab({ projects: initialProjects, folders, onProjects
                 if (!user) return
                 const { data } = await supabase
                     .from('settings')
-                    .select('msg_tmpl_reminder, msg_tmpl_reminder_extra, vendor_name, dashboard_duration_display')
+                    .select('msg_tmpl_reminder, msg_tmpl_reminder_extra, msg_tmpl_raw_request, vendor_name, dashboard_duration_display')
                     .eq('user_id', user.id)
                     .maybeSingle()
                 if (data) {
                     setTemplates({
                         reminderLink: data.msg_tmpl_reminder as { id: string, en: string } || null,
-                        reminderExtraLink: data.msg_tmpl_reminder_extra as { id: string, en: string } || null
+                        reminderExtraLink: data.msg_tmpl_reminder_extra as { id: string, en: string } || null,
+                        rawRequest: data.msg_tmpl_raw_request as { id: string, en: string } || null,
                     })
                     if (data.vendor_name) {
                         setVendorSlug(data.vendor_name)
@@ -173,6 +180,62 @@ export function ClientStatusTab({ projects: initialProjects, folders, onProjects
         } finally {
             setMarkingId(null)
         }
+    }
+
+    const getFreelancersSnapshot = (project: Project): ProjectFreelancerSnapshot[] => {
+        if (!Array.isArray(project.freelancersSnapshot)) return []
+        return project.freelancersSnapshot.filter((freelancer) => {
+            const name = freelancer?.name?.trim()
+            const whatsapp = freelancer?.whatsapp?.trim()
+            return Boolean(name && whatsapp)
+        })
+    }
+
+    const openRequestRawDialog = (project: Project) => {
+        const freelancers = getFreelancersSnapshot(project)
+        if (freelancers.length === 0 || (project.selectedPhotos?.length || 0) === 0) {
+            return
+        }
+        setRawTargetProject(project)
+        setSelectedFreelancerIdx(0)
+        setShowRawDialog(true)
+    }
+
+    const closeRequestRawDialog = () => {
+        setShowRawDialog(false)
+        setRawTargetProject(null)
+        setSelectedFreelancerIdx(0)
+    }
+
+    const sendRawRequest = () => {
+        if (!rawTargetProject) return
+        const freelancers = getFreelancersSnapshot(rawTargetProject)
+        const selectedFreelancer = freelancers[selectedFreelancerIdx]
+        if (!selectedFreelancer) return
+
+        const selectedPhotos = rawTargetProject.selectedPhotos || []
+        if (selectedPhotos.length === 0) return
+
+        const selectedList = selectedPhotos.join('\n')
+        const projectLink = buildProjectLink(rawTargetProject.id)
+        const variables = {
+            client_name: rawTargetProject.clientName,
+            selected_count: selectedPhotos.length.toString(),
+            selected_list: selectedList,
+            project_link: projectLink,
+        }
+        const customMessage = compileMessage(templates.rawRequest, variables)
+        const fallbackMessage = t('waRawRequestMessage', {
+            freelancer: selectedFreelancer.name,
+            name: rawTargetProject.clientName,
+            count: selectedPhotos.length,
+            link: projectLink,
+            list: selectedList,
+        })
+        const message = customMessage || fallbackMessage
+        const whatsapp = normalizeWhatsappNumber(selectedFreelancer.whatsapp, rawTargetProject.countryCode)
+        window.open(`https://api.whatsapp.com/send/?phone=${whatsapp}&text=${encodeURIComponent(message)}`, '_blank')
+        closeRequestRawDialog()
     }
 
     const confirmUnmarkReviewed = (projectId: string) => {
@@ -420,6 +483,8 @@ export function ClientStatusTab({ projects: initialProjects, folders, onProjects
                             const effectiveSelected = isExtraProject ? Math.max(0, (project.selectedPhotos?.length || 0) - project.lockedPhotos!.length) : (project.selectedPhotos?.length || 0)
                             const progressPercent = effectiveMax > 0 ? Math.min((effectiveSelected / effectiveMax) * 100, 100) : 0
                             const folderName = getFolderName(project.folderId)
+                            const hasSelectedPhotos = (project.selectedPhotos?.length || 0) > 0
+                            const hasFreelancers = getFreelancersSnapshot(project).length > 0
 
                             return (
                                 <motion.div
@@ -537,6 +602,18 @@ export function ClientStatusTab({ projects: initialProjects, folders, onProjects
                                                     >
                                                         <Bell className="h-4 w-4" />
                                                     </Button>
+
+                                                    {/* RAW request button */}
+                                                    <Button
+                                                        size="icon"
+                                                        variant="ghost"
+                                                        className="h-8 w-8 cursor-pointer text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                                                        onClick={() => openRequestRawDialog(project)}
+                                                        disabled={!hasSelectedPhotos || !hasFreelancers}
+                                                        title={t('requestRaw')}
+                                                    >
+                                                        <MessageCircle className="h-4 w-4" />
+                                                    </Button>
                                                 </div>
                                             </div>
                                         </CardContent>
@@ -547,6 +624,57 @@ export function ClientStatusTab({ projects: initialProjects, folders, onProjects
                     )}
                 </AnimatePresence>
             </div>
+
+            {/* RAW Request Dialog */}
+            <Dialog open={showRawDialog} onOpenChange={(open) => { if (!open) closeRequestRawDialog() }}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>{t('requestRawDialogTitle')}</DialogTitle>
+                        <DialogDescription>
+                            {rawTargetProject
+                                ? t('requestRawDialogDesc', { name: rawTargetProject.clientName })
+                                : t('requestRawDialogEmpty')}
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-2">
+                        {(rawTargetProject ? getFreelancersSnapshot(rawTargetProject) : []).map((freelancer, index) => (
+                            <button
+                                key={freelancer.id || `${freelancer.whatsapp}-${index}`}
+                                type="button"
+                                onClick={() => setSelectedFreelancerIdx(index)}
+                                className={cn(
+                                    "w-full rounded-lg border px-3 py-2 text-left transition-colors cursor-pointer",
+                                    selectedFreelancerIdx === index
+                                        ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+                                        : "hover:bg-muted"
+                                )}
+                            >
+                                <p className="font-medium text-sm">{freelancer.name}</p>
+                                <p className="text-xs text-muted-foreground">{freelancer.whatsapp}</p>
+                            </button>
+                        ))}
+
+                        {rawTargetProject && getFreelancersSnapshot(rawTargetProject).length === 0 && (
+                            <p className="text-sm text-muted-foreground">{t('noFreelancersSnapshot')}</p>
+                        )}
+                    </div>
+
+                    <DialogFooter>
+                        <Button type="button" variant="outline" className="cursor-pointer" onClick={closeRequestRawDialog}>
+                            {t('cancel')}
+                        </Button>
+                        <Button
+                            type="button"
+                            className="cursor-pointer bg-green-600 hover:bg-green-700 text-white"
+                            onClick={sendRawRequest}
+                            disabled={!rawTargetProject || getFreelancersSnapshot(rawTargetProject).length === 0}
+                        >
+                            {t('sendRawRequest')}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             {/* Mark Reviewed Confirmation Dialog */}
             <PopupDialog

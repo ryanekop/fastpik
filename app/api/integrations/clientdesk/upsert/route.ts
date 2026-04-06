@@ -18,6 +18,12 @@ type ClientDeskDefaults = {
     default_password?: string | null
 }
 
+type UpsertFreelancer = {
+    id?: string | null
+    name?: string | null
+    whatsapp?: string | null
+}
+
 type UpsertPayload = {
     source_app?: string
     source_ref_id?: string
@@ -27,6 +33,7 @@ type UpsertPayload = {
     client_name?: string
     client_whatsapp?: string | null
     gdrive_link?: string
+    freelancers?: UpsertFreelancer[] | null
     clientdesk_defaults?: ClientDeskDefaults | null
     sync_offset_ms?: number
 }
@@ -59,6 +66,24 @@ function toNullableDays(value: unknown) {
 
 function sanitizeString(value: unknown) {
     return typeof value === 'string' ? value.trim() : ''
+}
+
+function sanitizeFreelancersSnapshot(value: unknown): { id?: string; name: string; whatsapp: string }[] {
+    if (!Array.isArray(value)) return []
+    return value
+        .slice(0, 5)
+        .map((entry) => {
+            if (!entry || typeof entry !== 'object') return null
+            const typed = entry as UpsertFreelancer
+            const name = sanitizeString(typed.name)
+            const whatsapp = sanitizeString(typed.whatsapp)
+            const id = sanitizeString(typed.id)
+            if (!name || !whatsapp) return null
+            return id
+                ? { id, name, whatsapp }
+                : { name, whatsapp }
+        })
+        .filter((entry): entry is { id?: string; name: string; whatsapp: string } => Boolean(entry))
 }
 
 function toNullableNonNegativeInt(value: unknown) {
@@ -108,6 +133,9 @@ export async function POST(request: NextRequest) {
         const clientName = sanitizeString(body.client_name)
         const clientWhatsapp = sanitizeString(body.client_whatsapp)
         const gdriveLink = sanitizeString(body.gdrive_link)
+        const freelancersSnapshot = Array.isArray(body.freelancers)
+            ? sanitizeFreelancersSnapshot(body.freelancers)
+            : null
         const now = Date.now()
         const syncOffsetMs = Math.max(0, Math.floor(Number(body.sync_offset_ms) || 0))
         const syncAtMs = now + syncOffsetMs
@@ -168,6 +196,9 @@ export async function POST(request: NextRequest) {
                 client_whatsapp: clientWhatsapp || null,
                 gdrive_link: gdriveLink,
                 source_last_synced_at: syncAtIso,
+            }
+            if (freelancersSnapshot !== null) {
+                updatePayload.freelancers_snapshot = freelancersSnapshot
             }
             if (shouldRepairLink) {
                 updatePayload.link = canonicalLink
@@ -261,6 +292,7 @@ export async function POST(request: NextRequest) {
                 link,
                 folder_id: null,
                 project_type: 'edit',
+                freelancers_snapshot: freelancersSnapshot || [],
                 source_app: sourceApp,
                 source_ref_id: sourceRefId,
                 source_last_synced_at: syncAtIso,
