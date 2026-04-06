@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "migrate:avatar-storage": "node scripts/migrate-avatar-datauri-to-storage.mjs"
   },
   "dependencies": {
     "@fancyapps/ui": "^6.1.12",

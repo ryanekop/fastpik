@@ -13,12 +13,6 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Loader2, Save, KeyRound, Crown, ArrowLeft, RefreshCw, AlertCircle, User } from 'lucide-react'
 import Link from 'next/link'
 
-interface Profile {
-    id: string
-    full_name: string | null
-    avatar_url: string | null
-}
-
 interface Subscription {
     tier: string
     status: string
@@ -30,6 +24,23 @@ interface TrialInfo {
     projectCount: number
     projectLimit: number
     daysRemaining: number | null
+}
+
+const AVATAR_BUCKET = 'profile-avatars'
+
+function getAvatarStoragePathFromUrl(url: string | null | undefined) {
+    if (!url) return null
+
+    try {
+        const parsed = new URL(url)
+        const marker = `/storage/v1/object/public/${AVATAR_BUCKET}/`
+        const markerIndex = parsed.pathname.indexOf(marker)
+        if (markerIndex === -1) return null
+        const path = parsed.pathname.slice(markerIndex + marker.length)
+        return path ? decodeURIComponent(path) : null
+    } catch {
+        return null
+    }
 }
 
 export default function ProfilePage() {
@@ -71,7 +82,7 @@ export default function ProfilePage() {
                     .single()
 
                 if (profile) {
-                    setName(profile.full_name || name)
+                    setName((prev) => profile.full_name || prev)
                     setAvatarUrl(profile.avatar_url)
                 }
 
@@ -141,8 +152,9 @@ export default function ProfilePage() {
             if (profileError) throw profileError
 
             setSuccess(t('saveSuccess'))
-        } catch (err: any) {
-            setError(err.message || t('saveError'))
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : t('saveError')
+            setError(message)
         } finally {
             setSaving(false)
         }
@@ -152,19 +164,66 @@ export default function ProfilePage() {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return
 
-        const { error } = await supabase
+        const previousAvatarPath = getAvatarStoragePathFromUrl(avatarUrl)
+
+        if (!dataUrl) {
+            if (previousAvatarPath) {
+                await supabase.storage.from(AVATAR_BUCKET).remove([previousAvatarPath])
+            }
+
+            const { error: clearError } = await supabase
+                .from('profiles')
+                .upsert({
+                    id: user.id,
+                    avatar_url: null,
+                    updated_at: new Date().toISOString()
+                })
+
+            if (clearError) throw new Error(t('avatarError'))
+            setAvatarUrl(null)
+            return
+        }
+
+        const imageResponse = await fetch(dataUrl)
+        if (!imageResponse.ok) throw new Error(t('avatarError'))
+
+        const imageBlob = await imageResponse.blob()
+        const avatarPath = `${user.id}/avatar-${Date.now()}.jpg`
+
+        const { error: uploadError } = await supabase.storage
+            .from(AVATAR_BUCKET)
+            .upload(avatarPath, imageBlob, {
+                contentType: 'image/jpeg',
+                cacheControl: '3600',
+                upsert: false
+            })
+
+        if (uploadError) throw new Error(t('avatarError'))
+
+        const { data: publicUrlData } = supabase.storage
+            .from(AVATAR_BUCKET)
+            .getPublicUrl(avatarPath)
+
+        const nextAvatarUrl = publicUrlData.publicUrl
+
+        const { error: profileError } = await supabase
             .from('profiles')
             .upsert({
                 id: user.id,
-                avatar_url: dataUrl,
+                avatar_url: nextAvatarUrl,
                 updated_at: new Date().toISOString()
             })
 
-        if (error) {
+        if (profileError) {
+            await supabase.storage.from(AVATAR_BUCKET).remove([avatarPath])
             throw new Error(t('avatarError'))
         }
 
-        setAvatarUrl(dataUrl)
+        if (previousAvatarPath && previousAvatarPath !== avatarPath) {
+            await supabase.storage.from(AVATAR_BUCKET).remove([previousAvatarPath])
+        }
+
+        setAvatarUrl(nextAvatarUrl)
     }
 
     const handleResetPassword = async () => {

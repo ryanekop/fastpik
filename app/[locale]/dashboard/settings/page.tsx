@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { useTranslations, useLocale } from "next-intl"
 import { Button } from "@/components/ui/button"
@@ -21,6 +21,7 @@ import { useTenant } from "@/lib/tenant-context"
 import { shouldHideTenantBranding } from "@/lib/tenant-branding"
 
 type LocalizedText = { id: string; en: string }
+type SeoFieldKey = "title" | "description" | "keywords"
 const getErrorMessage = (error: unknown, fallback: string) => error instanceof Error ? error.message : fallback
 
 export default function SettingsPage() {
@@ -49,6 +50,19 @@ export default function SettingsPage() {
     const [customDefaultDays, setCustomDefaultDays] = useState("")
     const [customDefaultExpiryLabel, setCustomDefaultExpiryLabel] = useState<string | null>(null)
     const [customDefaultDownloadExpiryLabel, setCustomDefaultDownloadExpiryLabel] = useState<string | null>(null)
+    const [seoMetaTitle, setSeoMetaTitle] = useState("")
+    const [seoMetaDescription, setSeoMetaDescription] = useState("")
+    const [seoMetaKeywords, setSeoMetaKeywords] = useState("")
+    const [activeSeoField, setActiveSeoField] = useState<SeoFieldKey>("title")
+    const seoFieldRefs = useRef<{
+        title: HTMLInputElement | null
+        description: HTMLTextAreaElement | null
+        keywords: HTMLInputElement | null
+    }>({
+        title: null,
+        description: null,
+        keywords: null,
+    })
 
     // Print config state
     const [printEnabled, setPrintEnabled] = useState(false)
@@ -92,11 +106,7 @@ export default function SettingsPage() {
     const [success, setSuccess] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
-    useEffect(() => {
-        loadSettings()
-    }, [])
-
-    const loadSettings = async () => {
+    const loadSettings = useCallback(async () => {
         try {
             const { data: { user } } = await supabase.auth.getUser()
             if (!user) return
@@ -138,6 +148,9 @@ export default function SettingsPage() {
                     setCustomDefaultDownloadExpiryLabel(parts.join(' '))
                 }
                 setDefaultPassword(data.default_password || "")
+                setSeoMetaTitle(data.seo_meta_title || "")
+                setSeoMetaDescription(data.seo_meta_description || "")
+                setSeoMetaKeywords(data.seo_meta_keywords || "")
                 if (data.msg_tmpl_link_initial) setTmplLinkInitial(data.msg_tmpl_link_initial)
                 if (data.msg_tmpl_link_initial_print) setTmplLinkInitialPrint(data.msg_tmpl_link_initial_print)
                 if (data.msg_tmpl_link_extra) setTmplLinkExtra(data.msg_tmpl_link_extra)
@@ -169,7 +182,11 @@ export default function SettingsPage() {
         } finally {
             setLoading(false)
         }
-    }
+    }, [supabase, t])
+
+    useEffect(() => {
+        loadSettings()
+    }, [loadSettings])
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -194,6 +211,9 @@ export default function SettingsPage() {
                     default_expiry_days: defaultExpiryDays ? parseInt(defaultExpiryDays) : null,
                     default_download_expiry_days: defaultDownloadExpiryDays ? parseInt(defaultDownloadExpiryDays) : null,
                     default_password: defaultPassword || null,
+                    seo_meta_title: seoMetaTitle.trim() || null,
+                    seo_meta_description: seoMetaDescription.trim() || null,
+                    seo_meta_keywords: seoMetaKeywords.trim() || null,
                     msg_tmpl_link_initial: tmplLinkInitial,
                     msg_tmpl_link_initial_print: tmplLinkInitialPrint,
                     msg_tmpl_link_extra: tmplLinkExtra,
@@ -297,6 +317,36 @@ export default function SettingsPage() {
         }
     }
 
+    const insertSeoToken = (token: string) => {
+        const updateField = (field: SeoFieldKey, value: string) => {
+            if (field === "title") setSeoMetaTitle(value)
+            if (field === "description") setSeoMetaDescription(value)
+            if (field === "keywords") setSeoMetaKeywords(value)
+        }
+
+        const getFieldValue = (field: SeoFieldKey) => {
+            if (field === "title") return seoMetaTitle
+            if (field === "description") return seoMetaDescription
+            return seoMetaKeywords
+        }
+
+        const target = seoFieldRefs.current[activeSeoField]
+        const current = getFieldValue(activeSeoField)
+        const start = target?.selectionStart ?? current.length
+        const end = target?.selectionEnd ?? current.length
+        const nextValue = `${current.slice(0, start)}${token}${current.slice(end)}`
+        updateField(activeSeoField, nextValue)
+
+        const nextCursor = start + token.length
+        setTimeout(() => {
+            const activeTarget = seoFieldRefs.current[activeSeoField]
+            if (activeTarget) {
+                activeTarget.focus()
+                activeTarget.setSelectionRange(nextCursor, nextCursor)
+            }
+        }, 0)
+    }
+
     if (loading) {
         return (
             <AdminShell>
@@ -330,6 +380,7 @@ export default function SettingsPage() {
                     <Tabs defaultValue="general" className="w-full">
                         <TabsList className="mb-6 w-full overflow-x-auto flex justify-start">
                             <TabsTrigger value="general">{t('generalTab')}</TabsTrigger>
+                            <TabsTrigger value="seo">{t('seoTab')}</TabsTrigger>
                             <TabsTrigger value="templates">{t('templatesTab')}</TabsTrigger>
                             <TabsTrigger value="print">{t('printTab')}</TabsTrigger>
                             <TabsTrigger value="clientdesk">{t('clientDeskTab')}</TabsTrigger>
@@ -559,6 +610,88 @@ export default function SettingsPage() {
                                         />
                                     </div>
                                     <p className="text-xs text-muted-foreground">{t('defaultProjectHint')}</p>
+                                </CardContent>
+                            </Card>
+                        </TabsContent>
+
+                        {/* SEO Settings Tab */}
+                        <TabsContent value="seo">
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>🔎 {t('seoClientTitle')}</CardTitle>
+                                    <CardDescription>{t('seoClientDesc')}</CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-6">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="seoMetaTitle">{t('seoMetaTitleLabel')}</Label>
+                                        <Input
+                                            id="seoMetaTitle"
+                                            value={seoMetaTitle}
+                                            onChange={(e) => setSeoMetaTitle(e.target.value)}
+                                            onFocus={() => setActiveSeoField("title")}
+                                            placeholder={t('seoMetaTitlePlaceholder')}
+                                            ref={(node) => {
+                                                seoFieldRefs.current.title = node
+                                            }}
+                                        />
+                                        <p className="text-xs text-muted-foreground">{t('seoMetaTitleHint')}</p>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label htmlFor="seoMetaDescription">{t('seoMetaDescriptionLabel')}</Label>
+                                        <Textarea
+                                            id="seoMetaDescription"
+                                            value={seoMetaDescription}
+                                            onChange={(e) => setSeoMetaDescription(e.target.value)}
+                                            onFocus={() => setActiveSeoField("description")}
+                                            placeholder={t('seoMetaDescriptionPlaceholder')}
+                                            className="min-h-28"
+                                            ref={(node) => {
+                                                seoFieldRefs.current.description = node
+                                            }}
+                                        />
+                                        <p className="text-xs text-muted-foreground">{t('seoMetaDescriptionHint')}</p>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label htmlFor="seoMetaKeywords">{t('seoMetaKeywordsLabel')}</Label>
+                                        <Input
+                                            id="seoMetaKeywords"
+                                            value={seoMetaKeywords}
+                                            onChange={(e) => setSeoMetaKeywords(e.target.value)}
+                                            onFocus={() => setActiveSeoField("keywords")}
+                                            placeholder={t('seoMetaKeywordsPlaceholder')}
+                                            ref={(node) => {
+                                                seoFieldRefs.current.keywords = node
+                                            }}
+                                        />
+                                        <p className="text-xs text-muted-foreground">{t('seoMetaKeywordsHint')}</p>
+                                    </div>
+
+                                    <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
+                                        <p className="text-sm font-medium">{t('seoVariableTitle')}</p>
+                                        <p className="text-xs text-muted-foreground">{t('seoVariableHint')}</p>
+                                        <div className="flex flex-wrap gap-2">
+                                            {["{{vendor_name}}", "{{tenant_name}}", "{{client_name}}", "{{project_id}}", "{{locale}}"].map((token) => (
+                                                <Button
+                                                    key={token}
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => insertSeoToken(token)}
+                                                    className="cursor-pointer"
+                                                >
+                                                    {token}
+                                                </Button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div className="rounded-lg border border-amber-300/60 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20 p-3">
+                                        <p className="text-xs text-amber-800 dark:text-amber-200">
+                                            {t('seoDefaultHint')}
+                                        </p>
+                                    </div>
                                 </CardContent>
                             </Card>
                         </TabsContent>
