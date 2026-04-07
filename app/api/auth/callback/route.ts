@@ -22,6 +22,49 @@ function getRequestIp(request: Request): string {
         || 'unknown'
 }
 
+function readFirstHeaderValue(value: string | null | undefined): string {
+    const raw = (value || '').trim()
+    if (!raw) return ''
+    return raw.split(',')[0]?.trim() || ''
+}
+
+function normalizeHost(value: string | null | undefined): string {
+    const raw = readFirstHeaderValue(value)
+    if (!raw) return ''
+    return raw
+        .replace(/^https?:\/\//i, '')
+        .split('/')[0]
+        .trim()
+}
+
+function isLocalHost(host: string): boolean {
+    const normalized = host.split(':')[0]?.toLowerCase()
+    return normalized === 'localhost' || normalized === '127.0.0.1' || normalized === '::1'
+}
+
+function resolvePublicOrigin(request: Request): string {
+    const configuredOrigin = (process.env.NEXT_PUBLIC_SITE_URL || '').trim().replace(/\/$/, '')
+    const forwardedHost = normalizeHost(request.headers.get('x-forwarded-host'))
+    const headerHost = normalizeHost(request.headers.get('host'))
+    const requestHost = normalizeHost(new URL(request.url).host)
+    const host = forwardedHost || headerHost || requestHost
+
+    if (host) {
+        const forwardedProto = readFirstHeaderValue(request.headers.get('x-forwarded-proto')).toLowerCase()
+        const requestProto = new URL(request.url).protocol.replace(':', '').toLowerCase()
+        const protocol = forwardedProto === 'http' || forwardedProto === 'https'
+            ? forwardedProto
+            : isLocalHost(host)
+                ? 'http'
+                : requestProto === 'http' || requestProto === 'https'
+                    ? requestProto
+                    : 'https'
+        return `${protocol}://${host}`
+    }
+
+    return configuredOrigin || new URL(request.url).origin
+}
+
 async function notifyNewSignup(opts: SignupAlertOptions) {
     const chatId = process.env.ALERT_TELEGRAM_CHAT_ID
     const botToken = process.env.ALERT_TELEGRAM_BOT_TOKEN
@@ -104,10 +147,11 @@ function parseDevice(ua?: string): string {
 }
 
 export async function GET(request: Request) {
-    const { searchParams, origin } = new URL(request.url)
+    const { searchParams } = new URL(request.url)
     const code = searchParams.get('code')
     const type = searchParams.get('type') // 'recovery', 'invite', etc.
     const next = searchParams.get('next')
+    const publicOrigin = resolvePublicOrigin(request)
 
     // Determine locale from various sources
     const locale = searchParams.get('locale') || 'id'
@@ -167,34 +211,26 @@ export async function GET(request: Request) {
                 // Note: If user already has a tenant_id, we don't override it
             }
 
-            const forwardedHost = request.headers.get('x-forwarded-host')
-            const isLocalEnv = process.env.NODE_ENV === 'development'
-
             // Determine redirect path based on type
             let redirectPath = next || `/${locale}/dashboard`
             if (type === 'recovery' || type === 'invite') {
                 redirectPath = `/${locale}/dashboard/reset-password`
             }
 
-            if (isLocalEnv) {
-                return NextResponse.redirect(`${origin}${redirectPath}`)
-            } else if (forwardedHost) {
-                return NextResponse.redirect(`https://${forwardedHost}${redirectPath}`)
-            } else {
-                return NextResponse.redirect(`${origin}${redirectPath}`)
-            }
+            return NextResponse.redirect(`${publicOrigin}${redirectPath}`)
         } else {
             console.warn('[Auth Callback] Code exchange failed:', {
                 message: error.message,
                 type: type || 'unknown',
                 locale,
                 hasCode: true,
+                publicOrigin,
             })
         }
     }
 
     // Return the user to login with error
-    return NextResponse.redirect(`${origin}/${locale}/dashboard/login?error=auth_code_error`)
+    return NextResponse.redirect(`${publicOrigin}/${locale}/dashboard/login?error=auth_code_error`)
 }
 
 /**
