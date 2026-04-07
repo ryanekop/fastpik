@@ -50,12 +50,18 @@ export async function POST(req: NextRequest) {
             )
         }
 
+        const siteUrl = (
+            process.env.NEXT_PUBLIC_SITE_URL
+            || process.env.NEXT_PUBLIC_APP_URL
+            || 'http://localhost:3000'
+        ).replace(/\/$/, '')
+
         // Invite user by email - mereka akan set password sendiri
         const { data: authData, error: authError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
             data: {
                 full_name: name
             },
-            redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`
+            redirectTo: `${siteUrl}/id/auth/callback?type=invite`
         })
 
         if (authError) {

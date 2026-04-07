@@ -228,7 +228,7 @@ export default function ProfilePage() {
 
     const handleResetPassword = async () => {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-            redirectTo: `${window.location.origin}/${locale}/dashboard/reset-password`
+            redirectTo: `${window.location.origin}/${locale}/auth/callback?type=recovery`
         })
 
         if (error) {

@@ -15,6 +15,7 @@ export async function POST(request: Request) {
     try {
         const supabaseAdmin = getSupabaseAdmin()
         const { email } = await request.json()
+        const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(/\/$/, '')
 
         if (!email) {
             return NextResponse.json({ error: 'Email is required' }, { status: 400 })
@@ -22,7 +23,7 @@ export async function POST(request: Request) {
 
         // Invite user using admin API
         const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-            redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/api/auth/callback?type=invite&locale=id`
+            redirectTo: `${siteUrl}/id/auth/callback?type=invite`
         })
 
         if (error) {

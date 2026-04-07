@@ -22,6 +22,48 @@ function getRequestIp(request: Request): string {
         || 'unknown'
 }
 
+function buildLocalizedCallbackUrl(request: Request, locale: string, publicOrigin: string) {
+    const currentUrl = new URL(request.url)
+    const targetUrl = new URL(`${publicOrigin}/${locale}/auth/callback`)
+
+    currentUrl.searchParams.forEach((value, key) => {
+        targetUrl.searchParams.set(key, value)
+    })
+
+    return targetUrl.toString()
+}
+
+function createLocalizedCallbackRedirect(localizedCallbackUrl: string) {
+    const html = `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Redirecting...</title></head>
+<body>
+<p>Redirecting...</p>
+<script>
+  window.location.replace(${JSON.stringify(localizedCallbackUrl)} + window.location.hash);
+</script>
+</body>
+</html>`
+
+    return new NextResponse(html, {
+        status: 200,
+        headers: { 'Content-Type': 'text/html' },
+    })
+}
+
+function classifyAuthCallbackError(message: string) {
+    if (/code verifier not found/i.test(message)) {
+        return 'missing_pkce_verifier'
+    }
+    if (/code challenge does not match/i.test(message)) {
+        return 'pkce_code_challenge_mismatch'
+    }
+    if (/expired/i.test(message)) {
+        return 'expired_code'
+    }
+    return 'unknown'
+}
+
 function readFirstHeaderValue(value: string | null | undefined): string {
     const raw = (value || '').trim()
     if (!raw) return ''
@@ -155,6 +197,7 @@ export async function GET(request: Request) {
 
     // Determine locale from various sources
     const locale = searchParams.get('locale') || 'id'
+    const localizedCallbackUrl = buildLocalizedCallbackUrl(request, locale, publicOrigin)
 
     if (code) {
         const supabase = await createClient()
@@ -221,12 +264,19 @@ export async function GET(request: Request) {
         } else {
             console.warn('[Auth Callback] Code exchange failed:', {
                 message: error.message,
+                reason: classifyAuthCallbackError(error.message),
                 type: type || 'unknown',
                 locale,
                 hasCode: true,
                 publicOrigin,
+                fallback: localizedCallbackUrl,
             })
+            return NextResponse.redirect(localizedCallbackUrl)
         }
+    }
+
+    if (type === 'signup' || type === 'invite' || type === 'recovery') {
+        return createLocalizedCallbackRedirect(localizedCallbackUrl)
     }
 
     // Return the user to login with error
