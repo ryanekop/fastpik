@@ -1,13 +1,12 @@
 "use client"
 
 import { useEffect, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useLocale } from 'next-intl'
 import { Loader2 } from 'lucide-react'
 
 export default function AuthCallbackPage() {
-    const router = useRouter()
     const locale = useLocale()
     const supabase = createClient()
     const searchParams = useSearchParams()
@@ -42,9 +41,24 @@ export default function AuthCallbackPage() {
                     return
                 }
 
+                const postTrialCreation = async () => {
+                    const { data: { user } } = await supabase.auth.getUser()
+                    if (!user) return
+
+                    await fetch('/api/auth/callback', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            userId: user.id,
+                            email: user.email,
+                            fullName: user.user_metadata?.full_name || '',
+                        }),
+                    })
+                }
+
                 // Handle PKCE flow (code in query params)
                 if (code) {
-                    const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
+                    const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
 
                     if (exchangeError) {
                         setError(exchangeError.message)
@@ -55,11 +69,7 @@ export default function AuthCallbackPage() {
                     // For new signups, create trial subscription via API
                     if (authType === 'signup') {
                         try {
-                            await fetch('/api/auth/callback', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ createTrial: true, userId: data.user?.id, email: data.user?.email, fullName: data.user?.user_metadata?.full_name }),
-                            })
+                            await postTrialCreation()
                         } catch (_) { /* non-critical, trial will be checked on next login */ }
                         window.location.href = `/${locale}/dashboard`
                     } else if (authType === 'recovery' || authType === 'invite') {
@@ -85,11 +95,7 @@ export default function AuthCallbackPage() {
                     // For new signups, create trial subscription
                     if (authType === 'signup') {
                         try {
-                            await fetch('/api/auth/callback', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ createTrial: true, userId: sessionData.user?.id, email: sessionData.user?.email, fullName: sessionData.user?.user_metadata?.full_name }),
-                            })
+                            await postTrialCreation()
                         } catch (_) { /* non-critical */ }
                         window.location.href = `/${locale}/dashboard`
                     } else if (authType === 'invite' || authType === 'recovery') {
@@ -149,4 +155,3 @@ export default function AuthCallbackPage() {
         </div>
     )
 }
-
