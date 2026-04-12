@@ -211,6 +211,7 @@ export function RegisterForm() {
                             <Input
                                 id="password"
                                 type={showPassword ? "text" : "password"}
+                                className="pr-10"
                                 required
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
@@ -230,6 +231,7 @@ export function RegisterForm() {
                             <Input
                                 id="confirmPassword"
                                 type={showConfirmPassword ? "text" : "password"}
+                                className="pr-10"
                                 required
                                 value={confirmPassword}
                                 onChange={(e) => setConfirmPassword(e.target.value)}
@@ -245,17 +247,18 @@ export function RegisterForm() {
                     </div>
 
                     {/* Cloudflare Turnstile */}
-                    <div className="flex justify-center">
+                    <div className="w-full">
                         {isTurnstileConfigured ? (
                             <Turnstile
                                 ref={turnstileRef}
+                                className="w-full"
                                 siteKey={turnstileSiteKey}
                                 onSuccess={(token) => setTurnstileToken(token)}
                                 onError={() => setTurnstileToken(null)}
                                 onExpire={() => setTurnstileToken(null)}
                                 options={{
                                     theme: 'auto',
-                                    size: 'normal',
+                                    size: 'flexible',
                                 }}
                             />
                         ) : (
