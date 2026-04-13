@@ -294,173 +294,6 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
         setProjectId(currentProjectId)
     }
 
-    const getNameWithoutExt = (name: string | undefined) => {
-        if (!name) return ''
-        return name.replace(/\.[^/.]+$/, '')
-    }
-
-    const lockedPhotoNames = config.lockedPhotos?.map(name => getNameWithoutExt(name)) || []
-
-    const isPhotoLocked = (photo: Photo) => {
-        const photoNameWithoutExt = getNameWithoutExt(photo.name)
-        return lockedPhotoNames.includes(photoNameWithoutExt)
-    }
-
-    const showToastMessage = useCallback((
-        message: string,
-        type: 'info' | 'success' | 'warning' | 'danger' = 'success'
-    ) => {
-        setToastMessage(message)
-        setToastType(type)
-        setShowToast(true)
-    }, [])
-
-    const getSelectedNamesFromIds = useCallback((ids: string[]) => (
-        ids
-            .map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name))
-            .filter(Boolean)
-    ), [photos])
-
-    const getEditSelectedNames = useCallback(() => (
-        getSelectedNamesFromIds(selected)
-    ), [getSelectedNamesFromIds, selected])
-
-    const getPrintSelectionsForApi = useCallback(() => (
-        Object.entries(printSelections).map(([sizeName, ids]) => ({
-            sizeName,
-            photos: getSelectedNamesFromIds(ids)
-        }))
-    ), [getSelectedNamesFromIds, printSelections])
-
-    const syncSelectionNow = useCallback(async () => {
-        if (!config.projectId || photos.length === 0) return true
-
-        const selectedNames = getEditSelectedNames()
-        const serialized = JSON.stringify(selectedNames)
-
-        if (syncTimerRef.current) {
-            clearTimeout(syncTimerRef.current)
-            syncTimerRef.current = null
-        }
-
-        if (serialized === lastSyncedRef.current) return true
-
-        try {
-            const res = await fetch(`/api/projects/${config.projectId}/sync-selection`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ selectedPhotos: selectedNames })
-            })
-
-            if (!res.ok) {
-                const data = await res.json().catch(() => null)
-                throw new Error(data?.error || 'Failed to sync selection')
-            }
-
-            lastSyncedRef.current = serialized
-            return true
-        } catch (err) {
-            console.error('Failed to sync selection:', err)
-            return false
-        }
-    }, [config.projectId, getEditSelectedNames, photos.length])
-
-    const syncPrintSelectionNow = useCallback(async () => {
-        if (!config.projectId || photos.length === 0) return true
-
-        const printSelectionsForApi = getPrintSelectionsForApi()
-        const serialized = JSON.stringify(printSelectionsForApi)
-
-        if (printSyncTimerRef.current) {
-            clearTimeout(printSyncTimerRef.current)
-            printSyncTimerRef.current = null
-        }
-
-        if (serialized === lastPrintSyncedRef.current) return true
-
-        try {
-            const res = await fetch(`/api/projects/${config.projectId}/sync-print-selection`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ printSelections: printSelectionsForApi })
-            })
-
-            if (!res.ok) {
-                const data = await res.json().catch(() => null)
-                throw new Error(data?.error || 'Failed to sync print selection')
-            }
-
-            lastPrintSyncedRef.current = serialized
-            return true
-        } catch (err) {
-            console.error('Failed to sync print selection:', err)
-            return false
-        }
-    }, [config.projectId, getPrintSelectionsForApi, photos.length])
-
-    const openReviewMode = useCallback(async () => {
-        if (viewMode === 'culling') {
-            if (isPrintProject) {
-                await syncPrintSelectionNow()
-            } else {
-                await syncSelectionNow()
-            }
-        }
-
-        setViewMode('review')
-    }, [isPrintProject, syncPrintSelectionNow, syncSelectionNow, viewMode])
-
-    const submitSelectionBeforeWhatsapp = useCallback(async () => {
-        if (!config.projectId) {
-            throw new Error(currentLocale === 'id' ? 'Project tidak ditemukan.' : 'Project not found.')
-        }
-
-        if (isPrintProject) {
-            const printSelectionsForApi = getPrintSelectionsForApi()
-            const serialized = JSON.stringify(printSelectionsForApi)
-
-            if (printSyncTimerRef.current) {
-                clearTimeout(printSyncTimerRef.current)
-                printSyncTimerRef.current = null
-            }
-
-            const res = await fetch(`/api/projects/${config.projectId}/submit-print-selection`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ printSelections: printSelectionsForApi })
-            })
-
-            if (!res.ok) {
-                const data = await res.json().catch(() => null)
-                throw new Error(data?.error || (currentLocale === 'id' ? 'Gagal menyimpan pilihan cetak.' : 'Failed to save print selection.'))
-            }
-
-            lastPrintSyncedRef.current = serialized
-            return
-        }
-
-        const selectedPhotos = getEditSelectedNames()
-        const serialized = JSON.stringify(selectedPhotos)
-
-        if (syncTimerRef.current) {
-            clearTimeout(syncTimerRef.current)
-            syncTimerRef.current = null
-        }
-
-        const res = await fetch(`/api/projects/${config.projectId}/submit-selection`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ selectedPhotos })
-        })
-
-        if (!res.ok) {
-            const data = await res.json().catch(() => null)
-            throw new Error(data?.error || (currentLocale === 'id' ? 'Gagal menyimpan pilihan foto.' : 'Failed to save photo selection.'))
-        }
-
-        lastSyncedRef.current = serialized
-    }, [config.projectId, currentLocale, getEditSelectedNames, getPrintSelectionsForApi, isPrintProject])
-
     // Fetch photos - runs when authenticated OR when entering download mode (no password needed for download)
     useEffect(() => {
         if (!hasPendingSelection) {
@@ -888,6 +721,176 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
             </div>
         )
     }
+
+    // Helper to get name without extension (must be defined before usage)
+    const getNameWithoutExt = (name: string | undefined) => {
+        if (!name) return ''
+        return name.replace(/\.[^/.]+$/, '')
+    }
+
+    // Get list of locked photo names (without extension for comparison)
+    const lockedPhotoNames = config.lockedPhotos?.map(name => getNameWithoutExt(name)) || []
+
+    // Helper to check if a photo is locked
+    const isPhotoLocked = (photo: Photo) => {
+        const photoNameWithoutExt = getNameWithoutExt(photo.name)
+        return lockedPhotoNames.includes(photoNameWithoutExt)
+    }
+
+    const showToastMessage = useCallback((
+        message: string,
+        type: 'info' | 'success' | 'warning' | 'danger' = 'success'
+    ) => {
+        setToastMessage(message)
+        setToastType(type)
+        setShowToast(true)
+    }, [])
+
+    const getSelectedNamesFromIds = useCallback((ids: string[]) => (
+        ids
+            .map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name))
+            .filter(Boolean)
+    ), [photos])
+
+    const getEditSelectedNames = useCallback(() => (
+        getSelectedNamesFromIds(selected)
+    ), [getSelectedNamesFromIds, selected])
+
+    const getPrintSelectionsForApi = useCallback(() => (
+        Object.entries(printSelections).map(([sizeName, ids]) => ({
+            sizeName,
+            photos: getSelectedNamesFromIds(ids)
+        }))
+    ), [getSelectedNamesFromIds, printSelections])
+
+    const syncSelectionNow = useCallback(async () => {
+        if (!config.projectId || photos.length === 0) return true
+
+        const selectedNames = getEditSelectedNames()
+        const serialized = JSON.stringify(selectedNames)
+
+        if (syncTimerRef.current) {
+            clearTimeout(syncTimerRef.current)
+            syncTimerRef.current = null
+        }
+
+        if (serialized === lastSyncedRef.current) return true
+
+        try {
+            const res = await fetch(`/api/projects/${config.projectId}/sync-selection`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ selectedPhotos: selectedNames })
+            })
+
+            if (!res.ok) {
+                const data = await res.json().catch(() => null)
+                throw new Error(data?.error || 'Failed to sync selection')
+            }
+
+            lastSyncedRef.current = serialized
+            return true
+        } catch (err) {
+            console.error('Failed to sync selection:', err)
+            return false
+        }
+    }, [config.projectId, getEditSelectedNames, photos.length])
+
+    const syncPrintSelectionNow = useCallback(async () => {
+        if (!config.projectId || photos.length === 0) return true
+
+        const printSelectionsForApi = getPrintSelectionsForApi()
+        const serialized = JSON.stringify(printSelectionsForApi)
+
+        if (printSyncTimerRef.current) {
+            clearTimeout(printSyncTimerRef.current)
+            printSyncTimerRef.current = null
+        }
+
+        if (serialized === lastPrintSyncedRef.current) return true
+
+        try {
+            const res = await fetch(`/api/projects/${config.projectId}/sync-print-selection`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ printSelections: printSelectionsForApi })
+            })
+
+            if (!res.ok) {
+                const data = await res.json().catch(() => null)
+                throw new Error(data?.error || 'Failed to sync print selection')
+            }
+
+            lastPrintSyncedRef.current = serialized
+            return true
+        } catch (err) {
+            console.error('Failed to sync print selection:', err)
+            return false
+        }
+    }, [config.projectId, getPrintSelectionsForApi, photos.length])
+
+    const openReviewMode = useCallback(async () => {
+        if (viewMode === 'culling') {
+            if (isPrintProject) {
+                await syncPrintSelectionNow()
+            } else {
+                await syncSelectionNow()
+            }
+        }
+
+        setViewMode('review')
+    }, [isPrintProject, syncPrintSelectionNow, syncSelectionNow, viewMode])
+
+    const submitSelectionBeforeWhatsapp = useCallback(async () => {
+        if (!config.projectId) {
+            throw new Error(currentLocale === 'id' ? 'Project tidak ditemukan.' : 'Project not found.')
+        }
+
+        if (isPrintProject) {
+            const printSelectionsForApi = getPrintSelectionsForApi()
+            const serialized = JSON.stringify(printSelectionsForApi)
+
+            if (printSyncTimerRef.current) {
+                clearTimeout(printSyncTimerRef.current)
+                printSyncTimerRef.current = null
+            }
+
+            const res = await fetch(`/api/projects/${config.projectId}/submit-print-selection`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ printSelections: printSelectionsForApi })
+            })
+
+            if (!res.ok) {
+                const data = await res.json().catch(() => null)
+                throw new Error(data?.error || (currentLocale === 'id' ? 'Gagal menyimpan pilihan cetak.' : 'Failed to save print selection.'))
+            }
+
+            lastPrintSyncedRef.current = serialized
+            return
+        }
+
+        const selectedPhotos = getEditSelectedNames()
+        const serialized = JSON.stringify(selectedPhotos)
+
+        if (syncTimerRef.current) {
+            clearTimeout(syncTimerRef.current)
+            syncTimerRef.current = null
+        }
+
+        const res = await fetch(`/api/projects/${config.projectId}/submit-selection`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ selectedPhotos })
+        })
+
+        if (!res.ok) {
+            const data = await res.json().catch(() => null)
+            throw new Error(data?.error || (currentLocale === 'id' ? 'Gagal menyimpan pilihan foto.' : 'Failed to save photo selection.'))
+        }
+
+        lastSyncedRef.current = serialized
+    }, [config.projectId, currentLocale, getEditSelectedNames, getPrintSelectionsForApi, isPrintProject])
 
     const handleToggle = (id: string) => {
         const photo = photos.find(p => p.id === id)
