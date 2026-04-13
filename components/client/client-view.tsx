@@ -111,12 +111,10 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
     const [showClearDialog, setShowClearDialog] = useState(false)
     const [showToast, setShowToast] = useState(false)
     const [toastMessage, setToastMessage] = useState("")
-    const [toastType, setToastType] = useState<'info' | 'success' | 'warning' | 'danger'>('success')
     const [showRestoreDialog, setShowRestoreDialog] = useState(false)
     const [hasPendingSelection, setHasPendingSelection] = useState(false)
     const [showDownloadAllDialog, setShowDownloadAllDialog] = useState(false)
     const [showDownloadClearDialog, setShowDownloadClearDialog] = useState(false)
-    const [isSubmittingWhatsapp, setIsSubmittingWhatsapp] = useState(false)
 
     // Print size selection state
     const isPrintProject = config.projectType === 'print' && config.printSizes && config.printSizes.length > 0
@@ -527,7 +525,8 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
             if (sinceLastToast >= RELOAD_TOAST_THROTTLE_MS) {
                 const remainingMs = Math.max(0, reloadCooldownEndsAtRef.current - now)
                 const remainingSeconds = Math.max(1, Math.ceil(remainingMs / 1000))
-                showToastMessage(t('reloadCooldown', { seconds: remainingSeconds }), 'info')
+                setToastMessage(t('reloadCooldown', { seconds: remainingSeconds }))
+                setShowToast(true)
                 lastReloadToastAtRef.current = now
             }
             return
@@ -737,161 +736,6 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
         return lockedPhotoNames.includes(photoNameWithoutExt)
     }
 
-    const showToastMessage = useCallback((
-        message: string,
-        type: 'info' | 'success' | 'warning' | 'danger' = 'success'
-    ) => {
-        setToastMessage(message)
-        setToastType(type)
-        setShowToast(true)
-    }, [])
-
-    const getSelectedNamesFromIds = useCallback((ids: string[]) => (
-        ids
-            .map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name))
-            .filter(Boolean)
-    ), [photos])
-
-    const getEditSelectedNames = useCallback(() => (
-        getSelectedNamesFromIds(selected)
-    ), [getSelectedNamesFromIds, selected])
-
-    const getPrintSelectionsForApi = useCallback(() => (
-        Object.entries(printSelections).map(([sizeName, ids]) => ({
-            sizeName,
-            photos: getSelectedNamesFromIds(ids)
-        }))
-    ), [getSelectedNamesFromIds, printSelections])
-
-    const syncSelectionNow = useCallback(async () => {
-        if (!config.projectId || photos.length === 0) return true
-
-        const selectedNames = getEditSelectedNames()
-        const serialized = JSON.stringify(selectedNames)
-
-        if (syncTimerRef.current) {
-            clearTimeout(syncTimerRef.current)
-            syncTimerRef.current = null
-        }
-
-        if (serialized === lastSyncedRef.current) return true
-
-        try {
-            const res = await fetch(`/api/projects/${config.projectId}/sync-selection`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ selectedPhotos: selectedNames })
-            })
-
-            if (!res.ok) {
-                const data = await res.json().catch(() => null)
-                throw new Error(data?.error || 'Failed to sync selection')
-            }
-
-            lastSyncedRef.current = serialized
-            return true
-        } catch (err) {
-            console.error('Failed to sync selection:', err)
-            return false
-        }
-    }, [config.projectId, getEditSelectedNames, photos.length])
-
-    const syncPrintSelectionNow = useCallback(async () => {
-        if (!config.projectId || photos.length === 0) return true
-
-        const printSelectionsForApi = getPrintSelectionsForApi()
-        const serialized = JSON.stringify(printSelectionsForApi)
-
-        if (printSyncTimerRef.current) {
-            clearTimeout(printSyncTimerRef.current)
-            printSyncTimerRef.current = null
-        }
-
-        if (serialized === lastPrintSyncedRef.current) return true
-
-        try {
-            const res = await fetch(`/api/projects/${config.projectId}/sync-print-selection`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ printSelections: printSelectionsForApi })
-            })
-
-            if (!res.ok) {
-                const data = await res.json().catch(() => null)
-                throw new Error(data?.error || 'Failed to sync print selection')
-            }
-
-            lastPrintSyncedRef.current = serialized
-            return true
-        } catch (err) {
-            console.error('Failed to sync print selection:', err)
-            return false
-        }
-    }, [config.projectId, getPrintSelectionsForApi, photos.length])
-
-    const openReviewMode = useCallback(async () => {
-        if (viewMode === 'culling') {
-            if (isPrintProject) {
-                await syncPrintSelectionNow()
-            } else {
-                await syncSelectionNow()
-            }
-        }
-
-        setViewMode('review')
-    }, [isPrintProject, syncPrintSelectionNow, syncSelectionNow, viewMode])
-
-    const submitSelectionBeforeWhatsapp = useCallback(async () => {
-        if (!config.projectId) {
-            throw new Error(currentLocale === 'id' ? 'Project tidak ditemukan.' : 'Project not found.')
-        }
-
-        if (isPrintProject) {
-            const printSelectionsForApi = getPrintSelectionsForApi()
-            const serialized = JSON.stringify(printSelectionsForApi)
-
-            if (printSyncTimerRef.current) {
-                clearTimeout(printSyncTimerRef.current)
-                printSyncTimerRef.current = null
-            }
-
-            const res = await fetch(`/api/projects/${config.projectId}/submit-print-selection`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ printSelections: printSelectionsForApi })
-            })
-
-            if (!res.ok) {
-                const data = await res.json().catch(() => null)
-                throw new Error(data?.error || (currentLocale === 'id' ? 'Gagal menyimpan pilihan cetak.' : 'Failed to save print selection.'))
-            }
-
-            lastPrintSyncedRef.current = serialized
-            return
-        }
-
-        const selectedPhotos = getEditSelectedNames()
-        const serialized = JSON.stringify(selectedPhotos)
-
-        if (syncTimerRef.current) {
-            clearTimeout(syncTimerRef.current)
-            syncTimerRef.current = null
-        }
-
-        const res = await fetch(`/api/projects/${config.projectId}/submit-selection`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ selectedPhotos })
-        })
-
-        if (!res.ok) {
-            const data = await res.json().catch(() => null)
-            throw new Error(data?.error || (currentLocale === 'id' ? 'Gagal menyimpan pilihan foto.' : 'Failed to save photo selection.'))
-        }
-
-        lastSyncedRef.current = serialized
-    }, [config.projectId, currentLocale, getEditSelectedNames, getPrintSelectionsForApi, isPrintProject])
-
     const handleToggle = (id: string) => {
         const photo = photos.find(p => p.id === id)
 
@@ -947,22 +791,22 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
         if (isPrintProject) {
             // Format grouped by size for print projects
             const parts: string[] = []
-            const printSelectionsForApi = getPrintSelectionsForApi()
             config.printSizes!.forEach(size => {
-                const entry = printSelectionsForApi.find(item => item.sizeName === size.name)
-                const names = entry?.photos || []
-                if (names.length === 0) return
-                parts.push(`=== 🖨️ ${size.name} (${names.length}/${size.quota}) ===\n${names.join('\n')}`)
+                const sizeIds = printSelections[size.name] || []
+                if (sizeIds.length === 0) return
+                const names = sizeIds.map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name)).join('\n')
+                parts.push(`=== 🖨️ ${size.name} (${sizeIds.length}/${size.quota}) ===\n${names}`)
             })
             listText = parts.join('\n\n')
         } else if (lockedPhotoNames.length > 0) {
             const lockedList = lockedPhotoNames.join('\n')
-            const newPhotos = getEditSelectedNames()
+            const newPhotos = selected
+                .map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name))
                 .filter(name => !lockedPhotoNames.includes(name || ''))
             const newList = newPhotos.join('\n')
             listText = `=== ${t('previousPhotos')} (${lockedPhotoNames.length}) ===\n${lockedList}\n\n=== ${t('additionalPhotos')} (${newPhotos.length}) ===\n${newList}`
         } else {
-            listText = getEditSelectedNames().join('\n')
+            listText = selected.map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name)).join('\n')
         }
 
         if (navigator.clipboard && window.isSecureContext) {
@@ -1002,9 +846,7 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
         return defaultMsg
     }
 
-    const sendWhatsapp = async () => {
-        if (effectiveCount === 0 || isSubmittingWhatsapp) return
-
+    const sendWhatsapp = () => {
         let listText: string
         let totalCount: number
 
@@ -1012,27 +854,26 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
             // Format grouped by size for print projects
             const parts: string[] = []
             let count = 0
-            const printSelectionsForApi = getPrintSelectionsForApi()
             config.printSizes!.forEach(size => {
-                const entry = printSelectionsForApi.find(item => item.sizeName === size.name)
-                const names = entry?.photos || []
-                if (names.length === 0) return
-                count += names.length
-                parts.push(`=== 🖨️ ${size.name} (${names.length}/${size.quota}) ===\n${names.join('\n')}`)
+                const sizeIds = printSelections[size.name] || []
+                if (sizeIds.length === 0) return
+                count += sizeIds.length
+                const names = sizeIds.map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name)).join('\n')
+                parts.push(`=== 🖨️ ${size.name} (${sizeIds.length}/${size.quota}) ===\n${names}`)
             })
             listText = parts.join('\n\n')
             totalCount = count
         } else if (lockedPhotoNames.length > 0) {
             const lockedList = lockedPhotoNames.join('\n')
-            const newPhotos = getEditSelectedNames()
+            const newPhotos = selected
+                .map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name))
                 .filter(name => !lockedPhotoNames.includes(name || ''))
             const newList = newPhotos.join('\n')
             listText = `=== ${t('previousPhotos')} (${lockedPhotoNames.length}) ===\n${lockedList}\n\n=== ${t('additionalPhotos')} (${newPhotos.length}) ===\n${newList}`
             totalCount = lockedPhotoNames.length + newPhotos.length
         } else {
-            const selectedPhotos = getEditSelectedNames()
-            listText = selectedPhotos.join('\n')
-            totalCount = selectedPhotos.length
+            listText = selected.map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name)).join('\n')
+            totalCount = selected.length
         }
 
         const variables: Record<string, string> = {
@@ -1046,31 +887,12 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
         const template = isPrintProject
             ? messageTemplates?.resultPrint
             : (lockedPhotoNames.length > 0) ? messageTemplates?.resultExtra : messageTemplates?.resultInitial
-        const defaultMsg = isPrintProject
-            ? `${t('printWaIntro')}\n\n${t('printWaBody')} (${totalCount} ${t('waMessagePhotos')}):\n\n${listText}\n\n${t('printWaThanks')}`
-            : `${t('waMessageIntro')}\n\n${t('waMessageBody')} (${totalCount} ${t('waMessagePhotos')}):\n\n${listText}\n\n${t('waMessageThanks')}`
+        const defaultMsg = `${t('waMessageIntro')}\n\n${t('waMessageBody')} (${totalCount} ${t('waMessagePhotos')}):\n\n${listText}\n\n${t('waMessageThanks')}`
 
         const message = compileMessage(template || null, variables, defaultMsg)
 
-        try {
-            setIsSubmittingWhatsapp(true)
-            await submitSelectionBeforeWhatsapp()
-
-            const waNumber = normalizeWhatsappNumber(config.adminWhatsapp)
-            window.open(`https://api.whatsapp.com/send/?phone=${waNumber}&text=${encodeURIComponent(message)}`, '_blank')
-        } catch (err) {
-            console.error('Failed to submit selection before WhatsApp:', err)
-            showToastMessage(
-                err instanceof Error
-                    ? err.message
-                    : (currentLocale === 'id'
-                        ? 'Gagal menyimpan pilihan. Silakan coba lagi.'
-                        : 'Failed to save selection. Please try again.'),
-                'danger'
-            )
-        } finally {
-            setIsSubmittingWhatsapp(false)
-        }
+        const waNumber = normalizeWhatsappNumber(config.adminWhatsapp)
+        window.open(`https://api.whatsapp.com/send/?phone=${waNumber}&text=${encodeURIComponent(message)}`, '_blank')
     }
 
     const handleClearSelection = () => {
@@ -1095,7 +917,8 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
             clearSelection()
         }
         setShowClearDialog(false)
-        showToastMessage(t('selectionCleared'))
+        setToastMessage(t('selectionCleared'))
+        setShowToast(true)
     }
 
     // Download mode toggle handler
@@ -1267,11 +1090,13 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
                 if (blob) {
                     const { saveAs } = await import('file-saver')
                     saveAs(blob, photo.name)
-                    showToastMessage(t('downloadComplete'))
+                    setToastMessage(t('downloadComplete'))
+                    setShowToast(true)
                 } else {
                     // All APIs failed → redirect to Google Drive
                     redirectToGDrive(photo)
-                    showToastMessage(t('downloadFailed'), 'danger')
+                    setToastMessage(t('downloadFailed'))
+                    setShowToast(true)
                 }
                 return
             }
@@ -1363,13 +1188,16 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
             const msg = isBatched
                 ? `${t('downloadComplete')} (${totalBatches} ZIP)`
                 : t('downloadComplete')
-            showToastMessage(msg)
+            setToastMessage(msg)
+            setShowToast(true)
         } catch (err: any) {
             if (err.name === 'AbortError') {
-                showToastMessage(t('downloadStopped'), 'warning')
+                setToastMessage(t('downloadStopped'))
+                setShowToast(true)
             } else {
                 console.error('Download failed:', err)
-                showToastMessage(t('downloadFailed'), 'danger')
+                setToastMessage(t('downloadFailed'))
+                setShowToast(true)
             }
         } finally {
             abortControllerRef.current = null
@@ -1868,17 +1696,11 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
                             {/* WhatsApp Button */}
                             <Button
                                 onClick={sendWhatsapp}
-                                disabled={effectiveCount === 0 || isSubmittingWhatsapp}
+                                disabled={effectiveCount === 0}
                                 className="w-full md:w-auto bg-green-600 hover:bg-green-700 text-white gap-2 cursor-pointer shadow-sm md:order-3"
                             >
-                                {isSubmittingWhatsapp ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                    <MessageCircle className="h-4 w-4" />
-                                )}
-                                {isSubmittingWhatsapp
-                                    ? (currentLocale === 'id' ? 'Menyimpan...' : 'Saving...')
-                                    : t('sendToClient')}
+                                <MessageCircle className="h-4 w-4" />
+                                {t('sendToClient')}
                             </Button>
                         </div>
                     </>
@@ -1904,7 +1726,7 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
 
                             {/* Review Selection Button */}
                             <Button
-                                onClick={openReviewMode}
+                                onClick={() => setViewMode('review')}
                                 disabled={effectiveCount === 0}
                                 className="flex-1 bg-blue-600 hover:bg-blue-700 text-white gap-2 cursor-pointer"
                             >
@@ -1947,7 +1769,7 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
             <Toast
                 isOpen={showToast}
                 message={toastMessage}
-                type={toastType}
+                type="success"
                 onClose={() => setShowToast(false)}
             />
 
