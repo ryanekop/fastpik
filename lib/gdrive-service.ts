@@ -262,7 +262,7 @@ export async function fetchDrivePhotos(
             // more consistently in Safari than the reconstructed drive.google.com endpoint.
             let thumbnail = file.thumbnailLink || ''
             if (thumbnail && thumbnail.includes('=s')) {
-                thumbnail = thumbnail.replace(/=s\d+/, '=s600')
+                thumbnail = thumbnail.replace(/=s\d+/, '=s1000')
             }
 
             // For full resolution, use =s2000 or the direct webContentLink
