@@ -5,7 +5,7 @@ import { invalidateTenantCache } from '@/lib/tenant-resolver'
 // CORS headers for cross-origin requests from license portal
 const CORS_HEADERS = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, x-admin-api-key',
 }
 
@@ -118,4 +118,80 @@ export async function PUT(request: NextRequest) {
     if (data?.domain) invalidateTenantCache(data.domain)
 
     return corsResponse(data)
+}
+
+// DELETE: Delete existing tenant and unassign linked accounts
+export async function DELETE(request: NextRequest) {
+    if (!verifyAdmin(request)) {
+        return corsResponse({ success: false, error: 'Unauthorized' }, { status: 401 })
+    }
+
+    try {
+        const body = await request.json()
+        const tenantId = typeof body.id === 'string' ? body.id.trim() : ''
+
+        if (!tenantId) {
+            return corsResponse({ success: false, error: 'id is required' }, { status: 400 })
+        }
+
+        const supabase = createServiceClient()
+        const { data: tenant, error: tenantError } = await supabase
+            .from('tenants')
+            .select('id, domain')
+            .eq('id', tenantId)
+            .maybeSingle()
+
+        if (tenantError) {
+            return corsResponse({ success: false, error: tenantError.message }, { status: 500 })
+        }
+
+        if (!tenant) {
+            return corsResponse({ success: false, error: 'Tenant not found' }, { status: 404 })
+        }
+
+        const { data: linkedSettings, error: linkedSettingsError } = await supabase
+            .from('settings')
+            .select('user_id')
+            .eq('tenant_id', tenantId)
+
+        if (linkedSettingsError) {
+            return corsResponse({ success: false, error: linkedSettingsError.message }, { status: 500 })
+        }
+
+        const unassignedAccounts = linkedSettings?.length || 0
+
+        if (unassignedAccounts > 0) {
+            const { error: unassignError } = await supabase
+                .from('settings')
+                .update({ tenant_id: null })
+                .eq('tenant_id', tenantId)
+
+            if (unassignError) {
+                return corsResponse({ success: false, error: unassignError.message }, { status: 500 })
+            }
+        }
+
+        const { error: deleteError } = await supabase
+            .from('tenants')
+            .delete()
+            .eq('id', tenantId)
+
+        if (deleteError) {
+            return corsResponse({ success: false, error: deleteError.message }, { status: 500 })
+        }
+
+        if (tenant.domain) invalidateTenantCache(tenant.domain)
+        else invalidateTenantCache()
+
+        return corsResponse({
+            success: true,
+            deletedTenantId: tenantId,
+            unassignedAccounts,
+        })
+    } catch (error: any) {
+        return corsResponse(
+            { success: false, error: error?.message || 'Failed to delete tenant' },
+            { status: 500 }
+        )
+    }
 }
