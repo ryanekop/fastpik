@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.4.5 (2026-04-06)
+
+### ✨ Pembaruan Utama
+
+- Ada tab **SEO** baru di Pengaturan untuk mengatur judul dan deskripsi halaman klien
+- Tombol **Salin Daftar** sekarang tersedia di **Status Klien** untuk menyalin pilihan foto klien dengan cepat
+- Untuk project **foto tambahan**, hasil salinan otomatis dipisah jadi **Foto Sebelumnya** dan **Foto Tambahan**
+
 ## v1.4.4 (2026-04-03)
 
 ### ✨ Pembaruan Utama

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { PopupDialog } from "@/components/ui/popup-dialog"
-import { Bell, CheckCircle, Clock, Eye, FolderOpen, Loader2, MessageCircle, RefreshCw, Search, Timer, XCircle, Undo2 } from "lucide-react"
+import { Bell, CheckCircle, Clock, Copy, Eye, FolderOpen, Loader2, MessageCircle, RefreshCw, Search, Timer, XCircle, Undo2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { getClientWhatsapp, type Project, type ProjectFreelancerSnapshot } from "@/lib/project-store"
@@ -45,6 +45,7 @@ export function ClientStatusTab({ projects: initialProjects, folders, onProjects
     const [showRawDialog, setShowRawDialog] = useState(false)
     const [rawTargetProject, setRawTargetProject] = useState<Project | null>(null)
     const [selectedFreelancerIdx, setSelectedFreelancerIdx] = useState(0)
+    const [copiedProjectId, setCopiedProjectId] = useState<string | null>(null)
 
     // Templates for reminder
     const [templates, setTemplates] = useState<{
@@ -191,6 +192,70 @@ export function ClientStatusTab({ projects: initialProjects, folders, onProjects
         })
     }
 
+    const normalizePhotoName = (name: string | null | undefined) => {
+        return (name || '').trim().replace(/\.[^/.]+$/, '')
+    }
+
+    const getCopyableSelectedPhotoNames = (project: Project) => {
+        return (project.selectedPhotos || [])
+            .map(normalizePhotoName)
+            .filter(Boolean)
+    }
+
+    const buildCopyListText = (project: Project) => {
+        const normalizedSelectedPhotos = getCopyableSelectedPhotoNames(project)
+        if (normalizedSelectedPhotos.length === 0) return ''
+
+        const lockedPhotoNames = (project.lockedPhotos || [])
+            .map(normalizePhotoName)
+            .filter(Boolean)
+
+        if (lockedPhotoNames.length > 0) {
+            const lockedSet = new Set(lockedPhotoNames)
+            const newPhotos = normalizedSelectedPhotos.filter((name) => !lockedSet.has(name))
+            return `=== ${t('previousPhotos')} (${lockedPhotoNames.length}) ===\n${lockedPhotoNames.join('\n')}\n\n=== ${t('additionalPhotos')} (${newPhotos.length}) ===\n${newPhotos.join('\n')}`
+        }
+
+        return normalizedSelectedPhotos.join('\n')
+    }
+
+    const copyProjectList = async (project: Project) => {
+        const listText = buildCopyListText(project)
+        if (!listText) return
+
+        const markCopied = () => {
+            setCopiedProjectId(project.id)
+            window.setTimeout(() => setCopiedProjectId((prev) => prev === project.id ? null : prev), 2000)
+        }
+
+        if (navigator.clipboard && window.isSecureContext) {
+            try {
+                await navigator.clipboard.writeText(listText)
+                markCopied()
+                return
+            } catch (err) {
+                console.error('Clipboard API failed, falling back to execCommand:', err)
+            }
+        }
+
+        const textArea = document.createElement("textarea")
+        textArea.value = listText
+        textArea.style.position = "fixed"
+        textArea.style.left = "-9999px"
+        document.body.appendChild(textArea)
+        textArea.focus()
+        textArea.select()
+
+        try {
+            document.execCommand('copy')
+            markCopied()
+        } catch (err) {
+            console.error('Failed to copy', err)
+        } finally {
+            document.body.removeChild(textArea)
+        }
+    }
+
     const openRequestRawDialog = (project: Project) => {
         const freelancers = getFreelancersSnapshot(project)
         if (freelancers.length === 0 || (project.selectedPhotos?.length || 0) === 0) {
@@ -213,10 +278,7 @@ export function ClientStatusTab({ projects: initialProjects, folders, onProjects
         const selectedFreelancer = freelancers[selectedFreelancerIdx]
         if (!selectedFreelancer) return
 
-        const selectedPhotos = rawTargetProject.selectedPhotos || []
-        const normalizedSelectedPhotos = selectedPhotos
-            .map((name) => (name || '').trim().replace(/\.[^/.]+$/, ''))
-            .filter(Boolean)
+        const normalizedSelectedPhotos = getCopyableSelectedPhotoNames(rawTargetProject)
         if (normalizedSelectedPhotos.length === 0) return
 
         const selectedList = normalizedSelectedPhotos.join('\n')
@@ -616,6 +678,22 @@ export function ClientStatusTab({ projects: initialProjects, folders, onProjects
                                                         title={t('requestRaw')}
                                                     >
                                                         <MessageCircle className="h-4 w-4" />
+                                                    </Button>
+
+                                                    {/* Copy selected list */}
+                                                    <Button
+                                                        size="icon"
+                                                        variant="ghost"
+                                                        className="h-8 w-8 cursor-pointer text-slate-600 hover:text-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900/20"
+                                                        onClick={() => void copyProjectList(project)}
+                                                        disabled={!hasSelectedPhotos}
+                                                        title={copiedProjectId === project.id ? t('copied') : t('copyList')}
+                                                    >
+                                                        {copiedProjectId === project.id ? (
+                                                            <span className="text-xs font-semibold text-emerald-500">✓</span>
+                                                        ) : (
+                                                            <Copy className="h-4 w-4" />
+                                                        )}
                                                     </Button>
                                                 </div>
                                             </div>
