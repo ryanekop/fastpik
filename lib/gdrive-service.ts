@@ -258,8 +258,12 @@ export async function fetchDrivePhotos(
 
         // Transform all files
         const files = allFiles.map((file: any) => {
-            // Use width-based Google Drive thumbnails so portrait photos stay sharp in the grid.
-            const thumbnail = getThumbnailUrl(file.id, 800)
+            // Keep using the Drive API thumbnailLink for grid thumbnails because it behaves
+            // more consistently in Safari than the reconstructed drive.google.com endpoint.
+            let thumbnail = file.thumbnailLink || ''
+            if (thumbnail && thumbnail.includes('=s')) {
+                thumbnail = thumbnail.replace(/=s\d+/, '=s600')
+            }
 
             // For full resolution, use =s2000 or the direct webContentLink
             let fullUrl = file.thumbnailLink || ''
