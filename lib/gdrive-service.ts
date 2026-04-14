@@ -258,11 +258,8 @@ export async function fetchDrivePhotos(
 
         // Transform all files
         const files = allFiles.map((file: any) => {
-            // Upscale thumbnail from default 220px to 400px
-            let thumbnail = file.thumbnailLink || ''
-            if (thumbnail && thumbnail.includes('=s')) {
-                thumbnail = thumbnail.replace(/=s\d+/, '=s400')
-            }
+            // Use width-based Google Drive thumbnails so portrait photos stay sharp in the grid.
+            const thumbnail = getThumbnailUrl(file.id, 800)
 
             // For full resolution, use =s2000 or the direct webContentLink
             let fullUrl = file.thumbnailLink || ''
@@ -295,9 +292,9 @@ export function getDirectImageUrl(fileId: string): string {
     return `https://drive.google.com/thumbnail?id=${fileId}&sz=w2000`
 }
 
-// Helper to get thumbnail URL with custom size
+// Helper to get thumbnail URL with custom width
 export function getThumbnailUrl(fileId: string, size: number = 400): string {
-    return `https://drive.google.com/thumbnail?id=${fileId}&sz=s${size}`
+    return `https://drive.google.com/thumbnail?id=${fileId}&sz=w${size}`
 }
 
 // Alternative thumbnail method using lh3 format

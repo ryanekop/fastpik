@@ -30,10 +30,10 @@ type SlideDirection = 'left' | 'right' | 'none'
 const MAX_ZOOM = 4
 const ZOOM_STEP_CLICK = 2
 
-// Downscale Google Drive thumbnail to =s100 for strip
+// Downscale Google Drive thumbnails to a lightweight width for the strip.
 function getSmallThumb(url: string): string {
-    if (url && url.includes('=s')) return url.replace(/=s\d+/, '=s100')
-    if (url && url.includes('sz=s')) return url.replace(/sz=s\d+/, 'sz=s100')
+    if (url && /[?&]sz=/.test(url)) return url.replace(/([?&]sz=)[^&]+/, '$1w200')
+    if (url && /=[swh]\d+/.test(url)) return url.replace(/=[swh]\d+/, '=w200')
     return url
 }
 
@@ -804,4 +804,3 @@ export function PhotoLightbox({
         </AnimatePresence>
     )
 }
-
