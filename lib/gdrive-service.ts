@@ -258,12 +258,9 @@ export async function fetchDrivePhotos(
 
         // Transform all files
         const files = allFiles.map((file: any) => {
-            // Keep using the Drive API thumbnailLink for grid thumbnails because it behaves
-            // more consistently in Safari than the reconstructed drive.google.com endpoint.
-            let thumbnail = file.thumbnailLink || ''
-            if (thumbnail && thumbnail.includes('=s')) {
-                thumbnail = thumbnail.replace(/=s\d+/, '=s1000')
-            }
+            // Use direct lh3 thumbnails for the grid to keep Safari happy while preserving
+            // the sharper width-based result that looked better than =s thumbnails.
+            const thumbnail = getThumbnailUrlAlt(file.id, 800)
 
             // For full resolution, use =s2000 or the direct webContentLink
             let fullUrl = file.thumbnailLink || ''
@@ -303,5 +300,5 @@ export function getThumbnailUrl(fileId: string, size: number = 400): string {
 
 // Alternative thumbnail method using lh3 format
 export function getThumbnailUrlAlt(fileId: string, size: number = 400): string {
-    return `https://lh3.googleusercontent.com/d/${fileId}=s${size}`
+    return `https://lh3.googleusercontent.com/d/${fileId}=w${size}`
 }
