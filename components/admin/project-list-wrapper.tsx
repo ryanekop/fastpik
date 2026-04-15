@@ -44,6 +44,10 @@ export function ProjectListWrapper({ initialProjects, initialFolders }: ProjectL
     const [showBatchDialog, setShowBatchDialog] = useState(false)
     const [activeTab, setActiveTab] = useState<'projects' | 'status' | 'print-status'>('projects')
     const [printEnabled, setPrintEnabled] = useState(false)
+    const focusFeature = (() => {
+        const raw = (searchParams.get('focus') || '').trim()
+        return raw === 'extra' || raw === 'print' ? raw : null
+    })()
 
     // Load print_enabled from settings
     useEffect(() => {
@@ -59,16 +63,23 @@ export function ProjectListWrapper({ initialProjects, initialFolders }: ProjectL
         loadPrintSetting()
     }, [])
 
-    const syncEditQueryParam = (projectId: string | null) => {
+    const syncEditQueryParam = (projectId: string | null, focus: 'extra' | 'print' | null = null) => {
         const currentEdit = (searchParams.get('edit') || '').trim()
+        const currentFocus = (searchParams.get('focus') || '').trim()
         const nextEdit = (projectId || '').trim()
-        if (currentEdit === nextEdit) return
+        const nextFocus = focus || ''
+        if (currentEdit === nextEdit && currentFocus === nextFocus) return
 
         const nextParams = new URLSearchParams(searchParams.toString())
         if (nextEdit) {
             nextParams.set('edit', nextEdit)
         } else {
             nextParams.delete('edit')
+        }
+        if (nextEdit && nextFocus) {
+            nextParams.set('focus', nextFocus)
+        } else {
+            nextParams.delete('focus')
         }
 
         const nextQuery = nextParams.toString()
@@ -124,10 +135,10 @@ export function ProjectListWrapper({ initialProjects, initialFolders }: ProjectL
         return breadcrumbPath.length
     }
 
-    const handleEditProject = (project: Project) => {
+    const handleEditProject = (project: Project, focus: 'extra' | 'print' | null = null) => {
         isClosingEditRef.current = false
         deepLinkEditRef.current = project.id
-        syncEditQueryParam(project.id)
+        syncEditQueryParam(project.id, focus)
         setEditingProject(project)
         setView('edit')
     }
@@ -360,6 +371,7 @@ export function ProjectListWrapper({ initialProjects, initialFolders }: ProjectL
                             editProject={editingProject}
                             onEditComplete={onEditComplete}
                             currentFolderId={currentFolderId}
+                            focusFeature={focusFeature}
                         />
                     </motion.div>
                 )}

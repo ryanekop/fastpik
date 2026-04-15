@@ -93,9 +93,11 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
     // Download mode selection (separate from culling selection)
     const [downloadSelected, setDownloadSelected] = useState<string[]>([])
     const [isDownloading, setIsDownloading] = useState(false)
+    const [singleDownloadingPhotoId, setSingleDownloadingPhotoId] = useState<string | null>(null)
     const [downloadProgress, setDownloadProgress] = useState(0)
     const [downloadStatusText, setDownloadStatusText] = useState('')
     const abortControllerRef = useRef<AbortController | null>(null)
+    const singleDownloadInFlightRef = useRef(false)
 
     // Password dialog state (shown when clicking 'Pilih Foto' on password-protected albums)
     const [showPasswordDialog, setShowPasswordDialog] = useState(false)
@@ -1230,9 +1232,13 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
     }
 
     const handleSinglePhotoDownload = async (photo: Photo) => {
-        if (isDownloading) return
+        if (isDownloading || singleDownloadInFlightRef.current) return
 
         const controller = new AbortController()
+        singleDownloadInFlightRef.current = true
+        setSingleDownloadingPhotoId(photo.id)
+        setToastMessage(t('downloadStarting'))
+        setShowToast(true)
 
         try {
             let blob = await downloadDirect(photo, controller.signal)
@@ -1255,6 +1261,9 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
             console.error('Single photo download failed:', err)
             setToastMessage(t('downloadFailed'))
             setShowToast(true)
+        } finally {
+            singleDownloadInFlightRef.current = false
+            setSingleDownloadingPhotoId(null)
         }
     }
 
@@ -1813,7 +1822,7 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
                     onToggle={handleDownloadToggle}
                     onZoom={handleZoom}
                     onDownloadPhoto={handleSinglePhotoDownload}
-                    isDownloadActionDisabled={isDownloading}
+                    isDownloadActionDisabled={isDownloading || !!singleDownloadingPhotoId}
                     detectSubfolders={config.detectSubfolders}
                     lockedPhotoNames={[]}
                     headerPortalRef={photoGridHeaderRef}

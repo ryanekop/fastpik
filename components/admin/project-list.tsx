@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, DragEvent } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useTranslations, useLocale } from "next-intl"
-import { Plus, Trash2, ExternalLink, Copy, Clock, Users, MessageCircle, Edit, CheckSquare, Square, X, PlusCircle, Search, Loader2, Bell, FolderOpen, ArrowUpDown, Move, ChevronRight, Home, FolderPlus, FileText, Zap, LayoutList, Printer } from "lucide-react"
+import { Plus, Trash2, ExternalLink, Copy, Clock, Users, MessageCircle, Edit, CheckSquare, Square, X, PlusCircle, Search, Loader2, Bell, FolderOpen, ArrowUpDown, Move, ChevronRight, Home, FolderPlus, FileText, Zap, LayoutList, Printer, ImagePlus } from "lucide-react"
 import { isProjectExpired, getClientWhatsapp, generateShortId, type Project } from "@/lib/project-store"
 import type { Folder } from "@/lib/supabase/folders"
 import { Button } from "@/components/ui/button"
@@ -23,7 +23,7 @@ interface ProjectListProps {
     onCreateNew: () => void
     onBatchClick: () => void
     onOpenProject: (project: Project) => void
-    onEditProject: (project: Project) => void
+    onEditProject: (project: Project, focus?: 'extra' | 'print' | null) => void
     onDeleteProject: (id: string) => Promise<void>
     onBatchDeleteProjects: (ids: string[]) => Promise<void>
     onFoldersChanged: () => void
@@ -1441,6 +1441,10 @@ export function ProjectList({
                                                         <div className="flex items-center gap-1 flex-wrap w-full sm:w-auto justify-center sm:justify-end pt-2 sm:pt-0 border-t sm:border-t-0 mt-2 sm:mt-0 border-border/50">
                                                             <Button size="icon" variant="ghost" onClick={() => copyLink(dynamicLink, project.id)} className="h-8 w-8 cursor-pointer" title={t('copyLink')}>{copiedId === project.id ? <span className="text-green-500 text-xs">✓</span> : <Copy className="h-4 w-4" />}</Button>
                                                             <Button size="icon" variant="ghost" onClick={() => copyTemplateForProject(project)} className="h-8 w-8 cursor-pointer text-purple-600 hover:text-purple-700" disabled={expired} title={t('copyTemplate')}>{copiedTemplateId === project.id ? <span className="text-green-500 text-xs">✓</span> : <FileText className="h-4 w-4" />}</Button>
+                                                            <Button size="icon" variant="ghost" onClick={() => onEditProject(project, 'extra')} className={cn("h-8 w-8 cursor-pointer", project.extraEnabled ? "text-amber-600 hover:text-amber-700" : "text-muted-foreground hover:text-amber-700")} title={t('openExtraFeature')}><ImagePlus className="h-4 w-4" /></Button>
+                                                            {printEnabled && (
+                                                                <Button size="icon" variant="ghost" onClick={() => onEditProject(project, 'print')} className={cn("h-8 w-8 cursor-pointer", project.projectType === 'print' || (project.printEnabled && (project.printSizes || []).length > 0) ? "text-purple-600 hover:text-purple-700" : "text-muted-foreground hover:text-purple-700")} title={t('openPrintFeature')}><Printer className="h-4 w-4" /></Button>
+                                                            )}
                                                             <Button size="icon" variant="ghost" onClick={() => sendToClient(project)} className="h-8 w-8 cursor-pointer text-green-600 hover:text-green-700" disabled={expired} title={t('sendToClient')}><MessageCircle className="h-4 w-4" /></Button>
                                                             <Button size="icon" variant="ghost" onClick={() => sendReminder(project)} className="h-8 w-8 cursor-pointer text-amber-600 hover:text-amber-700" disabled={expired || (!project.expiresAt && !project.printExpiresAt)} title={t('sendReminder')}><Bell className="h-4 w-4" /></Button>
                                                             <Button size="icon" variant="ghost" onClick={() => openLink(dynamicLink)} className="h-8 w-8 cursor-pointer" title={t('openLink')}><ExternalLink className="h-4 w-4" /></Button>

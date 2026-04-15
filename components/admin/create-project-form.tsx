@@ -16,6 +16,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { PhoneInput } from "@/components/ui/phone-input"
 import { generateShortId, type Project } from "@/lib/project-store"
 import { createClient } from "@/lib/supabase/client"
+import { cn } from "@/lib/utils"
 
 type FormValues = {
     clientName: string
@@ -63,9 +64,10 @@ interface CreateProjectFormProps {
     editProject?: Project | null
     onEditComplete?: () => void
     currentFolderId?: string | null
+    focusFeature?: 'extra' | 'print' | null
 }
 
-export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEditComplete, currentFolderId }: CreateProjectFormProps) {
+export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEditComplete, currentFolderId, focusFeature = null }: CreateProjectFormProps) {
     const t = useTranslations('Admin')
     const tc = useTranslations('Client')
     const locale = useLocale()
@@ -89,6 +91,9 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
     const [customDays, setCustomDays] = useState("")
     const [customExpiryLabel, setCustomExpiryLabel] = useState<string | null>(null)
     const [customDownloadExpiryLabel, setCustomDownloadExpiryLabel] = useState<string | null>(null)
+    const extraSectionRef = useRef<HTMLDivElement | null>(null)
+    const printSectionRef = useRef<HTMLDivElement | null>(null)
+    const [highlightedSection, setHighlightedSection] = useState<'extra' | 'print' | null>(null)
 
     const isEditing = !!editProject
 
@@ -115,34 +120,33 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
         },
     })
 
-    // Load vendor slug for link generation (needed for both create and edit)
-    const loadVendorSlug = async () => {
-        try {
-            const { data: { user } } = await supabase.auth.getUser()
-            if (!user) return
-            const { data } = await supabase
-                .from('settings')
-                .select('vendor_name')
-                .eq('user_id', user.id)
-                .maybeSingle()
-            if (data?.vendor_name) {
-                const slug = data.vendor_name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
-                setVendorSlug(slug)
-            }
-        } catch { }
-    }
-
-    // Load default settings for new projects, or just vendorSlug for edit mode
+    // Load shared settings in both create/edit. Only apply form defaults for new projects.
     useEffect(() => {
-        if (!isEditing) {
-            loadDefaultSettings()
-        } else {
-            // Still need vendorSlug for correct link generation in edit mode
-            loadVendorSlug()
-        }
+        loadProjectSettings({ applyDefaults: !isEditing })
     }, [isEditing])
 
-    const loadDefaultSettings = async () => {
+    useEffect(() => {
+        if (!isEditing || !focusFeature) return
+
+        const targetRef = focusFeature === 'extra' ? extraSectionRef : printSectionRef
+        if (!targetRef.current) return
+
+        const scrollTimeoutId = window.setTimeout(() => {
+            targetRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            setHighlightedSection(focusFeature)
+        }, 250)
+
+        const clearTimeoutId = window.setTimeout(() => {
+            setHighlightedSection((current) => (current === focusFeature ? null : current))
+        }, 3500)
+
+        return () => {
+            window.clearTimeout(scrollTimeoutId)
+            window.clearTimeout(clearTimeoutId)
+        }
+    }, [isEditing, focusFeature])
+
+    const loadProjectSettings = async ({ applyDefaults }: { applyDefaults: boolean }) => {
         try {
             const { data: { user } } = await supabase.auth.getUser()
             if (!user) return
@@ -153,12 +157,19 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
                 .eq('user_id', user.id)
                 .maybeSingle()
 
-            if (data?.default_admin_whatsapp) {
-                form.setValue('adminWhatsapp', data.default_admin_whatsapp)
-            }
             if (data?.vendor_name) {
                 const slug = data.vendor_name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
                 setVendorSlug(slug)
+            }
+            setGlobalPrintEnabled(Boolean(data?.print_enabled))
+            if (data?.msg_tmpl_link_initial) {
+                setInitialTemplate(data.msg_tmpl_link_initial as { id: string, en: string })
+            }
+
+            if (!applyDefaults) return
+
+            if (data?.default_admin_whatsapp) {
+                form.setValue('adminWhatsapp', data.default_admin_whatsapp)
             }
             if (data?.default_max_photos) {
                 form.setValue('maxPhotos', data.default_max_photos.toString())
@@ -196,10 +207,6 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
             }
             if (data?.default_password) {
                 form.setValue('password', data.default_password)
-            }
-            setGlobalPrintEnabled(Boolean(data?.print_enabled))
-            if (data?.msg_tmpl_link_initial) {
-                setInitialTemplate(data.msg_tmpl_link_initial as { id: string, en: string })
             }
             if (data?.default_print_expiry_days) {
                 form.setValue('printExpiryDays', data.default_print_expiry_days.toString())
@@ -456,7 +463,7 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
         setCurrentProject(null)
         form.reset({ clientName: "", gdriveLink: "", clientWhatsapp: "", adminWhatsapp: "", countryCode: "ID", maxPhotos: "", password: "", detectSubfolders: false, expiryDays: "", downloadExpiryDays: "", extraEnabled: false, extraMaxPhotos: "", extraExpiryDays: "", printEnabled: false, printSizes: "", printExpiryDays: "", lockedPhotos: "" })
         // Re-fetch settings so vendor slug and admin WA are fresh from DB
-        loadDefaultSettings()
+        loadProjectSettings({ applyDefaults: true })
     }
 
     const getKeepLabel = (fieldName: 'expiryDays' | 'downloadExpiryDays' | 'extraExpiryDays' | 'printExpiryDays') => {
@@ -597,7 +604,13 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
                             )} />
                         </motion.div>
                     </div>
-                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.37 }}>
+                    <motion.div
+                        ref={extraSectionRef}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5, delay: 0.37 }}
+                        className={cn("rounded-xl transition-all duration-500", highlightedSection === 'extra' && "ring-2 ring-amber-400 bg-amber-50/60 dark:bg-amber-950/20 px-3 py-3 -mx-3")}
+                    >
                         <FormField
                             control={form.control}
                             name="extraEnabled"
@@ -641,7 +654,13 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
                             </motion.div>
                         </div>
                     )}
-                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.395 }}>
+                    <motion.div
+                        ref={printSectionRef}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5, delay: 0.395 }}
+                        className={cn("rounded-xl transition-all duration-500", highlightedSection === 'print' && "ring-2 ring-purple-400 bg-purple-50/60 dark:bg-purple-950/20 px-3 py-3 -mx-3")}
+                    >
                         <FormField
                             control={form.control}
                             name="printEnabled"
