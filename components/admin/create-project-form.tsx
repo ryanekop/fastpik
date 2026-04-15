@@ -38,6 +38,10 @@ type FormValues = {
     lockedPhotos: string
 }
 
+type PrintSize = { name: string; quota: number }
+type PrintTemplate = { name: string; sizes: PrintSize[] }
+type PrintTemplateSelection = number | 'custom' | -1
+
 const formSchema = z.object({
     clientName: z.string().min(2, { message: "Nama klien minimal 2 karakter." }),
     gdriveLink: z.string().url({ message: "Masukkan URL yang valid." }),
@@ -80,6 +84,8 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [vendorSlug, setVendorSlug] = useState<string | null>(null)
     const [globalPrintEnabled, setGlobalPrintEnabled] = useState(false)
+    const [printTemplates, setPrintTemplates] = useState<PrintTemplate[]>([])
+    const [selectedPrintTemplateIdx, setSelectedPrintTemplateIdx] = useState<PrintTemplateSelection>(editProject?.printSizes?.length ? 'custom' : -1)
 
     // Message template from settings
     const [initialTemplate, setInitialTemplate] = useState<{ id: string, en: string } | null>(null)
@@ -120,6 +126,58 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
         },
     })
 
+    const parsePrintSizes = (value: string): PrintSize[] => value
+        .split(',')
+        .map((entry) => {
+            const [name, quota] = entry.trim().split(':')
+            return { name: (name || '').trim(), quota: Math.max(1, parseInt(quota || '1') || 1) }
+        })
+        .filter((entry) => entry.name)
+
+    const serializePrintSizes = (sizes: PrintSize[] = []) => sizes
+        .filter((size) => size.name?.trim())
+        .map((size) => `${size.name.trim()}:${Math.max(1, Number(size.quota) || 1)}`)
+        .join(", ")
+
+    const formatPrintSizesSummary = (value: string) => parsePrintSizes(value)
+        .map((size) => `${size.name}×${size.quota}`)
+        .join(", ")
+
+    const findMatchingPrintTemplate = (templates: PrintTemplate[], value: string) => {
+        const normalizedValue = serializePrintSizes(parsePrintSizes(value))
+        if (!normalizedValue) return -1
+        return templates.findIndex((template) => serializePrintSizes(template.sizes) === normalizedValue)
+    }
+
+    const normalizePrintTemplates = (templates: PrintTemplate[] = []) => templates
+        .map((template) => ({
+            name: (template.name || '').trim(),
+            sizes: (template.sizes || [])
+                .map((size) => ({ name: (size.name || '').trim(), quota: Math.max(1, Number(size.quota) || 1) }))
+                .filter((size) => size.name)
+        }))
+        .filter((template) => template.sizes.length > 0)
+
+    const handlePrintTemplateChange = (value: string) => {
+        if (value === 'custom') {
+            setSelectedPrintTemplateIdx('custom')
+            return
+        }
+        if (value === '-1') {
+            setSelectedPrintTemplateIdx(-1)
+            form.setValue('printSizes', '', { shouldDirty: true, shouldValidate: true })
+            return
+        }
+
+        const templateIdx = parseInt(value)
+        const template = printTemplates[templateIdx]
+        if (!template) return
+
+        setSelectedPrintTemplateIdx(templateIdx)
+        form.setValue('printSizes', serializePrintSizes(template.sizes), { shouldDirty: true, shouldValidate: true })
+        form.clearErrors('printSizes')
+    }
+
     // Load shared settings in both create/edit. Only apply form defaults for new projects.
     useEffect(() => {
         loadProjectSettings({ applyDefaults: !isEditing })
@@ -153,7 +211,7 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
 
             const { data } = await supabase
                 .from('settings')
-                .select('default_admin_whatsapp, vendor_name, default_max_photos, default_detect_subfolders, default_expiry_days, default_download_expiry_days, default_password, msg_tmpl_link_initial, print_enabled, default_print_expiry_days')
+                .select('default_admin_whatsapp, vendor_name, default_max_photos, default_detect_subfolders, default_expiry_days, default_download_expiry_days, default_password, msg_tmpl_link_initial, print_enabled, print_templates, default_print_expiry_days')
                 .eq('user_id', user.id)
                 .maybeSingle()
 
@@ -164,6 +222,17 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
             setGlobalPrintEnabled(Boolean(data?.print_enabled))
             if (data?.msg_tmpl_link_initial) {
                 setInitialTemplate(data.msg_tmpl_link_initial as { id: string, en: string })
+            }
+            const templates = normalizePrintTemplates((data?.print_templates || []) as PrintTemplate[])
+            setPrintTemplates(templates)
+            const currentPrintSizes = form.getValues('printSizes')
+            const matchingTemplateIdx = findMatchingPrintTemplate(templates, currentPrintSizes)
+            if (matchingTemplateIdx >= 0) {
+                setSelectedPrintTemplateIdx(matchingTemplateIdx)
+            } else if (currentPrintSizes) {
+                setSelectedPrintTemplateIdx('custom')
+            } else {
+                setSelectedPrintTemplateIdx(templates.length === 0 ? 'custom' : -1)
             }
 
             if (!applyDefaults) return
@@ -252,14 +321,12 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
             const maxPhotosNum = parseInt(values.maxPhotos) || 1
             const lockedPhotosArray = values.lockedPhotos.split('\n').map(l => l.trim()).filter(l => l.length > 0)
             const extraMaxPhotosNum = values.extraEnabled ? (parseInt(values.extraMaxPhotos) || 0) : 0
-            const parsePrintSizes = (value: string) => value
-                .split(',')
-                .map((entry) => {
-                    const [name, quota] = entry.trim().split(':')
-                    return { name: (name || '').trim(), quota: Math.max(1, parseInt(quota || '1') || 1) }
-                })
-                .filter((entry) => entry.name)
             const printSizes = values.printEnabled ? parsePrintSizes(values.printSizes) : []
+            if (values.printEnabled && globalPrintEnabled && printSizes.length === 0) {
+                form.setError('printSizes', { message: t('printSizesRequired') })
+                setError(t('printSizesRequired'))
+                return
+            }
 
             const projectId = isEditing && editProject ? editProject.id : generateShortId()
             const origin = window.location.origin
@@ -462,6 +529,7 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
         setGeneratedLink(null)
         setCurrentProject(null)
         form.reset({ clientName: "", gdriveLink: "", clientWhatsapp: "", adminWhatsapp: "", countryCode: "ID", maxPhotos: "", password: "", detectSubfolders: false, expiryDays: "", downloadExpiryDays: "", extraEnabled: false, extraMaxPhotos: "", extraExpiryDays: "", printEnabled: false, printSizes: "", printExpiryDays: "", lockedPhotos: "" })
+        setSelectedPrintTemplateIdx(printTemplates.length === 0 ? 'custom' : -1)
         // Re-fetch settings so vendor slug and admin WA are fresh from DB
         loadProjectSettings({ applyDefaults: true })
     }
@@ -514,6 +582,7 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
 
     const extraEnabled = form.watch('extraEnabled')
     const printEnabled = form.watch('printEnabled')
+    const printSizesValue = form.watch('printSizes')
 
     const confirmCustomExpiry = () => {
         const months = parseInt(customMonths) || 0
@@ -680,30 +749,58 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
                         />
                     </motion.div>
                     {printEnabled && globalPrintEnabled && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.4 }}>
-                                <FormField control={form.control} name="printSizes" render={({ field }) => (
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.4 }}>
                                     <FormItem>
-                                        <FormLabel>🖨️ {t('printSizes')}</FormLabel>
-                                        <FormControl><Input placeholder="4R:2, 5R:3" {...field} /></FormControl>
-                                        <FormMessage />
+                                        <FormLabel>🖨️ {t('printTemplate')}</FormLabel>
+                                        <select
+                                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer"
+                                            value={selectedPrintTemplateIdx === 'custom' ? 'custom' : selectedPrintTemplateIdx.toString()}
+                                            onChange={(e) => handlePrintTemplateChange(e.target.value)}
+                                        >
+                                            {printTemplates.length > 0 && <option value="-1" disabled>— {t('printTemplate')} —</option>}
+                                            {printTemplates.map((template, idx) => (
+                                                <option key={`${template.name}-${idx}`} value={idx.toString()}>
+                                                    {template.name || t('printTemplateName')} ({template.sizes.map((size) => `${size.name}×${size.quota}`).join(', ')})
+                                                </option>
+                                            ))}
+                                            <option value="custom">{t('printTemplateCustom')}</option>
+                                        </select>
                                     </FormItem>
-                                )} />
-                            </motion.div>
-                            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.41 }}>
-                                <FormField control={form.control} name="printExpiryDays" render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>⏰ {t('printDuration')}</FormLabel>
-                                        <FormControl>
-                                            <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer" value={field.value} onChange={(e) => handleExpiryChange(e.target.value, 'printExpiryDays')}>
-                                                {isEditing && <option value="__keep__">{getKeepLabel('printExpiryDays')}</option>}
-                                                {expiryOptions.filter(o => o.value !== '__keep__' && o.value !== 'custom').map(opt => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
-                                            </select>
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )} />
-                            </motion.div>
+                                </motion.div>
+                                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.41 }}>
+                                    <FormField control={form.control} name="printExpiryDays" render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>⏰ {t('printDuration')}</FormLabel>
+                                            <FormControl>
+                                                <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer" value={field.value} onChange={(e) => handleExpiryChange(e.target.value, 'printExpiryDays')}>
+                                                    {isEditing && <option value="__keep__">{getKeepLabel('printExpiryDays')}</option>}
+                                                    {expiryOptions.filter(o => o.value !== '__keep__' && o.value !== 'custom').map(opt => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
+                                                </select>
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )} />
+                                </motion.div>
+                            </div>
+                            {selectedPrintTemplateIdx === 'custom' ? (
+                                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.42 }}>
+                                    <FormField control={form.control} name="printSizes" render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>🖨️ {t('printSizes')}</FormLabel>
+                                            <FormControl><Input placeholder="4R:2, 5R:3" {...field} /></FormControl>
+                                            <p className="text-xs text-muted-foreground">{t('printSizesHint')}</p>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )} />
+                                </motion.div>
+                            ) : printSizesValue ? (
+                                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.42 }} className="rounded-lg border bg-muted/30 p-3">
+                                    <p className="text-xs font-medium text-muted-foreground mb-1">🖨️ {t('printSizes')}</p>
+                                    <p className="text-sm font-medium">{formatPrintSizesSummary(printSizesValue)}</p>
+                                </motion.div>
+                            ) : null}
                         </div>
                     )}
                     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.4 }}>

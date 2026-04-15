@@ -462,6 +462,7 @@
         "printEnabledHint": "Enable print photo selection feature for clients",
         "printSizes": "Print Sizes",
         "printSizesHint": "Available print sizes for clients. Quota per size per project.",
+        "printSizesRequired": "Choose a print template or enter print sizes first.",
         "printSizeName": "Size",
         "printSizeQuota": "Quota",
         "addPrintSize": "Add Size",

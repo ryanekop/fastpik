@@ -462,6 +462,7 @@
         "printEnabledHint": "Aktifkan fitur pilih foto untuk cetak oleh klien",
         "printSizes": "Ukuran Cetak",
         "printSizesHint": "Daftar ukuran cetak yang tersedia untuk klien. Kuota per ukuran per project.",
+        "printSizesRequired": "Pilih template cetak atau isi ukuran cetak terlebih dahulu.",
         "printSizeName": "Ukuran",
         "printSizeQuota": "Kuota",
         "addPrintSize": "Tambah Ukuran",
