@@ -11,33 +11,41 @@ export async function POST(
     try {
         const { id } = await params
         const supabase = await createClient()
+        let parsedBody: any = null
 
         // Check if body contains a specific status to set
         let targetStatus = 'reviewed'
         try {
-            const body = await request.json()
-            if (body.status && ['in_progress', 'pending', 'reviewed', 'submitted'].includes(body.status)) {
-                targetStatus = body.status
+            parsedBody = await request.json()
+            if (parsedBody.status && ['in_progress', 'pending', 'reviewed', 'submitted'].includes(parsedBody.status)) {
+                targetStatus = parsedBody.status
             }
         } catch {
             // No body or invalid JSON — default to 'reviewed'
         }
 
-        // First check if this is a print project
+        let target: 'selection' | 'extra' | 'print' = 'selection'
         const { data: project } = await supabase
             .from('projects')
-            .select('project_type')
+            .select('project_type, extra_enabled, print_enabled')
             .eq('id', id)
             .single()
 
-        const isPrint = project?.project_type === 'print'
+        if (parsedBody?.target && ['selection', 'extra', 'print'].includes(parsedBody.target)) {
+            target = parsedBody.target
+        } else if (project?.project_type === 'print') {
+            target = 'print'
+        }
+
+        const updatePayload = target === 'print'
+            ? { print_status: targetStatus }
+            : target === 'extra'
+                ? { extra_status: targetStatus }
+                : { selection_status: targetStatus }
 
         const { error } = await supabase
             .from('projects')
-            .update(isPrint
-                ? { print_status: targetStatus }
-                : { selection_status: targetStatus }
-            )
+            .update(updatePayload)
             .eq('id', id)
 
         if (error) throw error

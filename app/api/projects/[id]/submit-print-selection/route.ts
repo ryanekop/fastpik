@@ -1,9 +1,8 @@
-
 export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 
-// Public endpoint - client syncs print selections (debounced from client-side)
+// Public endpoint - client finalizes print selections
 export async function POST(
     request: Request,
     { params }: { params: Promise<{ id: string }> }
@@ -13,16 +12,14 @@ export async function POST(
         const body = await request.json()
         const { printSelections } = body
 
-        if (!Array.isArray(printSelections)) {
-            return NextResponse.json({ error: 'printSelections must be an array' }, { status: 400 })
+        if (!Array.isArray(printSelections) || printSelections.length === 0) {
+            return NextResponse.json({ error: 'printSelections must be a non-empty array' }, { status: 400 })
         }
 
         const supabase = createServiceClient()
-
-        // Verify project exists and not expired
         const { data: project, error: fetchError } = await supabase
             .from('projects')
-            .select('id, project_type, print_expires_at, print_status, print_enabled')
+            .select('id, project_type, print_enabled, print_expires_at, print_status')
             .eq('id', id)
             .single()
 
@@ -40,14 +37,10 @@ export async function POST(
             return NextResponse.json({ error: 'Print selection has expired' }, { status: 410 })
         }
 
-        // Don't allow sync if already submitted or reviewed
-        if (project.print_status === 'submitted' || project.print_status === 'reviewed') {
-            return NextResponse.json({ error: 'Print selection already finalized' }, { status: 409 })
+        if (project.print_status === 'reviewed') {
+            return NextResponse.json({ error: 'Print selection already reviewed' }, { status: 409 })
         }
 
-        const newStatus = project.print_status === 'pending' ? 'in_progress' : project.print_status
-
-        // Flatten from [{sizeName, photos[]}] to [{photo, size}] format
         const flatSelections: { photo: string, size: string }[] = []
         for (const entry of printSelections) {
             if (entry.sizeName && Array.isArray(entry.photos)) {
@@ -61,16 +54,17 @@ export async function POST(
             .from('projects')
             .update({
                 print_selections: flatSelections,
-                print_status: newStatus,
+                print_status: 'submitted',
+                print_submitted_at: new Date().toISOString(),
                 print_last_synced_at: new Date().toISOString()
             })
             .eq('id', id)
 
         if (updateError) throw updateError
 
-        return NextResponse.json({ success: true, status: newStatus })
+        return NextResponse.json({ success: true, status: 'submitted' })
     } catch (error) {
-        console.error('Failed to sync print selection:', error)
-        return NextResponse.json({ error: 'Failed to sync print selection' }, { status: 500 })
+        console.error('Failed to submit print selection:', error)
+        return NextResponse.json({ error: 'Failed to submit print selection' }, { status: 500 })
     }
 }

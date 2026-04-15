@@ -23,8 +23,23 @@ export interface DrivePhoto {
     createdTime?: string
 }
 
+export interface DriveFolderNode {
+    path: string
+    name: string
+    parentPath: string | null
+    photoCount: number
+}
+
+export type DriveErrorCode =
+    | 'missing_api_key'
+    | 'invalid_url'
+    | 'drive_inaccessible'
+    | 'drive_error'
+
 export interface DriveResponse {
     files: DrivePhoto[]
+    folders?: DriveFolderNode[]
+    errorCode?: DriveErrorCode
     error?: string
 }
 
@@ -90,6 +105,41 @@ async function fetchWithRetry(
     throw lastError || new Error('Max retries exceeded')
 }
 
+async function parseDriveError(response: Response): Promise<{ errorCode: DriveErrorCode; error: string }> {
+    let message = ''
+
+    try {
+        const payload = await response.clone().json()
+        message = payload?.error?.message || ''
+    } catch {
+        try {
+            message = await response.text()
+        } catch {
+            message = ''
+        }
+    }
+
+    const normalized = message.toLowerCase()
+    if (
+        response.status === 403 ||
+        response.status === 404 ||
+        normalized.includes('not found') ||
+        normalized.includes('insufficient') ||
+        normalized.includes('permission') ||
+        normalized.includes('access denied')
+    ) {
+        return {
+            errorCode: 'drive_inaccessible',
+            error: 'Google Drive link cannot be accessed',
+        }
+    }
+
+    return {
+        errorCode: 'drive_error',
+        error: 'Failed to access Google Drive. Please try again.',
+    }
+}
+
 // Fetch photos from a public Google Drive folder
 export async function fetchDrivePhotos(
     folderIdOrUrl: string,
@@ -107,6 +157,8 @@ export async function fetchDrivePhotos(
     if (!key) {
         return {
             files: [],
+            folders: [],
+            errorCode: 'missing_api_key',
             error: "Google API Key tidak ditemukan. Silakan setup di .env.local"
         }
     }
@@ -115,12 +167,15 @@ export async function fetchDrivePhotos(
     if (!folderId) {
         return {
             files: [],
+            folders: [],
+            errorCode: 'invalid_url',
             error: "URL Google Drive tidak valid"
         }
     }
 
     try {
         let allFiles: any[] = []
+        const folderMap = new Map<string, DriveFolderNode>()
         const sharedDriveParams = 'supportsAllDrives=true&includeItemsFromAllDrives=true'
 
         // 1. Fetch files in the root folder (with pagination)
@@ -158,8 +213,11 @@ export async function fetchDrivePhotos(
                 allFiles = [...allFiles, ...rootFiles]
                 pageToken = data.nextPageToken || null
             } else {
-                console.error('Failed to fetch page', await response.text())
-                pageToken = null
+                return {
+                    files: [],
+                    folders: [],
+                    ...(await parseDriveError(response))
+                }
             }
         } while (pageToken)
 
@@ -202,6 +260,12 @@ export async function fetchDrivePhotos(
                     // Process each subfolder
                     for (const folder of subfolders) {
                         const currentPath = parentPath ? `${parentPath} > ${folder.name}` : folder.name
+                        folderMap.set(currentPath, {
+                            path: currentPath,
+                            name: folder.name,
+                            parentPath: parentPath || null,
+                            photoCount: 0,
+                        })
 
                         // Fetch photos in this folder
                         let subPageToken: string | null = null
@@ -222,6 +286,10 @@ export async function fetchDrivePhotos(
                                 const subRes = await fetchWithRetry(subUrl, 1, 1000)
                                 if (subRes.ok) {
                                     const subData = await subRes.json()
+                                    const folderNode = folderMap.get(currentPath)
+                                    if (folderNode) {
+                                        folderNode.photoCount += (subData.files || []).length
+                                    }
                                     const files = (subData.files || []).map((f: any) => ({
                                         ...f,
                                         folderName: folder.name,  // Just the immediate folder name
@@ -278,11 +346,16 @@ export async function fetchDrivePhotos(
             }
         })
 
-        return { files }
+        return {
+            files,
+            folders: Array.from(folderMap.values()).sort((a, b) => a.path.localeCompare(b.path, undefined, { numeric: true })),
+        }
     } catch (error) {
         console.error('Drive API error:', error)
         return {
             files: [],
+            folders: [],
+            errorCode: 'drive_error',
             error: "Terjadi kesalahan saat mengakses Google Drive. Silakan coba lagi."
         }
     }

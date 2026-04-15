@@ -28,6 +28,12 @@ type FormValues = {
     detectSubfolders: boolean
     expiryDays: string
     downloadExpiryDays: string
+    extraEnabled: boolean
+    extraMaxPhotos: string
+    extraExpiryDays: string
+    printEnabled: boolean
+    printSizes: string
+    printExpiryDays: string
     lockedPhotos: string
 }
 
@@ -42,6 +48,12 @@ const formSchema = z.object({
     detectSubfolders: z.boolean(),
     expiryDays: z.string(),
     downloadExpiryDays: z.string(),
+    extraEnabled: z.boolean(),
+    extraMaxPhotos: z.string(),
+    extraExpiryDays: z.string(),
+    printEnabled: z.boolean(),
+    printSizes: z.string(),
+    printExpiryDays: z.string(),
     lockedPhotos: z.string(),
 })
 
@@ -65,13 +77,14 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
     const [showPassword, setShowPassword] = useState(false)
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [vendorSlug, setVendorSlug] = useState<string | null>(null)
+    const [globalPrintEnabled, setGlobalPrintEnabled] = useState(false)
 
     // Message template from settings
     const [initialTemplate, setInitialTemplate] = useState<{ id: string, en: string } | null>(null)
 
     // Custom duration dialog states
     const [showCustomExpiryDialog, setShowCustomExpiryDialog] = useState(false)
-    const [customExpiryTarget, setCustomExpiryTarget] = useState<'expiryDays' | 'downloadExpiryDays'>('expiryDays')
+    const [customExpiryTarget, setCustomExpiryTarget] = useState<'expiryDays' | 'downloadExpiryDays' | 'extraExpiryDays' | 'printExpiryDays'>('expiryDays')
     const [customMonths, setCustomMonths] = useState("")
     const [customDays, setCustomDays] = useState("")
     const [customExpiryLabel, setCustomExpiryLabel] = useState<string | null>(null)
@@ -92,6 +105,12 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
             detectSubfolders: editProject?.detectSubfolders || false,
             expiryDays: isEditing ? "__keep__" : "",
             downloadExpiryDays: isEditing ? "__keep__" : "",
+            extraEnabled: editProject?.extraEnabled || false,
+            extraMaxPhotos: editProject?.extraMaxPhotos?.toString() || "",
+            extraExpiryDays: isEditing ? "__keep__" : "",
+            printEnabled: editProject?.printEnabled || false,
+            printSizes: (editProject?.printSizes || []).map((size) => `${size.name}:${size.quota}`).join(", "),
+            printExpiryDays: isEditing ? "__keep__" : "",
             lockedPhotos: editProject?.lockedPhotos?.join("\n") || "",
         },
     })
@@ -130,7 +149,7 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
 
             const { data } = await supabase
                 .from('settings')
-                .select('default_admin_whatsapp, vendor_name, default_max_photos, default_detect_subfolders, default_expiry_days, default_download_expiry_days, default_password, msg_tmpl_link_initial')
+                .select('default_admin_whatsapp, vendor_name, default_max_photos, default_detect_subfolders, default_expiry_days, default_download_expiry_days, default_password, msg_tmpl_link_initial, print_enabled, default_print_expiry_days')
                 .eq('user_id', user.id)
                 .maybeSingle()
 
@@ -178,8 +197,12 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
             if (data?.default_password) {
                 form.setValue('password', data.default_password)
             }
+            setGlobalPrintEnabled(Boolean(data?.print_enabled))
             if (data?.msg_tmpl_link_initial) {
                 setInitialTemplate(data.msg_tmpl_link_initial as { id: string, en: string })
+            }
+            if (data?.default_print_expiry_days) {
+                form.setValue('printExpiryDays', data.default_print_expiry_days.toString())
             }
 
         } catch (err) {
@@ -221,6 +244,15 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
         try {
             const maxPhotosNum = parseInt(values.maxPhotos) || 1
             const lockedPhotosArray = values.lockedPhotos.split('\n').map(l => l.trim()).filter(l => l.length > 0)
+            const extraMaxPhotosNum = values.extraEnabled ? (parseInt(values.extraMaxPhotos) || 0) : 0
+            const parsePrintSizes = (value: string) => value
+                .split(',')
+                .map((entry) => {
+                    const [name, quota] = entry.trim().split(':')
+                    return { name: (name || '').trim(), quota: Math.max(1, parseInt(quota || '1') || 1) }
+                })
+                .filter((entry) => entry.name)
+            const printSizes = values.printEnabled ? parsePrintSizes(values.printSizes) : []
 
             const projectId = isEditing && editProject ? editProject.id : generateShortId()
             const origin = window.location.origin
@@ -241,6 +273,10 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
                 password: values.password,
                 detectSubfolders: values.detectSubfolders,
                 lockedPhotos: lockedPhotosArray.length > 0 ? lockedPhotosArray : undefined,
+                extraEnabled: values.extraEnabled,
+                extraMaxPhotos: values.extraEnabled ? extraMaxPhotosNum : null,
+                printEnabled: values.printEnabled && globalPrintEnabled,
+                printSizes: values.printEnabled && globalPrintEnabled ? printSizes : [],
                 createdAt: isEditing && editProject ? editProject.createdAt : Date.now(),
                 link: link,
                 folderId: isEditing && editProject ? editProject.folderId : (currentFolderId || null)
@@ -254,6 +290,14 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
             if (values.downloadExpiryDays !== '__keep__') {
                 const downloadExpiryDaysNum = values.downloadExpiryDays ? parseInt(values.downloadExpiryDays) : undefined
                 projectPayload.downloadExpiresAt = downloadExpiryDaysNum ? Date.now() + (downloadExpiryDaysNum * 24 * 60 * 60 * 1000) : null
+            }
+            if (values.extraExpiryDays !== '__keep__') {
+                const extraExpiryDaysNum = values.extraEnabled && values.extraExpiryDays ? parseInt(values.extraExpiryDays) : undefined
+                projectPayload.extraExpiresAt = extraExpiryDaysNum ? Date.now() + (extraExpiryDaysNum * 24 * 60 * 60 * 1000) : null
+            }
+            if (values.printExpiryDays !== '__keep__') {
+                const printExpiryDaysNum = values.printEnabled && values.printExpiryDays ? parseInt(values.printExpiryDays) : undefined
+                projectPayload.printExpiresAt = printExpiryDaysNum ? Date.now() + (printExpiryDaysNum * 24 * 60 * 60 * 1000) : null
             }
 
 
@@ -410,21 +454,30 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
     const createNewProject = () => {
         setGeneratedLink(null)
         setCurrentProject(null)
-        form.reset({ clientName: "", gdriveLink: "", clientWhatsapp: "", adminWhatsapp: "", countryCode: "ID", maxPhotos: "", password: "", detectSubfolders: false, expiryDays: "", downloadExpiryDays: "", lockedPhotos: "" })
+        form.reset({ clientName: "", gdriveLink: "", clientWhatsapp: "", adminWhatsapp: "", countryCode: "ID", maxPhotos: "", password: "", detectSubfolders: false, expiryDays: "", downloadExpiryDays: "", extraEnabled: false, extraMaxPhotos: "", extraExpiryDays: "", printEnabled: false, printSizes: "", printExpiryDays: "", lockedPhotos: "" })
         // Re-fetch settings so vendor slug and admin WA are fresh from DB
         loadDefaultSettings()
     }
 
-    const getKeepLabel = (fieldName: 'expiryDays' | 'downloadExpiryDays') => {
+    const getKeepLabel = (fieldName: 'expiryDays' | 'downloadExpiryDays' | 'extraExpiryDays' | 'printExpiryDays') => {
         if (fieldName === 'expiryDays') {
             if (!editProject?.expiresAt) return `⏸️ — ${t('forever')} —`
             const days = Math.max(0, Math.ceil((editProject.expiresAt - Date.now()) / (24 * 60 * 60 * 1000)))
             return `⏸️ — ${days} ${t('days')} —`
-        } else {
+        }
+        if (fieldName === 'downloadExpiryDays') {
             if (!editProject?.downloadExpiresAt) return `⏸️ — ${t('forever')} —`
             const days = Math.max(0, Math.ceil((editProject.downloadExpiresAt - Date.now()) / (24 * 60 * 60 * 1000)))
             return `⏸️ — ${days} ${t('days')} —`
         }
+        if (fieldName === 'extraExpiryDays') {
+            if (!editProject?.extraExpiresAt) return `⏸️ — ${t('forever')} —`
+            const days = Math.max(0, Math.ceil((editProject.extraExpiresAt - Date.now()) / (24 * 60 * 60 * 1000)))
+            return `⏸️ — ${days} ${t('days')} —`
+        }
+        if (!editProject?.printExpiresAt) return `⏸️ — ${t('forever')} —`
+        const days = Math.max(0, Math.ceil((editProject.printExpiresAt - Date.now()) / (24 * 60 * 60 * 1000)))
+        return `⏸️ — ${days} ${t('days')} —`
     }
 
     const expiryOptions = [
@@ -439,7 +492,7 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
         { value: "custom", label: `✏️ ${t('custom')}` },
     ]
 
-    const handleExpiryChange = (value: string, fieldName: 'expiryDays' | 'downloadExpiryDays') => {
+    const handleExpiryChange = (value: string, fieldName: 'expiryDays' | 'downloadExpiryDays' | 'extraExpiryDays' | 'printExpiryDays') => {
         if (value === 'custom') {
             setCustomExpiryTarget(fieldName)
             setCustomMonths("")
@@ -447,10 +500,13 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
             setShowCustomExpiryDialog(true)
         } else {
             form.setValue(fieldName, value)
-            if (fieldName === 'expiryDays') setCustomExpiryLabel(null)
+            if (fieldName === 'expiryDays' || fieldName === 'extraExpiryDays' || fieldName === 'printExpiryDays') setCustomExpiryLabel(null)
             else setCustomDownloadExpiryLabel(null)
         }
     }
+
+    const extraEnabled = form.watch('extraEnabled')
+    const printEnabled = form.watch('printEnabled')
 
     const confirmCustomExpiry = () => {
         const months = parseInt(customMonths) || 0
@@ -462,8 +518,8 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
         if (days > 0) parts.push(`${days} ${t('customDaysLabel')}`)
         const label = parts.join(' ')
         form.setValue(customExpiryTarget, totalDays.toString())
-        if (customExpiryTarget === 'expiryDays') setCustomExpiryLabel(label)
-        else setCustomDownloadExpiryLabel(label)
+        if (customExpiryTarget === 'downloadExpiryDays') setCustomDownloadExpiryLabel(label)
+        else setCustomExpiryLabel(label)
         setShowCustomExpiryDialog(false)
     }
 
@@ -541,6 +597,96 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
                             )} />
                         </motion.div>
                     </div>
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.37 }}>
+                        <FormField
+                            control={form.control}
+                            name="extraEnabled"
+                            render={({ field }) => (
+                                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                                    <div className="space-y-0.5">
+                                        <FormLabel>📷 {t('extraFeatureEnabled')}</FormLabel>
+                                        <p className="text-xs text-muted-foreground">{t('extraFeatureEnabledHint')}</p>
+                                    </div>
+                                    <FormControl>
+                                        <Switch checked={field.value} onCheckedChange={field.onChange} className="cursor-pointer" />
+                                    </FormControl>
+                                </FormItem>
+                            )}
+                        />
+                    </motion.div>
+                    {extraEnabled && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.38 }}>
+                                <FormField control={form.control} name="extraMaxPhotos" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>➕ {t('extraPhotosCount')}</FormLabel>
+                                        <FormControl><Input type="number" min="1" placeholder="5" {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                            </motion.div>
+                            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.39 }}>
+                                <FormField control={form.control} name="extraExpiryDays" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>⏰ {t('extraLinkDuration')}</FormLabel>
+                                        <FormControl>
+                                            <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer" value={field.value} onChange={(e) => handleExpiryChange(e.target.value, 'extraExpiryDays')}>
+                                                {isEditing && <option value="__keep__">{getKeepLabel('extraExpiryDays')}</option>}
+                                                {expiryOptions.filter(o => o.value !== '__keep__' && o.value !== 'custom').map(opt => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
+                                            </select>
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                            </motion.div>
+                        </div>
+                    )}
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.395 }}>
+                        <FormField
+                            control={form.control}
+                            name="printEnabled"
+                            render={({ field }) => (
+                                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                                    <div className="space-y-0.5">
+                                        <FormLabel>🖨️ {t('printEnabled')}</FormLabel>
+                                        <p className="text-xs text-muted-foreground">
+                                            {globalPrintEnabled ? t('printEnabledHint') : t('printFeatureDisabledGlobal')}
+                                        </p>
+                                    </div>
+                                    <FormControl>
+                                        <Switch checked={field.value} onCheckedChange={field.onChange} className="cursor-pointer" disabled={!globalPrintEnabled} />
+                                    </FormControl>
+                                </FormItem>
+                            )}
+                        />
+                    </motion.div>
+                    {printEnabled && globalPrintEnabled && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.4 }}>
+                                <FormField control={form.control} name="printSizes" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>🖨️ {t('printSizes')}</FormLabel>
+                                        <FormControl><Input placeholder="4R:2, 5R:3" {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                            </motion.div>
+                            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.41 }}>
+                                <FormField control={form.control} name="printExpiryDays" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>⏰ {t('printDuration')}</FormLabel>
+                                        <FormControl>
+                                            <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer" value={field.value} onChange={(e) => handleExpiryChange(e.target.value, 'printExpiryDays')}>
+                                                {isEditing && <option value="__keep__">{getKeepLabel('printExpiryDays')}</option>}
+                                                {expiryOptions.filter(o => o.value !== '__keep__' && o.value !== 'custom').map(opt => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
+                                            </select>
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                            </motion.div>
+                        </div>
+                    )}
                     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.4 }}>
                         <FormField control={form.control} name="password" render={({ field }) => (
                             <FormItem>

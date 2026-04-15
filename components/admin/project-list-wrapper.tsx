@@ -193,7 +193,8 @@ export function ProjectListWrapper({ initialProjects, initialFolders }: ProjectL
 
     // Count active print selections (in_progress or submitted)
     const activePrintSelections = projects.filter(p =>
-        p.projectType === 'print' && (p.printStatus === 'in_progress' || p.printStatus === 'submitted')
+        (p.projectType === 'print' || (p.printEnabled && (p.printSizes?.length || 0) > 0)) &&
+        (p.printStatus === 'in_progress' || p.printStatus === 'submitted')
     ).length
 
     return (

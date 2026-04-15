@@ -13,7 +13,6 @@ import { PopupDialog, Toast } from "@/components/ui/popup-dialog"
 import { Copy, Send, AlertCircle, Loader2, RefreshCw, ImageOff, Trash2, Lock, Eye, EyeOff, MessageCircle, Check, Download, MousePointerClick, ArrowLeft, Square, ZoomIn, Printer } from "lucide-react"
 // jszip and file-saver are dynamically imported when needed (see handleDownloadPhotos)
 // This reduces the initial JS bundle by ~48KB
-import { generateMockPhotos } from "@/lib/mock-data"
 import { cn } from "@/lib/utils"
 import { LanguageToggle } from "@/components/language-toggle"
 import { ThemeToggle } from "@/components/theme-toggle"
@@ -31,6 +30,13 @@ interface Photo {
     createdTime?: string
 }
 
+interface FolderNode {
+    path: string
+    name: string
+    parentPath: string | null
+    photoCount: number
+}
+
 interface ClientViewProps {
     config: {
         clientName: string
@@ -43,10 +49,18 @@ interface ClientViewProps {
         hasPassword?: boolean
         projectId?: string
         lockedPhotos?: string[] // Previously selected photo filenames
+        selectionStatus?: string
+        extraEnabled?: boolean
+        extraMaxPhotos?: number
+        extraExpiresAt?: number
+        extraSelectedPhotos?: string[]
+        extraStatus?: string
         projectType?: 'edit' | 'print'
         printEnabled?: boolean
         printExpiresAt?: number
         printSizes?: { name: string, quota: number }[]
+        printStatus?: string
+        printSelections?: { photo: string, size: string }[]
     }
     messageTemplates?: {
         resultInitial: { id: string, en: string } | null
@@ -65,12 +79,14 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
     const { selected, toggleSelection, clearSelection, setSelection, setProjectId, projectId } = useSelectionStore()
     const isHydrated = useStoreHydration() // Use proper Zustand hydration detection
     const [photos, setPhotos] = useState<Photo[]>([])
+    const [folders, setFolders] = useState<FolderNode[]>([])
     const [loading, setLoading] = useState(true)
     const [isRefreshing, setIsRefreshing] = useState(false)
     const [isReloadCooldown, setIsReloadCooldown] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [alertMax, setAlertMax] = useState(false)
     const [copied, setCopied] = useState(false)
+    const [activeFeature, setActiveFeature] = useState<'selection' | 'extra' | 'print'>('selection')
 
     // View mode state: 'initial' = landing choice, 'culling' = select photos, 'download' = download mode, 'review' = review selected
     const [viewMode, setViewMode] = useState<'initial' | 'culling' | 'download' | 'review'>('initial')
@@ -115,34 +131,48 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
     const [hasPendingSelection, setHasPendingSelection] = useState(false)
     const [showDownloadAllDialog, setShowDownloadAllDialog] = useState(false)
     const [showDownloadClearDialog, setShowDownloadClearDialog] = useState(false)
+    const [extraSelected, setExtraSelected] = useState<string[]>([])
+    const [selectionStatus, setSelectionStatus] = useState(config.selectionStatus || 'pending')
+    const [, setExtraStatus] = useState(config.extraStatus || 'pending')
+    const [, setPrintStatus] = useState(config.printStatus || 'pending')
 
     // Print size selection state
-    const isPrintProject = config.projectType === 'print' && config.printSizes && config.printSizes.length > 0
-    const [activePrintSize, setActivePrintSize] = useState(isPrintProject ? config.printSizes![0].name : '')
+    const isLegacyPrintProject = config.projectType === 'print' && config.printSizes && config.printSizes.length > 0
+    const hasPrintFeature = (isLegacyPrintProject || !!config.printEnabled) && !!config.printSizes && config.printSizes.length > 0
+    const hasExtraFeature = !!config.extraEnabled && !isLegacyPrintProject
+    const isPrintMode = isLegacyPrintProject || activeFeature === 'print'
+    const isExtraMode = activeFeature === 'extra'
+    const isLegacyExtraProject = !hasExtraFeature && !isLegacyPrintProject && !!config.lockedPhotos && config.lockedPhotos.length > 0
+    const [activePrintSize, setActivePrintSize] = useState(hasPrintFeature ? config.printSizes![0].name : '')
     const [printSelections, setPrintSelections] = useState<Record<string, string[]>>(() => {
-        if (!isPrintProject) return {}
+        if (!hasPrintFeature) return {}
         const init: Record<string, string[]> = {}
         config.printSizes!.forEach(s => { init[s.name] = [] })
         return init
     })
 
     // Computed: current max and selected based on project type
-    const currentMaxPhotos = isPrintProject
+    const currentMaxPhotos = isPrintMode
         ? (config.printSizes!.find(s => s.name === activePrintSize)?.quota || 0)
-        : config.maxPhotos
-    const currentSelected = isPrintProject
+        : isExtraMode
+            ? (config.extraMaxPhotos || 0)
+            : config.maxPhotos
+    const currentSelected = isPrintMode
         ? (printSelections[activePrintSize] || [])
-        : selected
-    const totalPrintSelected = isPrintProject
+        : isExtraMode
+            ? extraSelected
+            : selected
+    const totalPrintSelected = hasPrintFeature
         ? Object.values(printSelections).reduce((sum, arr) => sum + arr.length, 0)
         : 0
-    const totalPrintQuota = isPrintProject
+    const totalPrintQuota = hasPrintFeature
         ? config.printSizes!.reduce((sum, s) => sum + s.quota, 0)
         : 0
 
     // Selection sync state
     const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const lastSyncedRef = useRef<string>('')
+    const lastExtraSyncedRef = useRef<string>('')
     const printSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const lastPrintSyncedRef = useRef<string>('')
     const reloadCooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -151,6 +181,8 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
 
     // Time remaining state for countdown
     const [timeRemaining, setTimeRemaining] = useState<{ days: number, hours: number, minutes: number } | null>(null)
+    const [extraTimeRemaining, setExtraTimeRemaining] = useState<{ days: number, hours: number, minutes: number } | null>(null)
+    const [printTimeRemaining, setPrintTimeRemaining] = useState<{ days: number, hours: number, minutes: number } | null>(null)
 
     // Portal ref for PhotoGrid header
     const photoGridHeaderRef = useRef<HTMLDivElement | null>(null)
@@ -159,6 +191,7 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
     const [isSelectionExpired, setIsSelectionExpired] = useState(false)
     const [isDownloadExpired, setIsDownloadExpired] = useState(false)
     const [isPrintExpired, setIsPrintExpired] = useState(false)
+    const [isExtraExpired, setIsExtraExpired] = useState(false)
 
     useEffect(() => {
         return () => {
@@ -169,6 +202,7 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
     useEffect(() => {
         setIsSelectionExpired(config.expiresAt ? Date.now() > config.expiresAt : false)
         setIsPrintExpired(config.printExpiresAt ? Date.now() > config.printExpiresAt : false)
+        setIsExtraExpired(config.extraExpiresAt ? Date.now() > config.extraExpiresAt : false)
 
         // Calculate time remaining for selection
         if (config.expiresAt) {
@@ -193,7 +227,63 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
         } else {
             setTimeRemaining(null)
         }
-    }, [config.expiresAt])
+    }, [config.expiresAt, config.extraExpiresAt, config.printExpiresAt])
+
+    useEffect(() => {
+        const extraExpiry = config.extraExpiresAt
+        setIsExtraExpired(extraExpiry ? Date.now() > extraExpiry : false)
+
+        if (extraExpiry) {
+            const calcExtraTime = () => {
+                const now = Date.now()
+                const diff = extraExpiry - now
+
+                if (diff <= 0) {
+                    setExtraTimeRemaining(null)
+                    setIsExtraExpired(true)
+                } else {
+                    const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+                    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+                    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+                    setExtraTimeRemaining({ days, hours, minutes })
+                }
+            }
+
+            calcExtraTime()
+            const interval = setInterval(calcExtraTime, 60000)
+            return () => clearInterval(interval)
+        }
+
+        setExtraTimeRemaining(null)
+    }, [config.extraExpiresAt])
+
+    useEffect(() => {
+        const printExpiry = config.printExpiresAt
+        setIsPrintExpired(printExpiry ? Date.now() > printExpiry : false)
+
+        if (printExpiry) {
+            const calcPrintTime = () => {
+                const now = Date.now()
+                const diff = printExpiry - now
+
+                if (diff <= 0) {
+                    setPrintTimeRemaining(null)
+                    setIsPrintExpired(true)
+                } else {
+                    const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+                    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+                    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+                    setPrintTimeRemaining({ days, hours, minutes })
+                }
+            }
+
+            calcPrintTime()
+            const interval = setInterval(calcPrintTime, 60000)
+            return () => clearInterval(interval)
+        }
+
+        setPrintTimeRemaining(null)
+    }, [config.printExpiresAt])
 
     // Download expiry state
     const [downloadTimeRemaining, setDownloadTimeRemaining] = useState<{ days: number, hours: number, minutes: number } | null>(null)
@@ -226,8 +316,15 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
         }
     }, [config.downloadExpiresAt, config.expiresAt])
 
+    const isExtraUnlocked = isLegacyExtraProject || ['submitted', 'reviewed'].includes(selectionStatus)
+    const isSelectionCardVisible = !isLegacyPrintProject
+    const isPrintCardVisible = hasPrintFeature
+    const isExtraCardVisible = hasExtraFeature
+
     // Both expired = fully expired
-    const isFullyExpired = isSelectionExpired && isDownloadExpired
+    const isFullyExpired = !isSelectionCardVisible && isDownloadExpired && !isExtraCardVisible && !isPrintCardVisible
+        ? true
+        : [isSelectionCardVisible ? isSelectionExpired : true, isDownloadExpired, isExtraCardVisible ? isExtraExpired : true, isPrintCardVisible ? isPrintExpired : true].every(Boolean)
 
     // Generate auth storage key (must match the one used in state initializer)
     const authStorageKey = `fastpik-auth-${config.clientName}-${config.gdriveLink}`.replace(/[^a-zA-Z0-9-]/g, '-').substring(0, 60)
@@ -321,11 +418,44 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
         }
     }, [photos, viewMode])
 
+    useEffect(() => {
+        if (photos.length === 0) return
+
+        const getNameNoExt = (name: string | undefined) => {
+            if (!name) return ''
+            return name.replace(/\.[^/.]+$/, '')
+        }
+
+        const toPhotoIds = (names: string[] | undefined) => {
+            if (!Array.isArray(names) || names.length === 0) return []
+            const wanted = new Set(names.map((name) => getNameNoExt(name)))
+            return photos.filter((photo) => wanted.has(getNameNoExt(photo.name))).map((photo) => photo.id)
+        }
+
+        if (hasExtraFeature && (config.extraSelectedPhotos?.length || 0) > 0 && extraSelected.length === 0) {
+            setExtraSelected(toPhotoIds(config.extraSelectedPhotos))
+        }
+
+        if (hasPrintFeature && config.printSelections && config.printSelections.length > 0) {
+            const hasExistingSelection = Object.values(printSelections).some((ids) => ids.length > 0)
+            if (!hasExistingSelection) {
+                const nextSelections: Record<string, string[]> = {}
+                config.printSizes?.forEach((size) => {
+                    const selectedNames = config.printSelections!
+                        .filter((selection) => selection.size === size.name)
+                        .map((selection) => selection.photo)
+                    nextSelections[size.name] = toPhotoIds(selectedNames)
+                })
+                setPrintSelections(nextSelections)
+            }
+        }
+    }, [photos, config.extraSelectedPhotos, config.printSelections, config.printSizes, hasExtraFeature, hasPrintFeature, extraSelected.length, printSelections])
+
     // Debounced sync: auto-sync selections to server 2 seconds after last toggle
     // MUST be before early returns to maintain consistent hook order
     useEffect(() => {
         // Only sync in culling mode with a valid project ID and loaded photos
-        if (viewMode !== 'culling' || !config.projectId || photos.length === 0) return
+        if (viewMode !== 'culling' || activeFeature !== 'selection' || !config.projectId || photos.length === 0) return
 
         const getNameNoExt = (name: string | undefined) => {
             if (!name) return ''
@@ -340,7 +470,7 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
         const serialized = JSON.stringify(selectedNames)
 
         // Skip if nothing changed since last sync
-        if (serialized === lastSyncedRef.current) return
+        if (serialized === lastExtraSyncedRef.current) return
 
         // Clear previous timer
         if (syncTimerRef.current) clearTimeout(syncTimerRef.current)
@@ -348,11 +478,14 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
         // Set new debounce timer (2 seconds)
         syncTimerRef.current = setTimeout(async () => {
             try {
-                await fetch(`/api/projects/${config.projectId}/sync-selection`, {
+                const response = await fetch(`/api/projects/${config.projectId}/sync-selection`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ selectedPhotos: selectedNames })
                 })
+                if (response.ok) {
+                    setSelectionStatus((prev) => prev === 'pending' ? 'in_progress' : prev)
+                }
                 lastSyncedRef.current = serialized
             } catch (err) {
                 console.error('Failed to sync selection:', err)
@@ -362,11 +495,49 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
         return () => {
             if (syncTimerRef.current) clearTimeout(syncTimerRef.current)
         }
-    }, [selected, viewMode, config.projectId, photos])
+    }, [selected, viewMode, config.projectId, photos, activeFeature])
+
+    useEffect(() => {
+        if (viewMode !== 'culling' || activeFeature !== 'extra' || !config.projectId || photos.length === 0) return
+
+        const getNameNoExt = (name: string | undefined) => {
+            if (!name) return ''
+            return name.replace(/\.[^/.]+$/, '')
+        }
+
+        const selectedNames = extraSelected
+            .map(id => getNameNoExt(photos.find(p => p.id === id)?.name))
+            .filter(Boolean)
+
+        const serialized = JSON.stringify(selectedNames)
+        if (serialized === lastExtraSyncedRef.current) return
+
+        if (syncTimerRef.current) clearTimeout(syncTimerRef.current)
+
+        syncTimerRef.current = setTimeout(async () => {
+            try {
+                const response = await fetch(`/api/projects/${config.projectId}/sync-extra-selection`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ selectedPhotos: selectedNames })
+                })
+                if (response.ok) {
+                    setExtraStatus((prev) => prev === 'pending' ? 'in_progress' : prev)
+                }
+                lastExtraSyncedRef.current = serialized
+            } catch (err) {
+                console.error('Failed to sync extra selection:', err)
+            }
+        }, 2000)
+
+        return () => {
+            if (syncTimerRef.current) clearTimeout(syncTimerRef.current)
+        }
+    }, [extraSelected, viewMode, config.projectId, photos, activeFeature])
 
     // Debounced sync for PRINT selections: auto-sync to server 2 seconds after last toggle
     useEffect(() => {
-        if (!isPrintProject || !config.projectId || photos.length === 0) return
+        if (!isPrintMode || !config.projectId || photos.length === 0) return
 
         // Build print selections with photo names for the API
         const getNameNoExt = (name: string | undefined) => {
@@ -391,11 +562,14 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
         // Set new debounce timer (2 seconds)
         printSyncTimerRef.current = setTimeout(async () => {
             try {
-                await fetch(`/api/projects/${config.projectId}/sync-print-selection`, {
+                const response = await fetch(`/api/projects/${config.projectId}/sync-print-selection`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ printSelections: printSelectionsForApi })
                 })
+                if (response.ok) {
+                    setPrintStatus((prev) => prev === 'pending' ? 'in_progress' : prev)
+                }
                 lastPrintSyncedRef.current = serialized
             } catch (err) {
                 console.error('Failed to sync print selection:', err)
@@ -405,7 +579,7 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
         return () => {
             if (printSyncTimerRef.current) clearTimeout(printSyncTimerRef.current)
         }
-    }, [printSelections, config.projectId, photos, isPrintProject])
+    }, [printSelections, config.projectId, photos, isPrintMode])
 
     const handlePasswordSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -434,20 +608,14 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
     const fetchPhotos = async ({ forceRefreshIfEmpty = false }: { forceRefreshIfEmpty?: boolean } = {}) => {
         setLoading(true)
         setError(null)
+        setFolders([])
 
         // Check if we have an API key configured
         const hasApiKey = !!process.env.NEXT_PUBLIC_GOOGLE_API_KEY
 
         if (!hasApiKey || !config.gdriveLink.includes('drive.google.com')) {
-            // Fallback to mock data if no API key or invalid drive link
-            console.log('Using mock data (no API key or invalid drive link)')
-            const mockPhotos = generateMockPhotos(50).map(p => ({
-                id: p.id,
-                name: p.name,
-                url: p.url,
-                fullUrl: p.url
-            }))
-            setPhotos(mockPhotos)
+            setPhotos([])
+            setError(hasApiKey ? t('invalidDriveLink') : t('driveLinkInaccessible'))
             setLoading(false)
             return
         }
@@ -467,15 +635,15 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
             const result = await response.json()
 
             if (!response.ok || result.error) {
-                setError(result.error || t('tryAgain'))
-                // Fallback to mock for demo
-                const mockPhotos = generateMockPhotos(20).map(p => ({
-                    id: p.id,
-                    name: p.name,
-                    url: p.url,
-                    fullUrl: p.url
-                }))
-                setPhotos(mockPhotos)
+                if (result.errorCode === 'drive_inaccessible') {
+                    setError(t('driveLinkInaccessible'))
+                } else if (result.errorCode === 'invalid_url') {
+                    setError(t('invalidDriveLink'))
+                } else {
+                    setError(result.error || t('tryAgain'))
+                }
+                setPhotos([])
+                setFolders([])
             } else {
                 // Photos are already in the correct format from API
                 const drivePhotos: Photo[] = result.photos.map((photo: any) => ({
@@ -488,7 +656,16 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
                     folderPath: photo.folderPath,
                     createdTime: photo.createdTime
                 }))
+                const driveFolders: FolderNode[] = Array.isArray(result.folders)
+                    ? result.folders.map((folder: any) => ({
+                        path: folder.path,
+                        name: folder.name,
+                        parentPath: folder.parentPath ?? null,
+                        photoCount: typeof folder.photoCount === 'number' ? folder.photoCount : 0,
+                    }))
+                    : []
                 setPhotos(drivePhotos)
+                setFolders(driveFolders)
 
                 // Debug: Log unique folders
                 const uniqueFolders = [...new Set(drivePhotos.map(p => p.folderName).filter(Boolean))]
@@ -509,9 +686,8 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
         } catch (err) {
             console.error('Failed to fetch photos:', err)
             setError(t('tryAgain'))
-            // Fallback to mock
-            const mockPhotos = generateMockPhotos(20)
-            setPhotos(mockPhotos)
+            setPhotos([])
+            setFolders([])
         } finally {
             setLoading(false)
         }
@@ -633,51 +809,111 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
                         </div>
 
                         <div className="grid gap-4">
-                            {/* Select Photos Option — green for edit, purple for print */}
-                            {(() => {
-                                const isPrint = config.projectType === 'print'
-                                const selectExpired = isPrint ? isPrintExpired : isSelectionExpired
-                                const colorClass = isPrint
-                                    ? selectExpired
-                                        ? "border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/30 opacity-60 cursor-not-allowed"
-                                        : "border-purple-200 dark:border-purple-800 bg-purple-50/50 dark:bg-purple-950/30 hover:border-purple-400 dark:hover:border-purple-600 hover:bg-purple-100/80 dark:hover:bg-purple-900/40 cursor-pointer"
-                                    : selectExpired
-                                        ? "border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/30 opacity-60 cursor-not-allowed"
-                                        : "border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-950/30 hover:border-green-400 dark:hover:border-green-600 hover:bg-green-100/80 dark:hover:bg-green-900/40 cursor-pointer"
-                                const circleColor = isPrint
-                                    ? selectExpired ? "bg-gray-400" : "bg-purple-500 group-hover:scale-110"
-                                    : selectExpired ? "bg-gray-400" : "bg-green-500 group-hover:scale-110"
-                                const textColor = isPrint
-                                    ? selectExpired ? "text-gray-400" : "text-purple-700 dark:text-purple-300"
-                                    : selectExpired ? "text-gray-400" : "text-green-700 dark:text-green-300"
+                            {isSelectionCardVisible && (
+                                <button
+                                    onClick={() => {
+                                        if (!isSelectionExpired) {
+                                            setActiveFeature('selection')
+                                            setViewMode('culling')
+                                        }
+                                    }}
+                                    disabled={isSelectionExpired}
+                                    className={cn(
+                                        "group relative flex items-center gap-4 p-5 rounded-xl border-2 transition-all duration-300",
+                                        isSelectionExpired
+                                            ? "border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/30 opacity-60 cursor-not-allowed"
+                                            : "border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-950/30 hover:border-green-400 dark:hover:border-green-600 hover:bg-green-100/80 dark:hover:bg-green-900/40 cursor-pointer"
+                                    )}
+                                >
+                                    <div className={cn(
+                                        "flex-shrink-0 w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform",
+                                        isSelectionExpired ? "bg-gray-400" : "bg-green-500 group-hover:scale-110"
+                                    )}>
+                                        <MousePointerClick className="w-7 h-7 text-white" />
+                                    </div>
+                                    <div className="text-left flex-1">
+                                        <h3 className={cn("font-semibold text-lg", isSelectionExpired ? "text-gray-400" : "text-green-700 dark:text-green-300")}>
+                                            {t('selectPhotos')}
+                                            {isSelectionExpired && " ⏰"}
+                                        </h3>
+                                        <p className="text-sm text-muted-foreground">
+                                            {isSelectionExpired ? t('linkExpired') : t('selectPhotosDesc')}
+                                        </p>
+                                    </div>
+                                </button>
+                            )}
 
-                                return (
-                                    <button
-                                        onClick={() => !selectExpired && setViewMode('culling')}
-                                        disabled={selectExpired}
-                                        className={cn(
-                                            "group relative flex items-center gap-4 p-5 rounded-xl border-2 transition-all duration-300",
-                                            colorClass
-                                        )}
-                                    >
-                                        <div className={cn(
-                                            "flex-shrink-0 w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform",
-                                            circleColor
-                                        )}>
-                                            {isPrint ? <Printer className="w-7 h-7 text-white" /> : <MousePointerClick className="w-7 h-7 text-white" />}
-                                        </div>
-                                        <div className="text-left flex-1">
-                                            <h3 className={cn("font-semibold text-lg", textColor)}>
-                                                {isPrint ? t('printPhotos') : t('selectPhotos')}
-                                                {selectExpired && " ⏰"}
-                                            </h3>
-                                            <p className="text-sm text-muted-foreground">
-                                                {selectExpired ? t('linkExpired') : isPrint ? t('printPhotosDesc') : t('selectPhotosDesc')}
-                                            </p>
-                                        </div>
-                                    </button>
-                                )
-                            })()}
+                            {isExtraCardVisible && (
+                                <button
+                                    onClick={() => {
+                                        if (!isExtraExpired && isExtraUnlocked) {
+                                            setActiveFeature('extra')
+                                            setViewMode('culling')
+                                        }
+                                    }}
+                                    disabled={isExtraExpired || !isExtraUnlocked}
+                                    className={cn(
+                                        "group relative flex items-center gap-4 p-5 rounded-xl border-2 transition-all duration-300",
+                                        (isExtraExpired || !isExtraUnlocked)
+                                            ? "border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/30 opacity-60 cursor-not-allowed"
+                                            : "border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/30 hover:border-amber-400 dark:hover:border-amber-600 hover:bg-amber-100/80 dark:hover:bg-amber-900/40 cursor-pointer"
+                                    )}
+                                >
+                                    <div className={cn(
+                                        "flex-shrink-0 w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform",
+                                        (isExtraExpired || !isExtraUnlocked) ? "bg-gray-400" : "bg-amber-500 group-hover:scale-110"
+                                    )}>
+                                        <Check className="w-7 h-7 text-white" />
+                                    </div>
+                                    <div className="text-left flex-1">
+                                        <h3 className={cn("font-semibold text-lg", (isExtraExpired || !isExtraUnlocked) ? "text-gray-400" : "text-amber-700 dark:text-amber-300")}>
+                                            {t('additionalPhotos')}
+                                            {isExtraExpired && " ⏰"}
+                                        </h3>
+                                        <p className="text-sm text-muted-foreground">
+                                            {isExtraExpired
+                                                ? t('linkExpired')
+                                                : !isExtraUnlocked
+                                                    ? t('extraPhotosLockedDesc')
+                                                    : t('extraPhotosDesc')}
+                                        </p>
+                                    </div>
+                                </button>
+                            )}
+
+                            {isPrintCardVisible && (
+                                <button
+                                    onClick={() => {
+                                        if (!isPrintExpired) {
+                                            setActiveFeature('print')
+                                            setViewMode('culling')
+                                        }
+                                    }}
+                                    disabled={isPrintExpired}
+                                    className={cn(
+                                        "group relative flex items-center gap-4 p-5 rounded-xl border-2 transition-all duration-300",
+                                        isPrintExpired
+                                            ? "border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/30 opacity-60 cursor-not-allowed"
+                                            : "border-purple-200 dark:border-purple-800 bg-purple-50/50 dark:bg-purple-950/30 hover:border-purple-400 dark:hover:border-purple-600 hover:bg-purple-100/80 dark:hover:bg-purple-900/40 cursor-pointer"
+                                    )}
+                                >
+                                    <div className={cn(
+                                        "flex-shrink-0 w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform",
+                                        isPrintExpired ? "bg-gray-400" : "bg-purple-500 group-hover:scale-110"
+                                    )}>
+                                        <Printer className="w-7 h-7 text-white" />
+                                    </div>
+                                    <div className="text-left flex-1">
+                                        <h3 className={cn("font-semibold text-lg", isPrintExpired ? "text-gray-400" : "text-purple-700 dark:text-purple-300")}>
+                                            {t('printPhotos')}
+                                            {isPrintExpired && " ⏰"}
+                                        </h3>
+                                        <p className="text-sm text-muted-foreground">
+                                            {isPrintExpired ? t('linkExpired') : t('printPhotosDesc')}
+                                        </p>
+                                    </div>
+                                </button>
+                            )}
 
                             {/* Download Photos Option */}
                             <button
@@ -744,7 +980,7 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
             return
         }
 
-        if (isPrintProject) {
+        if (isPrintMode) {
             // Print mode: per-size selection
             const sizeSelected = printSelections[activePrintSize] || []
             const quota = config.printSizes!.find(s => s.name === activePrintSize)?.quota || 0
@@ -764,6 +1000,20 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
                     [activePrintSize]: [...(prev[activePrintSize] || []), id]
                 }))
             }
+            return
+        }
+
+        if (isExtraMode) {
+            if (!extraSelected.includes(id) && extraSelected.length >= (config.extraMaxPhotos || 0)) {
+                setAlertMax(true)
+                setTimeout(() => setAlertMax(false), 1000)
+                return
+            }
+            setExtraSelected((prev) =>
+                prev.includes(id)
+                    ? prev.filter((selectedId) => selectedId !== id)
+                    : [...prev, id]
+            )
             return
         }
 
@@ -788,7 +1038,7 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
     const copyList = () => {
         let listText: string
 
-        if (isPrintProject) {
+        if (isPrintMode) {
             // Format grouped by size for print projects
             const parts: string[] = []
             config.printSizes!.forEach(size => {
@@ -798,7 +1048,9 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
                 parts.push(`=== 🖨️ ${size.name} (${sizeIds.length}/${size.quota}) ===\n${names}`)
             })
             listText = parts.join('\n\n')
-        } else if (lockedPhotoNames.length > 0) {
+        } else if (isExtraMode) {
+            listText = extraSelected.map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name)).join('\n')
+        } else if (isLegacyExtraProject) {
             const lockedList = lockedPhotoNames.join('\n')
             const newPhotos = selected
                 .map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name))
@@ -846,11 +1098,52 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
         return defaultMsg
     }
 
-    const sendWhatsapp = () => {
+    const finalizeCurrentFeature = async () => {
+        if (!config.projectId) return
+
+        try {
+            if (isPrintMode) {
+                const printSelectionsForApi = Object.entries(printSelections).map(([sizeName, ids]) => ({
+                    sizeName,
+                    photos: ids.map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name)).filter(Boolean)
+                }))
+                await fetch(`/api/projects/${config.projectId}/submit-print-selection`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ printSelections: printSelectionsForApi })
+                })
+                setPrintStatus('submitted')
+                return
+            }
+
+            const selectedNames = (isExtraMode ? extraSelected : selected)
+                .map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name))
+                .filter(Boolean)
+
+            const route = isExtraMode
+                ? 'submit-extra-selection'
+                : 'submit-selection'
+
+            await fetch(`/api/projects/${config.projectId}/${route}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ selectedPhotos: selectedNames })
+            })
+            if (isExtraMode) {
+                setExtraStatus('submitted')
+            } else {
+                setSelectionStatus('submitted')
+            }
+        } catch (err) {
+            console.error('Failed to finalize selection:', err)
+        }
+    }
+
+    const sendWhatsapp = async () => {
         let listText: string
         let totalCount: number
 
-        if (isPrintProject) {
+        if (isPrintMode) {
             // Format grouped by size for print projects
             const parts: string[] = []
             let count = 0
@@ -863,7 +1156,10 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
             })
             listText = parts.join('\n\n')
             totalCount = count
-        } else if (lockedPhotoNames.length > 0) {
+        } else if (isExtraMode) {
+            listText = extraSelected.map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name)).join('\n')
+            totalCount = extraSelected.length
+        } else if (isLegacyExtraProject) {
             const lockedList = lockedPhotoNames.join('\n')
             const newPhotos = selected
                 .map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name))
@@ -881,26 +1177,29 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
             count: totalCount.toString(),
             list: listText,
             link: config.gdriveLink || '',
-            print_sizes: isPrintProject ? config.printSizes!.map(s => `${s.name}×${s.quota}`).join(', ') : ''
+            print_sizes: isPrintMode ? config.printSizes!.map(s => `${s.name}×${s.quota}`).join(', ') : ''
         }
 
-        const template = isPrintProject
+        const template = isPrintMode
             ? messageTemplates?.resultPrint
-            : (lockedPhotoNames.length > 0) ? messageTemplates?.resultExtra : messageTemplates?.resultInitial
-        const defaultMsg = `${t('waMessageIntro')}\n\n${t('waMessageBody')} (${totalCount} ${t('waMessagePhotos')}):\n\n${listText}\n\n${t('waMessageThanks')}`
+            : (isExtraMode || isLegacyExtraProject) ? messageTemplates?.resultExtra : messageTemplates?.resultInitial
+        const defaultMsg = `${t(isPrintMode ? 'printWaIntro' : 'waMessageIntro')}\n\n${t(isPrintMode ? 'printWaBody' : 'waMessageBody')} (${totalCount} ${t('waMessagePhotos')}):\n\n${listText}\n\n${t(isPrintMode ? 'printWaThanks' : 'waMessageThanks')}`
 
         const message = compileMessage(template || null, variables, defaultMsg)
+        await finalizeCurrentFeature()
 
         const waNumber = normalizeWhatsappNumber(config.adminWhatsapp)
         window.open(`https://api.whatsapp.com/send/?phone=${waNumber}&text=${encodeURIComponent(message)}`, '_blank')
     }
 
     const handleClearSelection = () => {
-        if (isPrintProject) {
+        if (isPrintMode) {
             // Clear all print selections (reset every size to empty)
             const cleared: Record<string, string[]> = {}
             config.printSizes!.forEach(s => { cleared[s.name] = [] })
             setPrintSelections(cleared)
+        } else if (isExtraMode) {
+            setExtraSelected([])
         } else if (config.lockedPhotos && config.lockedPhotos.length > 0) {
             // If there are locked photos, keep them and only clear new selections
             const getNameNoExt = (name: string) => name.replace(/\.[^/.]+$/, '')
@@ -1213,8 +1512,8 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
     }
 
     // Get selected photo names for display
-    const allPrintSelectedIds = isPrintProject ? Object.values(printSelections).flat() : []
-    const effectiveSelected = isPrintProject ? allPrintSelectedIds : selected
+    const allPrintSelectedIds = hasPrintFeature ? Object.values(printSelections).flat() : []
+    const effectiveSelected = isPrintMode ? allPrintSelectedIds : (isExtraMode ? extraSelected : selected)
     const effectiveCount = effectiveSelected.length
     const selectedPhotoNames = effectiveSelected.slice(0, 5).map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name))
 
@@ -1311,9 +1610,9 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
                                     <div>
                                         <h1 className="font-bold text-lg">{t('reviewTitle')}</h1>
                                         <p className="text-xs text-muted-foreground">
-                                            {isPrintProject
+                                            {isPrintMode
                                                 ? `${totalPrintSelected} / ${totalPrintQuota} ${t('selected')}`
-                                                : `${selected.length} / ${config.maxPhotos} ${t('selected')}`
+                                                : `${currentSelected.length} / ${currentMaxPhotos} ${t('selected')}`
                                             }
                                         </p>
                                     </div>
@@ -1342,11 +1641,11 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
                                             "text-xs transition-colors",
                                             alertMax ? "text-red-500 font-semibold" : "text-muted-foreground"
                                         )}>
-                                            {isPrintProject
+                                            {isPrintMode
                                                 ? `${activePrintSize}: ${currentSelected.length} / ${currentMaxPhotos} ${t('selected')} (${totalPrintSelected}/${totalPrintQuota} ${t('total')})`
-                                                : `${selected.length} / ${config.maxPhotos} ${t('selected')}`
+                                                : `${currentSelected.length} / ${currentMaxPhotos} ${t('selected')}`
                                             }
-                                            {lockedPhotoNames.length > 0 && (
+                                            {isLegacyExtraProject && lockedPhotoNames.length > 0 && (
                                                 <span className="ml-2 text-amber-600 dark:text-amber-400">
                                                     🔒 {lockedPhotoNames.length} {t('lockedPhotosCount')}
                                                 </span>
@@ -1387,8 +1686,20 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
 
                 {/* Countdown Banner - Inside sticky header */}
                 {(() => {
-                    const activeTimeRemaining = viewMode === 'download' ? downloadTimeRemaining : timeRemaining
-                    const activeExpired = viewMode === 'download' ? isDownloadExpired : isSelectionExpired
+                    const activeTimeRemaining = viewMode === 'download'
+                        ? downloadTimeRemaining
+                        : isPrintMode
+                            ? printTimeRemaining
+                            : isExtraMode
+                                ? extraTimeRemaining
+                                : timeRemaining
+                    const activeExpired = viewMode === 'download'
+                        ? isDownloadExpired
+                        : isPrintMode
+                            ? isPrintExpired
+                            : isExtraMode
+                                ? isExtraExpired
+                                : isSelectionExpired
                     if (activeTimeRemaining && !activeExpired) {
                         return (
                             <div className="bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-800 px-4 py-2">
@@ -1410,7 +1721,7 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
                 <div ref={photoGridHeaderRef} />
 
                 {/* Print Size Tabs */}
-                {isPrintProject && viewMode === 'culling' && (
+                {isPrintMode && viewMode === 'culling' && (
                     <div className="border-b px-4 py-2 flex gap-2 overflow-x-auto">
                         {config.printSizes!.map(size => {
                             const sizeCount = (printSelections[size.name] || []).length
@@ -1442,6 +1753,9 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
             {error && (
                 <div className="flex flex-col items-center justify-center py-20 gap-4">
                     <p className="text-red-500">{error}</p>
+                    {error === t('driveLinkInaccessible') && (
+                        <p className="text-sm text-muted-foreground text-center max-w-md">{t('driveLinkInaccessibleDesc')}</p>
+                    )}
                     <Button size="sm" variant="ghost" onClick={handleManualReload} className="cursor-pointer" disabled={isReloadDisabled}>
                         <RefreshCw className="h-4 w-4 mr-1" /> {t('tryAgain')}
                     </Button>
@@ -1449,12 +1763,12 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
             )}
 
             {/* Loading State */}
-            {loading ? (
+            {!error && loading ? (
                 <div className="flex flex-col items-center justify-center py-20 gap-4">
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
                     <p className="text-muted-foreground">{t('loadingPhotos')}</p>
                 </div>
-            ) : photos.length === 0 ? (
+            ) : !error && photos.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20 gap-4">
                     <ImageOff className="h-12 w-12 text-muted-foreground" />
                     <p className="text-muted-foreground">{t('noPhotos')}</p>
@@ -1465,6 +1779,7 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
             ) : viewMode === 'download' ? (
                 <PhotoGrid
                     photos={photos}
+                    folders={folders}
                     selected={downloadSelected}
                     onToggle={handleDownloadToggle}
                     onZoom={handleZoom}
@@ -1477,9 +1792,9 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
                 <div className="p-4 space-y-4">
                     <div className="text-center space-y-1">
                         <p className="text-sm text-muted-foreground">
-                            {isPrintProject
+                            {isPrintMode
                                 ? `${totalPrintSelected} / ${totalPrintQuota} ${t('selected')}`
-                                : `${selected.length} / ${config.maxPhotos} ${t('selected')}`
+                                : `${currentSelected.length} / ${currentMaxPhotos} ${t('selected')}`
                             }
                         </p>
                     </div>
@@ -1491,7 +1806,7 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
                                 <ArrowLeft className="h-4 w-4 mr-2" />{t('backToSelect')}
                             </Button>
                         </div>
-                    ) : isPrintProject ? (
+                    ) : isPrintMode ? (
                         // Print review: group by size
                         <div className="space-y-6">
                             {config.printSizes!.map(size => {
@@ -1530,10 +1845,11 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
                             })}
                         </div>
                     ) : (() => {
-                        const selectedPhotos = photos.filter(p => selected.includes(p.id))
-                        const hasLockedPhotos = lockedPhotoNames.length > 0
+                        const activeSelectionIds = isExtraMode ? extraSelected : selected
+                        const selectedPhotos = photos.filter(p => activeSelectionIds.includes(p.id))
+                        const hasLockedPhotos = isLegacyExtraProject && lockedPhotoNames.length > 0
                         const lockedSelected = hasLockedPhotos ? selectedPhotos.filter(p => isPhotoLocked(p)) : []
-                        const extraSelected = hasLockedPhotos ? selectedPhotos.filter(p => !isPhotoLocked(p)) : selectedPhotos
+                        const additionalSelectedPhotos = hasLockedPhotos ? selectedPhotos.filter(p => !isPhotoLocked(p)) : selectedPhotos
 
                         const renderPhotoGrid = (photoList: typeof photos, borderColor: string = 'border-primary') => (
                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -1577,31 +1893,32 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
                                         {renderPhotoGrid(lockedSelected, 'border-amber-400 dark:border-amber-600')}
                                     </div>
                                 )}
-                                {extraSelected.length > 0 && (
+                                {additionalSelectedPhotos.length > 0 && (
                                     <div className="space-y-2">
                                         <div className="flex items-center gap-2">
                                             <div className="h-px flex-1 bg-emerald-300 dark:bg-emerald-700" />
                                             <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400 px-2">
                                                 <Check className="h-3.5 w-3.5" />
-                                                {t('additionalPhotos')} ({extraSelected.length})
+                                                {t('additionalPhotos')} ({additionalSelectedPhotos.length})
                                             </span>
                                             <div className="h-px flex-1 bg-emerald-300 dark:bg-emerald-700" />
                                         </div>
-                                        {renderPhotoGrid(extraSelected, 'border-emerald-400 dark:border-emerald-600')}
+                                        {renderPhotoGrid(additionalSelectedPhotos, 'border-emerald-400 dark:border-emerald-600')}
                                     </div>
                                 )}
                             </div>
-                        ) : renderPhotoGrid(extraSelected)
+                        ) : renderPhotoGrid(additionalSelectedPhotos)
                     })()}
                 </div>
             ) : (
                 <PhotoGrid
                     photos={photos}
-                    selected={isPrintProject ? currentSelected : selected}
+                    folders={folders}
+                    selected={currentSelected}
                     onToggle={handleToggle}
                     onZoom={handleZoom}
                     detectSubfolders={config.detectSubfolders}
-                    lockedPhotoNames={lockedPhotoNames}
+                    lockedPhotoNames={isLegacyExtraProject ? lockedPhotoNames : []}
                     headerPortalRef={photoGridHeaderRef}
                 />
             )}
@@ -1612,7 +1929,7 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
                 initialIndex={lightboxIndex}
                 isOpen={lightboxOpen}
                 onClose={() => setLightboxOpen(false)}
-                selectedIds={viewMode === 'download' ? downloadSelected : (isPrintProject ? (viewMode === 'review' ? allPrintSelectedIds : currentSelected) : selected)}
+                selectedIds={viewMode === 'download' ? downloadSelected : (isPrintMode ? (viewMode === 'review' ? allPrintSelectedIds : currentSelected) : (isExtraMode ? extraSelected : selected))}
                 onToggleSelect={viewMode === 'download' ? handleDownloadToggle : handleToggle}
                 maxPhotos={viewMode === 'download' ? Infinity : currentMaxPhotos}
             />

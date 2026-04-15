@@ -28,6 +28,14 @@ export interface Project {
     selectionStatus?: string // 'pending' | 'in_progress' | 'submitted' | 'reviewed'
     selectionSubmittedAt?: number | null // Unix timestamp
     selectionLastSyncedAt?: number | null // Unix timestamp
+    // Additional photo selection (single-link feature mode)
+    extraEnabled?: boolean
+    extraMaxPhotos?: number | null
+    extraExpiresAt?: number | null
+    extraSelectedPhotos?: string[]
+    extraStatus?: string // 'pending' | 'in_progress' | 'submitted' | 'reviewed'
+    extraSubmittedAt?: number | null
+    extraLastSyncedAt?: number | null
     // Print selection
     projectType?: 'edit' | 'print' // default 'edit'
     printEnabled?: boolean

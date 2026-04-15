@@ -28,11 +28,12 @@ const STATUS_CONFIG = {
     reviewed: { color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-900/20', border: 'border-emerald-300 dark:border-emerald-800', cardBg: 'bg-emerald-50/50 dark:bg-emerald-950/10' },
 } as const
 
+const isPrintEnabledProject = (project: Project) => project.projectType === 'print' || (project.printEnabled && (project.printSizes || []).length > 0)
+
 export function ClientPrintStatusTab({ projects: initialProjects, folders, onProjectsChanged }: ClientPrintStatusTabProps) {
     const t = useTranslations('Admin')
     const locale = useLocale()
-    // Only show print projects
-    const [projects, setProjects] = useState<Project[]>(initialProjects.filter(p => p.projectType === 'print'))
+    const [projects, setProjects] = useState<Project[]>(initialProjects.filter(isPrintEnabledProject))
     const [filter, setFilter] = useState<StatusFilter>('all')
     const [searchQuery, setSearchQuery] = useState('')
     const [isPolling, setIsPolling] = useState(false)
@@ -48,7 +49,7 @@ export function ClientPrintStatusTab({ projects: initialProjects, folders, onPro
     const supabase = createClient()
 
     useEffect(() => {
-        setProjects(initialProjects.filter(p => p.projectType === 'print'))
+        setProjects(initialProjects.filter(isPrintEnabledProject))
     }, [initialProjects])
 
     // Load settings
@@ -83,7 +84,7 @@ export function ClientPrintStatusTab({ projects: initialProjects, folders, onPro
                 const res = await fetch('/api/projects')
                 if (res.ok) {
                     const data = await res.json()
-                    const printProjects = data.filter((p: Project) => p.projectType === 'print')
+                    const printProjects = data.filter((p: Project) => isPrintEnabledProject(p))
                     setProjects(printProjects)
                     onProjectsChanged?.(data)
                 }
@@ -115,7 +116,11 @@ export function ClientPrintStatusTab({ projects: initialProjects, folders, onPro
         setShowMarkDialog(false)
         setMarkingId(markTargetId)
         try {
-            const res = await fetch(`/api/projects/${markTargetId}/mark-reviewed`, { method: 'POST' })
+            const res = await fetch(`/api/projects/${markTargetId}/mark-reviewed`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ target: 'print' })
+            })
             if (res.ok) {
                 setProjects(prev => prev.map(p =>
                     p.id === markTargetId ? { ...p, printStatus: 'reviewed' } : p
@@ -142,7 +147,7 @@ export function ClientPrintStatusTab({ projects: initialProjects, folders, onPro
             const res = await fetch(`/api/projects/${unmarkTargetId}/mark-reviewed`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status: 'submitted' })
+                body: JSON.stringify({ status: 'submitted', target: 'print' })
             })
             if (res.ok) {
                 setProjects(prev => prev.map(p =>
@@ -163,7 +168,7 @@ export function ClientPrintStatusTab({ projects: initialProjects, folders, onPro
             const res = await fetch('/api/projects')
             if (res.ok) {
                 const data = await res.json()
-                const printProjects = data.filter((p: Project) => p.projectType === 'print')
+                const printProjects = data.filter((p: Project) => isPrintEnabledProject(p))
                 setProjects(printProjects)
                 onProjectsChanged?.(data)
             }

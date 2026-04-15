@@ -1409,13 +1409,30 @@ export function ProjectList({
                                                             {project.lockedPhotos && project.lockedPhotos.length > 0 && (
                                                                 <span className="text-xs bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded shrink-0">📷 {t('extraPhotosBadge')}</span>
                                                             )}
+                                                            {project.extraEnabled && (
+                                                                <span className="text-xs bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded shrink-0">📷 {t('extraFeatureBadge')}</span>
+                                                            )}
                                                             {project.projectType === 'print' && (
                                                                 <span className="text-xs bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 px-2 py-0.5 rounded shrink-0">🖨️ {t('projectTypePrint')}</span>
+                                                            )}
+                                                            {project.projectType !== 'print' && project.printEnabled && (project.printSizes || []).length > 0 && (
+                                                                <span className="text-xs bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 px-2 py-0.5 rounded shrink-0">🖨️ {t('printFeatureBadge')}</span>
                                                             )}
                                                             {expired && <span className="text-xs bg-destructive/20 text-destructive px-2 py-0.5 rounded shrink-0">{t('expired')}</span>}
                                                         </div>
                                                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                                                            <span className="flex items-center gap-1 shrink-0">{project.projectType === 'print' ? `🖨️ ${(project.printSizes || []).map((s: any) => `${s.name}×${s.quota}`).join(', ')}` : `📸 ${(project.lockedPhotos && project.lockedPhotos.length > 0) ? (project.maxPhotos - project.lockedPhotos.length) : project.maxPhotos} ${t('photo')}`}</span>
+                                                            <span className="flex items-center gap-1 shrink-0">
+                                                                {project.projectType === 'print'
+                                                                    ? `🖨️ ${(project.printSizes || []).map((s: any) => `${s.name}×${s.quota}`).join(', ')}`
+                                                                    : `📸 ${project.maxPhotos} ${t('photo')}`
+                                                                }
+                                                            </span>
+                                                            {project.extraEnabled && (
+                                                                <span className="flex items-center gap-1 shrink-0">📷 +{project.extraMaxPhotos || 0}</span>
+                                                            )}
+                                                            {project.projectType !== 'print' && project.printEnabled && (project.printSizes || []).length > 0 && (
+                                                                <span className="flex items-center gap-1 shrink-0">🖨️ {(project.printSizes || []).map((s: any) => `${s.name}×${s.quota}`).join(', ')}</span>
+                                                            )}
                                                             <span className="flex items-center gap-1 shrink-0"><Clock className="h-3 w-3" /><ExpiryDisplay expiresAt={project.projectType === 'print' ? project.printExpiresAt : (dashboardDurationDisplay === 'download' ? project.downloadExpiresAt : project.expiresAt)} /></span>
                                                         </div>
                                                         <p className="text-xs text-muted-foreground overflow-hidden text-ellipsis whitespace-nowrap block" style={{ maxWidth: 'min(100%, calc(100vw - 100px))' }} suppressHydrationWarning>🔗 {dynamicLink}</p>
@@ -1428,10 +1445,6 @@ export function ProjectList({
                                                             <Button size="icon" variant="ghost" onClick={() => sendReminder(project)} className="h-8 w-8 cursor-pointer text-amber-600 hover:text-amber-700" disabled={expired || (!project.expiresAt && !project.printExpiresAt)} title={t('sendReminder')}><Bell className="h-4 w-4" /></Button>
                                                             <Button size="icon" variant="ghost" onClick={() => openLink(dynamicLink)} className="h-8 w-8 cursor-pointer" title={t('openLink')}><ExternalLink className="h-4 w-4" /></Button>
                                                             <Button size="icon" variant="ghost" onClick={() => onEditProject(project)} className="h-8 w-8 cursor-pointer text-blue-600 hover:text-blue-700" title={t('editProject')}><Edit className="h-4 w-4" /></Button>
-                                                            <Button size="icon" variant="ghost" onClick={() => openExtraPhotosDialog(project)} className="h-8 w-8 cursor-pointer text-amber-600 hover:text-amber-700" disabled={expired} title={t('addExtraPhotos')}><PlusCircle className="h-4 w-4" /></Button>
-                                                            {printEnabled && project.projectType !== 'print' && (
-                                                                <Button size="icon" variant="ghost" onClick={() => openPrintDialog(project)} className="h-8 w-8 cursor-pointer text-purple-600 hover:text-purple-700" disabled={expired} title={t('addPrintSelection')}><Printer className="h-4 w-4" /></Button>
-                                                            )}
                                                             <Button size="icon" variant="ghost" onClick={() => handleDeleteClick(project.id)} className="h-8 w-8 text-destructive hover:text-destructive cursor-pointer" title={t('delete')}><Trash2 className="h-4 w-4" /></Button>
                                                         </div>
                                                     )}

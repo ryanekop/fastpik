@@ -2,7 +2,7 @@
 export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server'
 import { photoCache, generateCacheKey } from '@/lib/cache'
-import { fetchDrivePhotos, extractFolderId, getThumbnailUrl, getDirectImageUrl } from '@/lib/gdrive-service'
+import { fetchDrivePhotos, extractFolderId, getThumbnailUrl, getDirectImageUrl, type DriveFolderNode } from '@/lib/gdrive-service'
 
 export interface CachedPhoto {
     id: string
@@ -17,6 +17,7 @@ export interface CachedPhoto {
 
 interface CacheData {
     photos: CachedPhoto[]
+    folders: DriveFolderNode[]
     fetchedAt: number
 }
 
@@ -52,6 +53,7 @@ export async function GET(request: NextRequest) {
         console.log(`[Cache HIT] ${cacheKey} - ${cached.photos.length} photos`)
         return NextResponse.json({
             photos: cached.photos,
+            folders: cached.folders,
             cached: true,
             cachedAt: cached.fetchedAt
         })
@@ -67,6 +69,7 @@ export async function GET(request: NextRequest) {
             console.log(`[Force Refresh THROTTLED] ${cacheKey} - retry in ${retryAfterMs}ms`)
             return NextResponse.json({
                 photos: cached.photos,
+                folders: cached.folders,
                 cached: true,
                 cachedAt: cached.fetchedAt,
                 throttled: true,
@@ -86,9 +89,14 @@ export async function GET(request: NextRequest) {
     const result = await fetchDrivePhotos(gdriveLink, detectSubfolders)
 
     if (result.error) {
+        const status = result.errorCode === 'invalid_url'
+            ? 400
+            : result.errorCode === 'drive_inaccessible'
+                ? 403
+                : 500
         return NextResponse.json(
-            { error: result.error },
-            { status: 500 }
+            { error: result.error, errorCode: result.errorCode },
+            { status }
         )
     }
 
@@ -109,6 +117,7 @@ export async function GET(request: NextRequest) {
     // Store in cache (5 minutes TTL)
     const cacheData: CacheData = {
         photos,
+        folders: result.folders || [],
         fetchedAt: Date.now()
     }
     photoCache.set(cacheKey, cacheData, 5 * 60 * 1000)
@@ -117,6 +126,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
         photos,
+        folders: cacheData.folders,
         cached: false,
         fetchedAt: cacheData.fetchedAt,
         forceRefreshed: forceRefresh

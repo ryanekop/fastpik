@@ -23,8 +23,16 @@ interface Photo {
     createdTime?: string
 }
 
+interface FolderNode {
+    path: string
+    name: string
+    parentPath: string | null
+    photoCount: number
+}
+
 interface PhotoGridProps {
     photos: Photo[]
+    folders?: FolderNode[]
     selected: string[]
     onToggle: (id: string) => void
     onZoom: (photo: Photo, sourcePhotos: Photo[]) => void
@@ -211,6 +219,7 @@ function FolderCard({
     count: number
     onClick: () => void
 }) {
+    const t = useTranslations('Client')
     return (
         <div
             onClick={onClick}
@@ -218,12 +227,14 @@ function FolderCard({
         >
             <Folder className="w-10 h-10 md:w-16 md:h-16 text-primary mb-2 md:mb-3 fill-primary/10" />
             <h3 className="font-semibold text-sm md:text-lg text-center truncate w-full px-1 md:px-2" title={name}>{name}</h3>
-            <p className="text-muted-foreground text-xs md:text-sm">{count} photos</p>
+            <p className="text-muted-foreground text-xs md:text-sm">
+                {count > 0 ? t('photosCount', { count }) : t('folderEmpty')}
+            </p>
         </div>
     )
 }
 
-export function PhotoGrid({ photos, selected, onToggle, onZoom, detectSubfolders = true, lockedPhotoNames = [], headerPortalRef }: PhotoGridProps) {
+export function PhotoGrid({ photos, folders = [], selected, onToggle, onZoom, detectSubfolders = true, lockedPhotoNames = [], headerPortalRef }: PhotoGridProps) {
     const t = useTranslations('Client')
     const [sortBy, setSortBy] = useState<'name' | 'date'>('name')
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
@@ -248,40 +259,12 @@ export function PhotoGrid({ photos, selected, onToggle, onZoom, detectSubfolders
         setVisibleCount(50)
     }, [currentPath, sortBy, sortOrder])
 
-    // Get all unique folder paths
-    const allFolderPaths = useMemo(() => {
-        const paths = new Set<string>()
-        photos.forEach(photo => {
-            if (photo.folderPath) {
-                paths.add(photo.folderPath)
-            }
-        })
-        return Array.from(paths)
-    }, [photos])
-
     // Get folders at current level (immediate children only)
     const currentLevelFolders = useMemo(() => {
-        const folders = new Set<string>()
-
-        allFolderPaths.forEach(path => {
-            if (currentPath === null) {
-                // At root - get first level folders
-                const firstPart = path.split(' > ')[0]
-                folders.add(firstPart)
-            } else {
-                // Inside a folder - get next level
-                if (path.startsWith(currentPath + ' > ')) {
-                    const remaining = path.substring(currentPath.length + 3) // skip " > "
-                    const nextPart = remaining.split(' > ')[0]
-                    if (nextPart) {
-                        folders.add(nextPart)
-                    }
-                }
-            }
-        })
-
-        return Array.from(folders).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
-    }, [allFolderPaths, currentPath])
+        return folders
+            .filter((folder) => (folder.parentPath || null) === currentPath)
+            .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
+    }, [folders, currentPath])
 
     // Photos at current level (photos that belong directly to current path)
     const photosAtCurrentLevel = useMemo(() => {
@@ -399,7 +382,7 @@ export function PhotoGrid({ photos, selected, onToggle, onZoom, detectSubfolders
                         className="gap-1 pl-0 hover:bg-transparent hover:text-primary mb-4 cursor-pointer"
                     >
                         <ArrowLeft className="w-5 h-5" />
-                        Back
+                        {t('back')}
                     </Button>
                 )}
 
@@ -409,16 +392,12 @@ export function PhotoGrid({ photos, selected, onToggle, onZoom, detectSubfolders
                 </h2>
 
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                    {currentLevelFolders.map(name => (
+                    {currentLevelFolders.map((folder) => (
                         <FolderCard
-                            key={name}
-                            name={name}
-                            count={allFolderPaths.filter(p =>
-                                currentPath === null
-                                    ? p.startsWith(name)
-                                    : p.startsWith(`${currentPath} > ${name}`)
-                            ).length}
-                            onClick={() => navigateInto(name)}
+                            key={folder.path}
+                            name={folder.name}
+                            count={folder.photoCount}
+                            onClick={() => navigateInto(folder.name)}
                         />
                     ))}
                 </div>
@@ -446,7 +425,8 @@ export function PhotoGrid({ photos, selected, onToggle, onZoom, detectSubfolders
                         {displayFolderName}
                     </span>
                     <span className="text-muted-foreground text-xs font-normal leading-tight">
-                        {currentPhotos.length} photos{hasFoldersAtCurrentLevel ? `, ${currentLevelFolders.length} folders` : ''}
+                        {t('photosCount', { count: currentPhotos.length })}
+                        {hasFoldersAtCurrentLevel ? `, ${t('foldersCount', { count: currentLevelFolders.length })}` : ''}
                     </span>
                 </div>
             </div>
@@ -477,6 +457,8 @@ export function PhotoGrid({ photos, selected, onToggle, onZoom, detectSubfolders
     )
 
     // Render: Photo Grid View (with optional subfolders)
+    const isEmptyFolderState = detectSubfolders && currentPath !== null && !hasFoldersAtCurrentLevel && currentPhotos.length === 0
+
     return (
         <div className="pb-44">
             {/* Render header: portal into sticky container or inline fallback */}
@@ -486,18 +468,20 @@ export function PhotoGrid({ photos, selected, onToggle, onZoom, detectSubfolders
             }
 
             {/* Combined grid: folders + photos side by side */}
-            <div className="p-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            {isEmptyFolderState ? (
+                <div className="p-8 flex flex-col items-center justify-center text-center text-muted-foreground gap-2">
+                    <FolderOpen className="h-10 w-10" />
+                    <p>{t('noPhotos')}</p>
+                </div>
+            ) : (
+                <div className="p-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                 {/* Subfolders first */}
-                {hasFoldersAtCurrentLevel && currentLevelFolders.map(name => (
+                {hasFoldersAtCurrentLevel && currentLevelFolders.map((folder) => (
                     <FolderCard
-                        key={name}
-                        name={name}
-                        count={allFolderPaths.filter(p =>
-                            currentPath === null
-                                ? p.startsWith(name)
-                                : p.startsWith(`${currentPath} > ${name}`)
-                        ).length}
-                        onClick={() => navigateInto(name)}
+                        key={folder.path}
+                        name={folder.name}
+                        count={folder.photoCount}
+                        onClick={() => navigateInto(folder.name)}
                     />
                 ))}
                 {/* Then photos */}
@@ -517,16 +501,17 @@ export function PhotoGrid({ photos, selected, onToggle, onZoom, detectSubfolders
                         />
                     </div>
                 ))}
-            </div>
+                </div>
+            )}
 
             {/* Infinite Scroll Loader */}
             <div ref={loadMoreRef} className="h-20 w-full flex items-center justify-center text-sm text-muted-foreground">
                 {visibleCount < currentPhotos.length ? (
                     <div className="flex items-center gap-2">
-                        <Loader2 className="animate-spin h-4 w-4" /> Loading more...
+                        <Loader2 className="animate-spin h-4 w-4" /> {t('loadingMore')}
                     </div>
                 ) : (
-                    <div>You've reached the end of {displayFolderName}</div>
+                    <div>{t('endOfFolder', { name: displayFolderName || t('rootFolder') })}</div>
                 )}
             </div>
         </div>

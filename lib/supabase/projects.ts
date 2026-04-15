@@ -101,6 +101,13 @@ export async function updateProject(id: string, updates: Partial<Project>) {
     if (updates.downloadExpiresAt !== undefined) dbUpdates.download_expires_at = updates.downloadExpiresAt ? new Date(updates.downloadExpiresAt).toISOString() : null
     if (updates.link) dbUpdates.link = updates.link
     if (updates.lockedPhotos) dbUpdates.locked_photos = updates.lockedPhotos
+    if (updates.extraEnabled !== undefined) dbUpdates.extra_enabled = updates.extraEnabled
+    if (updates.extraMaxPhotos !== undefined) dbUpdates.extra_max_photos = updates.extraMaxPhotos
+    if (updates.extraExpiresAt !== undefined) dbUpdates.extra_expires_at = updates.extraExpiresAt ? new Date(updates.extraExpiresAt).toISOString() : null
+    if (updates.extraSelectedPhotos !== undefined) dbUpdates.extra_selected_photos = updates.extraSelectedPhotos || []
+    if (updates.extraStatus !== undefined) dbUpdates.extra_status = updates.extraStatus
+    if (updates.extraSubmittedAt !== undefined) dbUpdates.extra_submitted_at = updates.extraSubmittedAt ? new Date(updates.extraSubmittedAt).toISOString() : null
+    if (updates.extraLastSyncedAt !== undefined) dbUpdates.extra_last_synced_at = updates.extraLastSyncedAt ? new Date(updates.extraLastSyncedAt).toISOString() : null
     if (updates.printEnabled !== undefined) dbUpdates.print_enabled = updates.printEnabled
     if (updates.printExpiresAt !== undefined) dbUpdates.print_expires_at = updates.printExpiresAt ? new Date(updates.printExpiresAt).toISOString() : null
     if (updates.projectType !== undefined) dbUpdates.project_type = updates.projectType
@@ -168,6 +175,13 @@ function transformProjectFromDB(db: any): Project {
         selectionStatus: db.selection_status || 'pending',
         selectionSubmittedAt: db.selection_submitted_at ? new Date(db.selection_submitted_at).getTime() : null,
         selectionLastSyncedAt: db.selection_last_synced_at ? new Date(db.selection_last_synced_at).getTime() : null,
+        extraEnabled: Boolean(db.extra_enabled),
+        extraMaxPhotos: typeof db.extra_max_photos === 'number' ? db.extra_max_photos : null,
+        extraExpiresAt: db.extra_expires_at ? new Date(db.extra_expires_at).getTime() : undefined,
+        extraSelectedPhotos: db.extra_selected_photos || [],
+        extraStatus: db.extra_status || 'pending',
+        extraSubmittedAt: db.extra_submitted_at ? new Date(db.extra_submitted_at).getTime() : null,
+        extraLastSyncedAt: db.extra_last_synced_at ? new Date(db.extra_last_synced_at).getTime() : null,
         // Print selection
         projectType: db.project_type || 'edit',
         printEnabled: db.print_enabled || false,
@@ -199,6 +213,13 @@ function transformProjectToDB(project: Project, userId: string) {
         link: project.link,
         locked_photos: project.lockedPhotos || [],
         folder_id: project.folderId || null,
+        extra_enabled: project.extraEnabled || false,
+        extra_max_photos: project.extraMaxPhotos ?? null,
+        extra_expires_at: project.extraExpiresAt ? new Date(project.extraExpiresAt).toISOString() : null,
+        extra_selected_photos: project.extraSelectedPhotos || [],
+        extra_status: project.extraStatus || 'pending',
+        extra_submitted_at: project.extraSubmittedAt ? new Date(project.extraSubmittedAt).toISOString() : null,
+        extra_last_synced_at: project.extraLastSyncedAt ? new Date(project.extraLastSyncedAt).toISOString() : null,
         // Print selection
         project_type: project.projectType || 'edit',
         print_enabled: project.printEnabled || false,

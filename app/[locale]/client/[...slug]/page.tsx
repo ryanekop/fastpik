@@ -25,10 +25,18 @@ type RawClientConfig = {
     downloadExpiresAt?: number
     password?: string
     lockedPhotos?: string[]
+    selectionStatus?: string
+    extraEnabled?: boolean
+    extraMaxPhotos?: number
+    extraExpiresAt?: number
+    extraSelectedPhotos?: string[]
+    extraStatus?: string
     projectType?: "edit" | "print"
     printEnabled?: boolean
     printExpiresAt?: number
     printSizes?: { name: string; quota: number }[]
+    printStatus?: string
+    printSelections?: { photo: string; size: string }[]
     [key: string]: unknown
 }
 
@@ -113,6 +121,20 @@ function toPrintSizes(value: unknown) {
         .filter((item): item is { name: string; quota: number } => Boolean(item))
 
     return sizes.length > 0 ? sizes : []
+}
+
+function toPrintSelections(value: unknown) {
+    if (!Array.isArray(value)) return undefined
+    const selections = value
+        .map((item) => {
+            if (!item || typeof item !== "object") return null
+            const typed = item as { photo?: unknown; size?: unknown }
+            if (typeof typed.photo !== "string" || typeof typed.size !== "string") return null
+            return { photo: typed.photo, size: typed.size }
+        })
+        .filter((item): item is { photo: string; size: string } => Boolean(item))
+
+    return selections.length > 0 ? selections : []
 }
 
 async function resolveClientPageData(slug: string[]): Promise<ClientPageData> {
@@ -310,10 +332,18 @@ export default async function ClientPage({ params }: { params: Promise<ClientPag
         expiresAt: toOptionalNumber(safeConfig.expiresAt),
         downloadExpiresAt: toOptionalNumber(safeConfig.downloadExpiresAt),
         lockedPhotos: toStringArray(safeConfig.lockedPhotos),
+        selectionStatus: typeof safeConfig.selectionStatus === "string" ? safeConfig.selectionStatus : undefined,
+        extraEnabled: typeof safeConfig.extraEnabled === "boolean" ? safeConfig.extraEnabled : undefined,
+        extraMaxPhotos: toOptionalNumber(safeConfig.extraMaxPhotos),
+        extraExpiresAt: toOptionalNumber(safeConfig.extraExpiresAt),
+        extraSelectedPhotos: toStringArray(safeConfig.extraSelectedPhotos),
+        extraStatus: typeof safeConfig.extraStatus === "string" ? safeConfig.extraStatus : undefined,
         projectType,
         printEnabled: typeof safeConfig.printEnabled === "boolean" ? safeConfig.printEnabled : undefined,
         printExpiresAt: toOptionalNumber(safeConfig.printExpiresAt),
         printSizes: toPrintSizes(safeConfig.printSizes),
+        printStatus: typeof safeConfig.printStatus === "string" ? safeConfig.printStatus : undefined,
+        printSelections: toPrintSelections(safeConfig.printSelections),
         hasPassword: !!_password,
         projectId: pageData.config.id || pageData.projectId,
     }

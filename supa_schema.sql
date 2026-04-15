@@ -24,6 +24,13 @@ CREATE TABLE IF NOT EXISTS projects (
   selection_status TEXT DEFAULT 'pending',
   selection_submitted_at TIMESTAMPTZ,
   selection_last_synced_at TIMESTAMPTZ,
+  extra_enabled BOOLEAN DEFAULT false,
+  extra_max_photos INTEGER,
+  extra_expires_at TIMESTAMPTZ,
+  extra_selected_photos TEXT[] DEFAULT '{}',
+  extra_status TEXT DEFAULT 'pending',
+  extra_submitted_at TIMESTAMPTZ,
+  extra_last_synced_at TIMESTAMPTZ,
   freelancers_snapshot JSONB DEFAULT '[]'::jsonb,
   -- Legacy support columns (optional)
   whatsapp TEXT
