@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef, useMemo } from "react"
 import { createPortal } from "react-dom"
-import { Check, ZoomIn, Loader2, RefreshCw, ChevronDown, ChevronRight, ArrowUpDown, Calendar, ArrowUpAz, Folder, FolderOpen, ArrowLeft } from "lucide-react"
+import { Check, ZoomIn, Loader2, RefreshCw, ChevronDown, ChevronRight, ArrowUpDown, Calendar, ArrowUpAz, Folder, FolderOpen, ArrowLeft, Download } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { useTranslations } from "next-intl"
@@ -36,6 +36,8 @@ interface PhotoGridProps {
     selected: string[]
     onToggle: (id: string) => void
     onZoom: (photo: Photo, sourcePhotos: Photo[]) => void
+    onDownloadPhoto?: (photo: Photo) => void
+    isDownloadActionDisabled?: boolean
     detectSubfolders?: boolean
     lockedPhotoNames?: string[] // Names of photos that are locked (previously selected)
     headerPortalRef?: React.RefObject<HTMLDivElement | null> // Portal target for header
@@ -47,7 +49,9 @@ function PhotoCard({
     isSelected,
     isLocked,
     onToggle,
-    onZoom
+    onZoom,
+    onDownload,
+    isDownloadDisabled
 }: {
     photo: Photo
     index: number
@@ -55,7 +59,10 @@ function PhotoCard({
     isLocked: boolean
     onToggle: () => void
     onZoom: () => void
+    onDownload?: () => void
+    isDownloadDisabled?: boolean
 }) {
+    const t = useTranslations('Client')
     const [isLoading, setIsLoading] = useState(true)
     const [hasError, setHasError] = useState(false)
     const [retryCount, setRetryCount] = useState(0)
@@ -202,6 +209,29 @@ function PhotoCard({
                 </button>
             </div>
 
+            {onDownload && (
+                <button
+                    type="button"
+                    onClick={(e) => {
+                        e.stopPropagation()
+                        if (isDownloadDisabled) return
+                        onDownload()
+                    }}
+                    disabled={isDownloadDisabled}
+                    title={isDownloadDisabled ? t('downloadPhotoDisabled') : t('downloadPhoto')}
+                    aria-label={isDownloadDisabled ? t('downloadPhotoDisabled') : t('downloadPhoto')}
+                    className={cn(
+                        "absolute right-2 bottom-10 z-30 rounded-full p-2 shadow-md backdrop-blur-md transition-all",
+                        "opacity-100 md:opacity-0 md:group-hover:opacity-100",
+                        isDownloadDisabled
+                            ? "bg-white/20 text-white/70 cursor-not-allowed"
+                            : "bg-white/90 text-slate-700 hover:bg-white cursor-pointer"
+                    )}
+                >
+                    <Download className="h-4 w-4" />
+                </button>
+            )}
+
             {/* Filename */}
             <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs p-2 truncate z-20">
                 {photo.name}
@@ -234,7 +264,18 @@ function FolderCard({
     )
 }
 
-export function PhotoGrid({ photos, folders = [], selected, onToggle, onZoom, detectSubfolders = true, lockedPhotoNames = [], headerPortalRef }: PhotoGridProps) {
+export function PhotoGrid({
+    photos,
+    folders = [],
+    selected,
+    onToggle,
+    onZoom,
+    onDownloadPhoto,
+    isDownloadActionDisabled = false,
+    detectSubfolders = true,
+    lockedPhotoNames = [],
+    headerPortalRef
+}: PhotoGridProps) {
     const t = useTranslations('Client')
     const [sortBy, setSortBy] = useState<'name' | 'date'>('name')
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
@@ -498,6 +539,8 @@ export function PhotoGrid({ photos, folders = [], selected, onToggle, onZoom, de
                             isLocked={isPhotoLocked(photo)}
                             onToggle={() => onToggle(photo.id)}
                             onZoom={() => onZoom(photo, currentPhotos)}
+                            onDownload={onDownloadPhoto ? () => onDownloadPhoto(photo) : undefined}
+                            isDownloadDisabled={isDownloadActionDisabled}
                         />
                     </div>
                 ))}

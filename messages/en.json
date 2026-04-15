@@ -635,6 +635,8 @@
         "confirmDownloadAll": "Download All Photos?",
         "confirmDownloadAllMsg": "To download all {count} photos, you will be redirected to Google Drive.\n\n💻 On laptop: right-click folder → 'Download'.\n\n⚠️ It is recommended to use a laptop to download all photos.",
         "downloadSelected": "Download Selected",
+        "downloadPhoto": "Download this photo",
+        "downloadPhotoDisabled": "Single-photo download is disabled while bulk download is running",
         "openGoogleDrive": "Open Google Drive",
         "downloadingPhotos": "Downloading photos...",
         "preparingDownload": "Preparing files...",

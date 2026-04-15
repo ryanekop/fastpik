@@ -1229,6 +1229,35 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
         )
     }
 
+    const handleSinglePhotoDownload = async (photo: Photo) => {
+        if (isDownloading) return
+
+        const controller = new AbortController()
+
+        try {
+            let blob = await downloadDirect(photo, controller.signal)
+            if (!blob) blob = await downloadViaCFWorker(photo, controller.signal)
+
+            if (blob) {
+                const { saveAs } = await import('file-saver')
+                saveAs(blob, photo.name)
+                setToastMessage(t('downloadComplete'))
+                setShowToast(true)
+            } else {
+                redirectToGDrive(photo)
+                setToastMessage(t('downloadFailed'))
+                setShowToast(true)
+            }
+        } catch (err: any) {
+            if (err.name === 'AbortError') {
+                return
+            }
+            console.error('Single photo download failed:', err)
+            setToastMessage(t('downloadFailed'))
+            setShowToast(true)
+        }
+    }
+
     // Helper: delay
     const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
@@ -1783,6 +1812,8 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
                     selected={downloadSelected}
                     onToggle={handleDownloadToggle}
                     onZoom={handleZoom}
+                    onDownloadPhoto={handleSinglePhotoDownload}
+                    isDownloadActionDisabled={isDownloading}
                     detectSubfolders={config.detectSubfolders}
                     lockedPhotoNames={[]}
                     headerPortalRef={photoGridHeaderRef}
