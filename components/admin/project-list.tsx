@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef, DragEvent } from "react"
+import { useState, useEffect, useRef, DragEvent, MouseEvent as ReactMouseEvent } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useTranslations, useLocale } from "next-intl"
 import { Plus, Trash2, ExternalLink, Copy, Clock, Users, MessageCircle, Edit, CheckSquare, Square, X, PlusCircle, Search, Loader2, Bell, FolderOpen, ArrowUpDown, Move, ChevronRight, Home, FolderPlus, FileText, Zap, LayoutList, Printer, ImagePlus } from "lucide-react"
@@ -55,6 +55,9 @@ export function ProjectList({
     const [isSelectMode, setIsSelectMode] = useState(false)
     const [selectedIds, setSelectedIds] = useState<string[]>([])
     const [searchQuery, setSearchQuery] = useState("")
+    const [settingsLoaded, setSettingsLoaded] = useState(false)
+    const [clientLinkBase, setClientLinkBase] = useState("")
+    const [projectLinks, setProjectLinks] = useState<Record<string, string>>({})
 
     // Message Templates
     const [templates, setTemplates] = useState<{
@@ -70,6 +73,19 @@ export function ProjectList({
     useEffect(() => {
         loadSettings()
     }, [])
+
+    useEffect(() => {
+        if (!settingsLoaded) return
+
+        const pathParts = window.location.pathname.split('/')
+        const loc = pathParts[1] || 'id'
+        const base = vendorSlug
+            ? `${window.location.origin}/${loc}/client/${vendorSlug}`
+            : `${window.location.origin}/${loc}/client`
+
+        setClientLinkBase(base)
+        setProjectLinks(Object.fromEntries(projects.map((project) => [project.id, `${base}/${project.id}`])))
+    }, [projects, settingsLoaded, vendorSlug])
 
     // Close sort menu on click outside
     useEffect(() => {
@@ -148,6 +164,8 @@ export function ProjectList({
             }
         } catch (err) {
             console.error("Failed to load templates", err)
+        } finally {
+            setSettingsLoaded(true)
         }
     }
 
@@ -268,16 +286,20 @@ export function ProjectList({
 
     // Helper: generate dynamic link from project ID using current vendor slug
     const buildProjectLink = (projectId: string) => {
-        if (typeof window === 'undefined') return ''
-        const origin = window.location.origin
-        const pathParts = window.location.pathname.split('/')
-        const loc = pathParts[1] || 'id'
-        return vendorSlug
-            ? `${origin}/${loc}/client/${vendorSlug}/${projectId}`
-            : `${origin}/${loc}/client/${projectId}`
+        return clientLinkBase ? `${clientLinkBase}/${projectId}` : ''
     }
 
+    const handleProjectActionClick = (event: ReactMouseEvent<HTMLElement>, action: () => void) => {
+        event.preventDefault()
+        event.stopPropagation()
+        action()
+    }
+
+    const projectActionButtonClass = "size-10 sm:size-8 cursor-pointer"
+    const projectActionPlaceholderClass = "inline-flex size-10 sm:size-8 shrink-0 invisible"
+
     const copyLink = (link: string, id: string) => {
+        if (!link) return
         if (navigator.clipboard && window.isSecureContext) {
             navigator.clipboard.writeText(link)
             setCopiedId(id)
@@ -301,7 +323,10 @@ export function ProjectList({
         }
     }
 
-    const openLink = (link: string) => window.open(link, '_blank')
+    const openLink = (link: string) => {
+        if (!link) return
+        window.open(link, '_blank')
+    }
 
     const sendToClient = (project: Project) => {
         const clientWa = getClientWhatsapp(project)
@@ -312,6 +337,7 @@ export function ProjectList({
         }
 
         const dynamicLink = buildProjectLink(project.id)
+        if (!dynamicLink) return
 
         // Print projects use the print template
         if (project.projectType === 'print') {
@@ -415,6 +441,7 @@ export function ProjectList({
 
     const copyTemplateForProject = (project: Project) => {
         const dynamicLink = buildProjectLink(project.id)
+        if (!dynamicLink) return
 
         // Print projects use their own template
         if (project.projectType === 'print') {
@@ -571,6 +598,7 @@ export function ProjectList({
         }
 
         const dynamicLink = buildProjectLink(project.id)
+        if (!dynamicLink) return
 
         const variables: Record<string, string> = {
             client_name: project.clientName,
@@ -795,6 +823,7 @@ export function ProjectList({
 
             const newProjectId = generateShortId()
             const newLink = buildProjectLink(newProjectId)
+            if (!newLink) throw new Error(locale === 'id' ? 'Link belum siap, coba lagi sebentar.' : 'Link is not ready yet, please try again shortly.')
             const printDays = printExpiryDays ? parseInt(printExpiryDays) : undefined
 
             const projectPayload: Project = {
@@ -884,6 +913,7 @@ export function ProjectList({
 
             const newProjectId = generateShortId()
             const newLink = buildProjectLink(newProjectId)
+            if (!newLink) throw new Error(locale === 'id' ? 'Link belum siap, coba lagi sebentar.' : 'Link is not ready yet, please try again shortly.')
             const expiryDaysNum = extraExpiryDays ? parseInt(extraExpiryDays) : undefined
 
             const projectPayload: Project = {
@@ -1388,17 +1418,21 @@ export function ProjectList({
                     )}
                     <div className="grid gap-3 overflow-hidden max-w-full">
                         <AnimatePresence mode="popLayout">
-                            {filteredProjects.map((project, index) => {
+                            {filteredProjects.map((project) => {
                                 const expired = isProjectExpired(project)
                                 const isSelected = selectedIds.includes(project.id)
-                                const dynamicLink = buildProjectLink(project.id)
+                                const dynamicLink = projectLinks[project.id] || ''
+                                const isProjectLinkReady = Boolean(dynamicLink)
+                                const projectLinkLabel = isProjectLinkReady
+                                    ? dynamicLink
+                                    : (locale === 'id' ? 'Menyiapkan link...' : 'Preparing link...')
                                 return (
-                                    <motion.div key={project.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -100 }} transition={{ delay: index * 0.05 }} className="overflow-hidden max-w-full" draggable={!isSelectMode} onDragStart={(e) => handleDragStart(e as any, project.id)}>
+                                    <motion.div key={project.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -100 }} transition={{ duration: 0.15 }} className="overflow-hidden max-w-full" draggable={!isSelectMode} onDragStart={(e) => handleDragStart(e as any, project.id)}>
                                         <Card className={cn("overflow-hidden transition-all hover:shadow-md", expired && "opacity-60 border-destructive/30", isSelected && "border-primary bg-primary/5", !isSelected && !expired && project.projectType === 'print' && "border-purple-400 bg-purple-50/50 dark:bg-purple-950/20 dark:border-purple-600", !isSelected && !expired && project.projectType !== 'print' && project.lockedPhotos && project.lockedPhotos.length > 0 && "border-amber-400 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-600")}>
                                             <CardContent className="p-4 overflow-hidden">
                                                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 w-full overflow-hidden">
                                                     {isSelectMode && (
-                                                        <button onClick={() => toggleSelect(project.id)} className="mt-1 cursor-pointer">
+                                                        <button type="button" onClick={(e) => handleProjectActionClick(e, () => toggleSelect(project.id))} className="mt-1 cursor-pointer">
                                                             {isSelected ? <CheckSquare className="h-5 w-5 text-primary" /> : <Square className="h-5 w-5 text-muted-foreground" />}
                                                         </button>
                                                     )}
@@ -1435,21 +1469,24 @@ export function ProjectList({
                                                             )}
                                                             <span className="flex items-center gap-1 shrink-0"><Clock className="h-3 w-3" /><ExpiryDisplay expiresAt={project.projectType === 'print' ? project.printExpiresAt : (dashboardDurationDisplay === 'download' ? project.downloadExpiresAt : project.expiresAt)} /></span>
                                                         </div>
-                                                        <p className="text-xs text-muted-foreground overflow-hidden text-ellipsis whitespace-nowrap block" style={{ maxWidth: 'min(100%, calc(100vw - 100px))' }} suppressHydrationWarning>🔗 {dynamicLink}</p>
+                                                        <p className="text-xs text-muted-foreground overflow-hidden text-ellipsis whitespace-nowrap block min-h-4" style={{ maxWidth: 'min(100%, calc(100vw - 100px))' }}>🔗 {projectLinkLabel}</p>
                                                     </div>
                                                     {!isSelectMode && (
                                                         <div className="flex items-center gap-1 flex-wrap w-full sm:w-auto justify-center sm:justify-end pt-2 sm:pt-0 border-t sm:border-t-0 mt-2 sm:mt-0 border-border/50">
-                                                            <Button size="icon" variant="ghost" onClick={() => copyLink(dynamicLink, project.id)} className="h-8 w-8 cursor-pointer" title={t('copyLink')}>{copiedId === project.id ? <span className="text-green-500 text-xs">✓</span> : <Copy className="h-4 w-4" />}</Button>
-                                                            <Button size="icon" variant="ghost" onClick={() => copyTemplateForProject(project)} className="h-8 w-8 cursor-pointer text-purple-600 hover:text-purple-700" disabled={expired} title={t('copyTemplate')}>{copiedTemplateId === project.id ? <span className="text-green-500 text-xs">✓</span> : <FileText className="h-4 w-4" />}</Button>
-                                                            <Button size="icon" variant="ghost" onClick={() => sendToClient(project)} className="h-8 w-8 cursor-pointer text-green-600 hover:text-green-700" disabled={expired} title={t('sendToClient')}><MessageCircle className="h-4 w-4" /></Button>
-                                                            <Button size="icon" variant="ghost" onClick={() => sendReminder(project)} className="h-8 w-8 cursor-pointer text-amber-600 hover:text-amber-700" disabled={expired || (!project.expiresAt && !project.printExpiresAt)} title={t('sendReminder')}><Bell className="h-4 w-4" /></Button>
-                                                            <Button size="icon" variant="ghost" onClick={() => openLink(dynamicLink)} className="h-8 w-8 cursor-pointer" title={t('openLink')}><ExternalLink className="h-4 w-4" /></Button>
-                                                            <Button size="icon" variant="ghost" onClick={() => onEditProject(project)} className="h-8 w-8 cursor-pointer text-blue-600 hover:text-blue-700" title={t('editProject')}><Edit className="h-4 w-4" /></Button>
-                                                            <Button size="icon" variant="ghost" onClick={() => onEditProject(project, 'extra')} className="h-8 w-8 cursor-pointer text-amber-600 hover:text-amber-600" title={t('openExtraFeature')}><ImagePlus className="h-4 w-4" /></Button>
+                                                            <Button type="button" size="icon" variant="ghost" onClick={(e) => handleProjectActionClick(e, () => copyLink(dynamicLink, project.id))} className={projectActionButtonClass} disabled={!isProjectLinkReady} title={t('copyLink')} aria-label={t('copyLink')}>{copiedId === project.id ? <span className="text-green-500 text-xs">✓</span> : <Copy className="h-4 w-4" />}</Button>
+                                                            <Button type="button" size="icon" variant="ghost" onClick={(e) => handleProjectActionClick(e, () => copyTemplateForProject(project))} className={cn(projectActionButtonClass, "text-purple-600 hover:text-purple-700")} disabled={expired || !isProjectLinkReady} title={t('copyTemplate')} aria-label={t('copyTemplate')}>{copiedTemplateId === project.id ? <span className="text-green-500 text-xs">✓</span> : <FileText className="h-4 w-4" />}</Button>
+                                                            <Button type="button" size="icon" variant="ghost" onClick={(e) => handleProjectActionClick(e, () => sendToClient(project))} className={cn(projectActionButtonClass, "text-green-600 hover:text-green-700")} disabled={expired || !isProjectLinkReady} title={t('sendToClient')} aria-label={t('sendToClient')}><MessageCircle className="h-4 w-4" /></Button>
+                                                            <Button type="button" size="icon" variant="ghost" onClick={(e) => handleProjectActionClick(e, () => sendReminder(project))} className={cn(projectActionButtonClass, "text-amber-600 hover:text-amber-700")} disabled={expired || !isProjectLinkReady || (!project.expiresAt && !project.printExpiresAt)} title={t('sendReminder')} aria-label={t('sendReminder')}><Bell className="h-4 w-4" /></Button>
+                                                            <Button type="button" size="icon" variant="ghost" onClick={(e) => handleProjectActionClick(e, () => openLink(dynamicLink))} className={projectActionButtonClass} disabled={!isProjectLinkReady} title={t('openLink')} aria-label={t('openLink')}><ExternalLink className="h-4 w-4" /></Button>
+                                                            <Button type="button" size="icon" variant="ghost" onClick={(e) => handleProjectActionClick(e, () => onEditProject(project))} className={cn(projectActionButtonClass, "text-blue-600 hover:text-blue-700")} title={t('editProject')} aria-label={t('editProject')}><Edit className="h-4 w-4" /></Button>
+                                                            <Button type="button" size="icon" variant="ghost" onClick={(e) => handleProjectActionClick(e, () => onEditProject(project, 'extra'))} className={cn(projectActionButtonClass, "text-amber-600 hover:text-amber-600")} title={t('openExtraFeature')} aria-label={t('openExtraFeature')}><ImagePlus className="h-4 w-4" /></Button>
                                                             {printEnabled && (
-                                                                <Button size="icon" variant="ghost" onClick={() => onEditProject(project, 'print')} className="h-8 w-8 cursor-pointer text-purple-600 hover:text-purple-600" title={t('openPrintFeature')}><Printer className="h-4 w-4" /></Button>
+                                                                <Button type="button" size="icon" variant="ghost" onClick={(e) => handleProjectActionClick(e, () => onEditProject(project, 'print'))} className={cn(projectActionButtonClass, "text-purple-600 hover:text-purple-600")} title={t('openPrintFeature')} aria-label={t('openPrintFeature')}><Printer className="h-4 w-4" /></Button>
                                                             )}
-                                                            <Button size="icon" variant="ghost" onClick={() => handleDeleteClick(project.id)} className="h-8 w-8 text-destructive hover:text-destructive cursor-pointer" title={t('delete')}><Trash2 className="h-4 w-4" /></Button>
+                                                            {!printEnabled && (
+                                                                <span className={projectActionPlaceholderClass} aria-hidden="true" />
+                                                            )}
+                                                            <Button type="button" size="icon" variant="ghost" onClick={(e) => handleProjectActionClick(e, () => handleDeleteClick(project.id))} className={cn(projectActionButtonClass, "text-destructive hover:text-destructive")} title={t('delete')} aria-label={t('delete')}><Trash2 className="h-4 w-4" /></Button>
                                                         </div>
                                                     )}
                                                 </div>

@@ -632,7 +632,10 @@ export default function SettingsPage() {
                                             value={seoMetaTitle}
                                             onChange={(e) => setSeoMetaTitle(e.target.value)}
                                             onFocus={() => setActiveSeoField("title")}
-                                            placeholder={t('seoMetaTitlePlaceholder')}
+                                            placeholder={t('seoMetaTitlePlaceholder', {
+                                                clientNameToken: "{{client_name}}",
+                                                vendorNameToken: "{{vendor_name}}",
+                                            })}
                                             ref={(node) => {
                                                 seoFieldRefs.current.title = node
                                             }}
@@ -647,7 +650,9 @@ export default function SettingsPage() {
                                             value={seoMetaDescription}
                                             onChange={(e) => setSeoMetaDescription(e.target.value)}
                                             onFocus={() => setActiveSeoField("description")}
-                                            placeholder={t('seoMetaDescriptionPlaceholder')}
+                                            placeholder={t('seoMetaDescriptionPlaceholder', {
+                                                vendorNameToken: "{{vendor_name}}",
+                                            })}
                                             className="min-h-28"
                                             ref={(node) => {
                                                 seoFieldRefs.current.description = node
