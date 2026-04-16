@@ -30,6 +30,33 @@ function scrollToSection(id: string) {
     }
 }
 
+function getRegisterHref(locale: string) {
+    const relativeHref = `/${locale}/dashboard/register`
+
+    if (typeof window === 'undefined') {
+        return relativeHref
+    }
+
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim()
+    if (!siteUrl) {
+        return relativeHref
+    }
+
+    try {
+        const mainUrl = new URL(siteUrl)
+        const currentHost = window.location.hostname
+        const isLocalHost = currentHost === 'localhost' || currentHost === '127.0.0.1'
+
+        if (mainUrl.hostname && currentHost && currentHost !== mainUrl.hostname && !isLocalHost) {
+            return `${mainUrl.origin}${relativeHref}`
+        }
+    } catch {
+        return relativeHref
+    }
+
+    return relativeHref
+}
+
 // Desktop navigation links (visible on md+)
 export function DesktopNav() {
     const t = useTranslations('Index')
@@ -302,6 +329,7 @@ export function HeroCTA() {
     const locale = useLocale()
     const supabase = createClient()
     const [user, setUser] = useState<SupabaseUser | null>(null)
+    const registerHref = getRegisterHref(locale)
 
     useEffect(() => {
         supabase.auth.getUser().then(({ data: { user } }) => {
@@ -320,7 +348,7 @@ export function HeroCTA() {
             ) : (
                 <>
                     <Button size="lg" asChild className="gap-2 cursor-pointer text-lg px-8">
-                        <Link href={`/${locale}/dashboard/login`}>
+                        <Link href={registerHref}>
                             🚀 {t('startManaging')} <ArrowRightIcon />
                         </Link>
                     </Button>
@@ -344,6 +372,7 @@ export function BottomCTA() {
     const locale = useLocale()
     const supabase = createClient()
     const [user, setUser] = useState<SupabaseUser | null>(null)
+    const registerHref = getRegisterHref(locale)
 
     useEffect(() => {
         supabase.auth.getUser().then(({ data: { user } }) => {
@@ -353,7 +382,7 @@ export function BottomCTA() {
 
     return (
         <Button size="lg" variant="secondary" asChild className="gap-2 text-lg px-8">
-            <Link href={user ? `/${locale}/dashboard` : `/${locale}/dashboard/login`}>
+            <Link href={user ? `/${locale}/dashboard` : registerHref}>
                 🎉 {t('ctaButton')} <ArrowRightIcon />
             </Link>
         </Button>
