@@ -67,8 +67,20 @@ function PhotoCard({
     const [hasError, setHasError] = useState(false)
     const [retryCount, setRetryCount] = useState(0)
     const [retryKey, setRetryKey] = useState(0)
+    const [imageSrc, setImageSrc] = useState(photo.url)
+    const [isUsingFallbackSrc, setIsUsingFallbackSrc] = useState(false)
     const [isVisible, setIsVisible] = useState(false)
     const cardRef = useRef<HTMLDivElement>(null)
+    const fallbackSrc = `https://lh3.googleusercontent.com/d/${photo.id}=w600`
+
+    useEffect(() => {
+        setImageSrc(photo.url)
+        setIsUsingFallbackSrc(false)
+        setRetryCount(0)
+        setRetryKey(0)
+        setHasError(false)
+        setIsLoading(true)
+    }, [photo.id, photo.url])
 
     // Intersection Observer for Virtualization
     useEffect(() => {
@@ -105,24 +117,40 @@ function PhotoCard({
         }
     }, [])
 
-    const handleRetry = useCallback((e?: React.MouseEvent) => {
-        e?.stopPropagation()
+    const retryCurrentImage = useCallback(() => {
         setHasError(false)
         setIsLoading(true)
         setRetryCount(prev => prev + 1)
         setRetryKey(prev => prev + 1)
     }, [])
 
+    const handleManualRetry = useCallback((e?: React.MouseEvent) => {
+        e?.stopPropagation()
+        setHasError(false)
+        setIsLoading(true)
+        setImageSrc(photo.url)
+        setIsUsingFallbackSrc(false)
+        setRetryCount(0)
+        setRetryKey(prev => prev + 1)
+    }, [photo.url])
+
     const handleError = useCallback(() => {
         if (retryCount < 3) {
             setTimeout(() => {
-                handleRetry()
+                retryCurrentImage()
             }, 1500 * (retryCount + 1))
+        } else if (!isUsingFallbackSrc && imageSrc !== fallbackSrc) {
+            setImageSrc(fallbackSrc)
+            setIsUsingFallbackSrc(true)
+            setRetryCount(0)
+            setRetryKey(prev => prev + 1)
+            setHasError(false)
+            setIsLoading(true)
         } else {
             setIsLoading(false)
             setHasError(true)
         }
-    }, [retryCount, handleRetry])
+    }, [retryCount, retryCurrentImage, isUsingFallbackSrc, imageSrc, fallbackSrc])
 
     return (
         <div
@@ -151,7 +179,7 @@ function PhotoCard({
             {hasError && (
                 <div className="absolute inset-0 bg-muted flex flex-col items-center justify-center z-30">
                     <button
-                        onClick={handleRetry}
+                        onClick={handleManualRetry}
                         className="text-center text-muted-foreground text-xs p-3 hover:bg-muted-foreground/10 rounded-lg transition-colors cursor-pointer"
                     >
                         <RefreshCw className="w-6 h-6 mx-auto mb-2" />
@@ -164,7 +192,7 @@ function PhotoCard({
             {isVisible && (
                 <img
                     key={`${photo.id}-${retryKey}`}
-                    src={photo.url}
+                    src={imageSrc}
                     alt={photo.name}
                     data-photo-id={photo.id}
                     className={cn(
@@ -176,6 +204,7 @@ function PhotoCard({
                     onLoad={() => {
                         setIsLoading(false)
                         setHasError(false)
+                        setRetryCount(0)
                     }}
                     onError={() => {
                         setIsLoading(false)

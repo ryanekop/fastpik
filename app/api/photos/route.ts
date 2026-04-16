@@ -2,7 +2,7 @@
 export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server'
 import { photoCache, generateCacheKey } from '@/lib/cache'
-import { fetchDrivePhotos, extractFolderId, getThumbnailUrl, getDirectImageUrl, type DriveFolderNode } from '@/lib/gdrive-service'
+import { fetchDrivePhotos, extractFolderId, getDirectImageUrl, getGridThumbnailUrl, type DriveFolderNode } from '@/lib/gdrive-service'
 
 export interface CachedPhoto {
     id: string
@@ -100,13 +100,12 @@ export async function GET(request: NextRequest) {
         )
     }
 
-    // Transform to cached format
-    // Use the direct CDN links (lh3) returned by fetchDrivePhotos
-    // instead of reconstructing drive.google.com links which get rate limited
+    // Transform to cached format. Grid thumbnails prefer the Cloudflare Worker
+    // when configured, with direct Google thumbnails as the no-env fallback.
     const photos: CachedPhoto[] = result.files.map(file => ({
         id: file.id,
         name: file.name,
-        url: file.thumbnailLink || getThumbnailUrl(file.id, 400),
+        url: getGridThumbnailUrl(file.id),
         fullUrl: file.fullUrl || getDirectImageUrl(file.id),
         downloadUrl: file.webContentLink,
         folderName: file.folderName,
