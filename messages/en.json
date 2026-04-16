@@ -139,6 +139,7 @@
         "maxPhotos": "Max Photos",
         "password": "Password (Optional)",
         "detectSubfolders": "Detect Subfolders",
+        "gdrivePublicHint": "Make sure the Google Drive folder is public: Share > General access > Anyone with the link > Viewer.",
         "generate": "Generate Link",
         "editProject": "Edit Project",
         "saveChanges": "Save Changes",

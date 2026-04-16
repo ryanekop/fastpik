@@ -9,7 +9,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { Copy, ArrowRight, Check, ArrowLeft, MessageCircle, Eye, EyeOff, Loader2, ExternalLink, Trash2, Plus } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { Card, CardContent } from "@/components/ui/card"
@@ -610,7 +610,7 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
                         <FormField control={form.control} name="clientName" render={({ field }) => (<FormItem><FormLabel>👤 {t('clientName')}</FormLabel><FormControl><Input placeholder="John Doe" {...field} /></FormControl><FormMessage /></FormItem>)} />
                     </motion.div>
                     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }}>
-                        <FormField control={form.control} name="gdriveLink" render={({ field }) => (<FormItem><FormLabel>📁 {t('gdriveLink')}</FormLabel><FormControl><Input placeholder="https://drive.google.com/drive/folders/..." {...field} /></FormControl><FormMessage /></FormItem>)} />
+                        <FormField control={form.control} name="gdriveLink" render={({ field }) => (<FormItem><FormLabel>📁 {t('gdriveLink')}</FormLabel><FormDescription>{t('gdrivePublicHint')}</FormDescription><FormControl><Input placeholder="https://drive.google.com/drive/folders/..." {...field} /></FormControl><FormMessage /></FormItem>)} />
                     </motion.div>
                     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.12 }}>
                         <FormField control={form.control} name="detectSubfolders" render={({ field }) => (<FormItem className="flex flex-row items-center justify-between rounded-lg border p-3"><div className="space-y-0.5"><FormLabel>📂 {t('detectSubfolders')}</FormLabel></div><FormControl><Switch checked={field.value} onCheckedChange={field.onChange} className="cursor-pointer" /></FormControl></FormItem>)} />

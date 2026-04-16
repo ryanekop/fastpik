@@ -139,6 +139,7 @@
         "maxPhotos": "Maksimal Foto",
         "password": "Password (Opsional)",
         "detectSubfolders": "Deteksi Subfolder",
+        "gdrivePublicHint": "Pastikan folder Google Drive sudah publik: Share > General access > Anyone with the link > Viewer.",
         "generate": "Buat Link",
         "editProject": "Edit Proyek",
         "saveChanges": "Simpan Perubahan",
