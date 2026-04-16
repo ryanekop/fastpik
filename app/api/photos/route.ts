@@ -2,12 +2,13 @@
 export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server'
 import { photoCache, generateCacheKey } from '@/lib/cache'
-import { fetchDrivePhotos, extractFolderId, getDirectImageUrl, getGridThumbnailUrl, type DriveFolderNode } from '@/lib/gdrive-service'
+import { fetchDrivePhotos, extractFolderId, getDirectImageUrl, getGridThumbnailUrl, getWorkerThumbnailFallbackUrl, type DriveFolderNode } from '@/lib/gdrive-service'
 
 export interface CachedPhoto {
     id: string
     name: string
     url: string
+    thumbnailFallbackUrl?: string
     fullUrl: string
     downloadUrl?: string
     folderName?: string   // Immediate parent folder name
@@ -100,12 +101,13 @@ export async function GET(request: NextRequest) {
         )
     }
 
-    // Transform to cached format. Grid thumbnails prefer the Cloudflare Worker
-    // when configured, with direct Google thumbnails as the no-env fallback.
+    // Transform to cached format. Grid thumbnails use direct Google first,
+    // with the Cloudflare Worker only as an optional fallback URL.
     const photos: CachedPhoto[] = result.files.map(file => ({
         id: file.id,
         name: file.name,
         url: getGridThumbnailUrl(file.id),
+        thumbnailFallbackUrl: getWorkerThumbnailFallbackUrl(file.id),
         fullUrl: file.fullUrl || getDirectImageUrl(file.id),
         downloadUrl: file.webContentLink,
         folderName: file.folderName,

@@ -23,6 +23,7 @@ interface Photo {
     id: string
     name: string
     url: string
+    thumbnailFallbackUrl?: string
     fullUrl?: string
     downloadUrl?: string
     folderName?: string   // Immediate parent folder name
@@ -652,6 +653,7 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
                     id: photo.id,
                     name: photo.name,
                     url: photo.url,
+                    thumbnailFallbackUrl: photo.thumbnailFallbackUrl,
                     fullUrl: photo.fullUrl,
                     downloadUrl: photo.downloadUrl,
                     folderName: photo.folderName,

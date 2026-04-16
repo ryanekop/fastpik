@@ -16,6 +16,7 @@ import {
 interface Photo {
     id: string
     url: string
+    thumbnailFallbackUrl?: string
     fullUrl?: string
     name: string
     folderName?: string   // Immediate parent folder name
@@ -71,7 +72,7 @@ function PhotoCard({
     const [isUsingFallbackSrc, setIsUsingFallbackSrc] = useState(false)
     const [isVisible, setIsVisible] = useState(false)
     const cardRef = useRef<HTMLDivElement>(null)
-    const fallbackSrc = `https://lh3.googleusercontent.com/d/${photo.id}=w600`
+    const fallbackSrc = photo.thumbnailFallbackUrl
 
     useEffect(() => {
         setImageSrc(photo.url)
@@ -139,7 +140,7 @@ function PhotoCard({
             setTimeout(() => {
                 retryCurrentImage()
             }, 1500 * (retryCount + 1))
-        } else if (!isUsingFallbackSrc && imageSrc !== fallbackSrc) {
+        } else if (fallbackSrc && !isUsingFallbackSrc && imageSrc !== fallbackSrc) {
             setImageSrc(fallbackSrc)
             setIsUsingFallbackSrc(true)
             setRetryCount(0)

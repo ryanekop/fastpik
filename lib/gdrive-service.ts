@@ -376,13 +376,19 @@ export function getThumbnailUrlAlt(fileId: string, size: number = 400): string {
     return `https://lh3.googleusercontent.com/d/${fileId}=w${size}`
 }
 
-// Grid thumbnails can be served through the Cloudflare thumbnail Worker.
-// If the Worker URL is not configured, keep the existing direct Google path.
+// Grid thumbnails use direct Google first to avoid spending Worker quota
+// for healthy clients/networks.
 export function getGridThumbnailUrl(fileId: string, size: number = 600): string {
+    return getThumbnailUrlAlt(fileId, size)
+}
+
+// Optional Cloudflare thumbnail Worker fallback for clients/networks where
+// direct Google thumbnails are throttled or blocked.
+export function getWorkerThumbnailFallbackUrl(fileId: string, size: number = 600): string | undefined {
     const workerUrl = process.env.NEXT_PUBLIC_CF_THUMB_WORKER_URL?.trim().replace(/\/+$/, '')
 
     if (!workerUrl) {
-        return getThumbnailUrlAlt(fileId, size)
+        return undefined
     }
 
     const params = new URLSearchParams({
