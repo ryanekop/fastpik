@@ -472,7 +472,7 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
         const serialized = JSON.stringify(selectedNames)
 
         // Skip if nothing changed since last sync
-        if (serialized === lastExtraSyncedRef.current) return
+        if (serialized === lastSyncedRef.current) return
 
         // Clear previous timer
         if (syncTimerRef.current) clearTimeout(syncTimerRef.current)
@@ -1100,48 +1100,7 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
         return defaultMsg
     }
 
-    const finalizeCurrentFeature = async () => {
-        if (!config.projectId) return
-
-        try {
-            if (isPrintMode) {
-                const printSelectionsForApi = Object.entries(printSelections).map(([sizeName, ids]) => ({
-                    sizeName,
-                    photos: ids.map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name)).filter(Boolean)
-                }))
-                await fetch(`/api/projects/${config.projectId}/submit-print-selection`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ printSelections: printSelectionsForApi })
-                })
-                setPrintStatus('submitted')
-                return
-            }
-
-            const selectedNames = (isExtraMode ? extraSelected : selected)
-                .map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name))
-                .filter(Boolean)
-
-            const route = isExtraMode
-                ? 'submit-extra-selection'
-                : 'submit-selection'
-
-            await fetch(`/api/projects/${config.projectId}/${route}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ selectedPhotos: selectedNames })
-            })
-            if (isExtraMode) {
-                setExtraStatus('submitted')
-            } else {
-                setSelectionStatus('submitted')
-            }
-        } catch (err) {
-            console.error('Failed to finalize selection:', err)
-        }
-    }
-
-    const sendWhatsapp = async () => {
+    const sendWhatsapp = () => {
         let listText: string
         let totalCount: number
 
@@ -1188,7 +1147,6 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
         const defaultMsg = `${t(isPrintMode ? 'printWaIntro' : 'waMessageIntro')}\n\n${t(isPrintMode ? 'printWaBody' : 'waMessageBody')} (${totalCount} ${t('waMessagePhotos')}):\n\n${listText}\n\n${t(isPrintMode ? 'printWaThanks' : 'waMessageThanks')}`
 
         const message = compileMessage(template || null, variables, defaultMsg)
-        await finalizeCurrentFeature()
 
         const waNumber = normalizeWhatsappNumber(config.adminWhatsapp)
         window.open(`https://api.whatsapp.com/send/?phone=${waNumber}&text=${encodeURIComponent(message)}`, '_blank')
