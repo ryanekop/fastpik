@@ -176,6 +176,8 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
     const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const lastSyncedRef = useRef<string>('')
     const lastExtraSyncedRef = useRef<string>('')
+    const hasHydratedExtraSelectionsRef = useRef(false)
+    const hasUserModifiedExtraSelectionsRef = useRef(false)
     const printSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const lastPrintSyncedRef = useRef<string>('')
     const hasHydratedPrintSelectionsRef = useRef(false)
@@ -442,13 +444,18 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
             return photos.filter((photo) => wanted.has(getNameNoExt(photo.name))).map((photo) => photo.id)
         }
 
-        if (hasExtraFeature && (config.extraSelectedPhotos?.length || 0) > 0 && extraSelected.length === 0) {
+        if (hasExtraFeature && !hasHydratedExtraSelectionsRef.current && !hasUserModifiedExtraSelectionsRef.current) {
             const lockedNames = new Set((config.lockedPhotos || []).map((name) => getNameNoExt(name)))
             const restoredExtraIds = toPhotoIds(config.extraSelectedPhotos)
                 .filter((id) => {
                     const photo = photos.find((p) => p.id === id)
                     return photo ? !lockedNames.has(getNameNoExt(photo.name)) : true
                 })
+            hasHydratedExtraSelectionsRef.current = true
+            lastExtraSyncedRef.current = JSON.stringify(restoredExtraIds
+                .map(id => getNameNoExt(photos.find(p => p.id === id)?.name))
+                .filter(name => !lockedNames.has(name))
+                .filter(Boolean))
             setExtraSelected(restoredExtraIds)
         }
 
@@ -468,7 +475,7 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
             })))
             setPrintSelections(nextSelections)
         }
-    }, [photos, config.extraSelectedPhotos, config.lockedPhotos, config.printSelections, config.printSizes, hasExtraFeature, hasPrintFeature, extraSelected.length])
+    }, [photos, config.extraSelectedPhotos, config.lockedPhotos, config.printSelections, config.printSizes, hasExtraFeature, hasPrintFeature])
 
     // Debounced sync: auto-sync selections to server 2 seconds after last toggle
     // MUST be before early returns to maintain consistent hook order
@@ -1040,6 +1047,8 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
                 setTimeout(() => setAlertMax(false), 1000)
                 return
             }
+            hasHydratedExtraSelectionsRef.current = true
+            hasUserModifiedExtraSelectionsRef.current = true
             setExtraSelected((prev) =>
                 prev.includes(id)
                     ? prev.filter((selectedId) => selectedId !== id)
@@ -1192,6 +1201,8 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
             hasUserModifiedPrintSelectionsRef.current = true
             setPrintSelections(cleared)
         } else if (isExtraMode) {
+            hasHydratedExtraSelectionsRef.current = true
+            hasUserModifiedExtraSelectionsRef.current = true
             setExtraSelected([])
         } else if (config.lockedPhotos && config.lockedPhotos.length > 0) {
             // If there are locked photos, keep them and only clear new selections

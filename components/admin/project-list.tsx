@@ -1430,6 +1430,7 @@ export function ProjectList({
                                 const hasExtraDisplay = !!project.extraEnabled || hasLegacyExtra
                                 const hasPrintDisplay = project.projectType === 'print' || !!(project.printEnabled && (project.printSizes || []).length > 0)
                                 const hasExtraAndPrint = hasExtraDisplay && hasPrintDisplay
+                                const hasBadges = hasLegacyExtra || project.extraEnabled || project.projectType === 'print' || !!(project.printEnabled && (project.printSizes || []).length > 0) || expired
                                 return (
                                     <motion.div key={project.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -100 }} transition={{ duration: 0.15 }} className="overflow-hidden max-w-full" draggable={!isSelectMode} onDragStart={(e) => handleDragStart(e as any, project.id)}>
                                         <Card className={cn("overflow-hidden transition-all hover:shadow-md", expired && "opacity-60 border-destructive/30", isSelected && "border-primary bg-primary/5", !isSelected && !expired && hasExtraAndPrint && "border-teal-400 bg-teal-50/50 dark:bg-teal-950/20 dark:border-teal-600", !isSelected && !expired && !hasExtraAndPrint && hasPrintDisplay && "border-purple-400 bg-purple-50/50 dark:bg-purple-950/20 dark:border-purple-600", !isSelected && !expired && !hasExtraAndPrint && hasExtraDisplay && "border-amber-400 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-600")}>
@@ -1441,39 +1442,45 @@ export function ProjectList({
                                                         </button>
                                                     )}
                                                     <div className="flex-1 min-w-0 space-y-1 overflow-hidden max-w-full">
-                                                        <div className="flex items-center gap-2 overflow-hidden">
-                                                            <Users className="h-4 w-4 text-muted-foreground shrink-0" />
-                                                            <h4 className="font-semibold truncate flex-1 min-w-0 cursor-pointer hover:text-primary hover:underline transition-colors" onClick={() => onEditProject(project)} title={`Edit ${project.clientName}`}>{project.clientName}</h4>
-                                                            {hasLegacyExtra && (
-                                                                <span className="text-xs bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded shrink-0">📷 {t('extraPhotosBadge')}</span>
+                                                        <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-2 overflow-hidden">
+                                                            <div className="flex items-center gap-2 min-w-0">
+                                                                <Users className="h-4 w-4 text-muted-foreground shrink-0" />
+                                                                <h4 className="font-semibold truncate flex-1 min-w-0 cursor-pointer hover:text-primary hover:underline transition-colors" onClick={() => onEditProject(project)} title={`Edit ${project.clientName}`}>{project.clientName}</h4>
+                                                            </div>
+                                                            {hasBadges && (
+                                                                <div className="flex flex-wrap gap-1.5 pl-6 sm:pl-0 sm:shrink-0">
+                                                                    {hasLegacyExtra && (
+                                                                        <span className="text-xs bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded shrink-0">📷 {t('extraPhotosBadge')}</span>
+                                                                    )}
+                                                                    {project.extraEnabled && (
+                                                                        <span className="text-xs bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded shrink-0">📷 {t('extraFeatureBadge')}</span>
+                                                                    )}
+                                                                    {project.projectType === 'print' && (
+                                                                        <span className="text-xs bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 px-2 py-0.5 rounded shrink-0">🖨️ {t('projectTypePrint')}</span>
+                                                                    )}
+                                                                    {project.projectType !== 'print' && project.printEnabled && (project.printSizes || []).length > 0 && (
+                                                                        <span className="text-xs bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 px-2 py-0.5 rounded shrink-0">🖨️ {t('printFeatureBadge')}</span>
+                                                                    )}
+                                                                    {expired && <span className="text-xs bg-destructive/20 text-destructive px-2 py-0.5 rounded shrink-0">{t('expired')}</span>}
+                                                                </div>
                                                             )}
-                                                            {project.extraEnabled && (
-                                                                <span className="text-xs bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded shrink-0">📷 {t('extraFeatureBadge')}</span>
-                                                            )}
-                                                            {project.projectType === 'print' && (
-                                                                <span className="text-xs bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 px-2 py-0.5 rounded shrink-0">🖨️ {t('projectTypePrint')}</span>
-                                                            )}
-                                                            {project.projectType !== 'print' && project.printEnabled && (project.printSizes || []).length > 0 && (
-                                                                <span className="text-xs bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 px-2 py-0.5 rounded shrink-0">🖨️ {t('printFeatureBadge')}</span>
-                                                            )}
-                                                            {expired && <span className="text-xs bg-destructive/20 text-destructive px-2 py-0.5 rounded shrink-0">{t('expired')}</span>}
                                                         </div>
-                                                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                                                            <span className="flex items-center gap-1 shrink-0">
+                                                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                                                            <span className="flex items-center gap-1 min-w-0 max-w-full">
                                                                 {project.projectType === 'print'
                                                                     ? `🖨️ ${(project.printSizes || []).map((s: any) => `${s.name}×${s.quota}`).join(', ')}`
                                                                     : `📸 ${project.maxPhotos} ${t('photo')}`
                                                                 }
                                                             </span>
                                                             {project.extraEnabled && (
-                                                                <span className="flex items-center gap-1 shrink-0">📷 +{project.extraMaxPhotos || 0}</span>
+                                                                <span className="flex items-center gap-1">📷 +{project.extraMaxPhotos || 0}</span>
                                                             )}
                                                             {project.projectType !== 'print' && project.printEnabled && (project.printSizes || []).length > 0 && (
-                                                                <span className="flex items-center gap-1 shrink-0">🖨️ {(project.printSizes || []).map((s: any) => `${s.name}×${s.quota}`).join(', ')}</span>
+                                                                <span className="flex items-center gap-1 min-w-0 max-w-full">🖨️ {(project.printSizes || []).map((s: any) => `${s.name}×${s.quota}`).join(', ')}</span>
                                                             )}
-                                                            <span className="flex items-center gap-1 shrink-0"><Clock className="h-3 w-3" /><ExpiryDisplay expiresAt={project.projectType === 'print' ? project.printExpiresAt : (dashboardDurationDisplay === 'download' ? project.downloadExpiresAt : project.expiresAt)} /></span>
+                                                            <span className="flex items-center gap-1"><Clock className="h-3 w-3 shrink-0" /><ExpiryDisplay expiresAt={project.projectType === 'print' ? project.printExpiresAt : (dashboardDurationDisplay === 'download' ? project.downloadExpiresAt : project.expiresAt)} /></span>
                                                         </div>
-                                                        <p className="text-xs text-muted-foreground overflow-hidden text-ellipsis whitespace-nowrap block min-h-4" style={{ maxWidth: 'min(100%, calc(100vw - 100px))' }}>🔗 {projectLinkLabel}</p>
+                                                        <p className="text-xs text-muted-foreground overflow-hidden text-ellipsis whitespace-nowrap block min-h-4 max-w-full">🔗 {projectLinkLabel}</p>
                                                     </div>
                                                     {!isSelectMode && (
                                                         <div className="flex items-center gap-1 flex-wrap w-full sm:w-auto justify-center sm:justify-end pt-2 sm:pt-0 border-t sm:border-t-0 mt-2 sm:mt-0 border-border/50">
