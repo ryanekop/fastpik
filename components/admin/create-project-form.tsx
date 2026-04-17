@@ -721,6 +721,22 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
                                     </FormItem>
                                 )} />
                             </motion.div>
+                            <motion.div className="sm:col-span-2" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.4 }}>
+                                <FormField control={form.control} name="lockedPhotos" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>🔒 {t('previouslySelectedPhotos')}</FormLabel>
+                                        <FormControl>
+                                            <textarea
+                                                className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 resize-none"
+                                                placeholder={t('previouslySelectedHint')}
+                                                {...field}
+                                            />
+                                        </FormControl>
+                                        <FormDescription>{t('lockedPhotosHint')}</FormDescription>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                            </motion.div>
                         </div>
                     )}
                     <motion.div
