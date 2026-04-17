@@ -321,7 +321,6 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
         }
     }, [config.downloadExpiresAt, config.expiresAt])
 
-    const isExtraUnlocked = isLegacyExtraProject || ['submitted', 'reviewed'].includes(selectionStatus)
     const isSelectionCardVisible = !isLegacyPrintProject
     const isPrintCardVisible = hasPrintFeature
     const isExtraCardVisible = hasExtraFeature
@@ -869,36 +868,34 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
                             {isExtraCardVisible && (
                                 <button
                                     onClick={() => {
-                                        if (!isExtraExpired && isExtraUnlocked) {
+                                        if (!isExtraExpired) {
                                             setActiveFeature('extra')
                                             setViewMode('culling')
                                         }
                                     }}
-                                    disabled={isExtraExpired || !isExtraUnlocked}
+                                    disabled={isExtraExpired}
                                     className={cn(
                                         "group relative flex items-center gap-4 p-5 rounded-xl border-2 transition-all duration-300",
-                                        (isExtraExpired || !isExtraUnlocked)
+                                        isExtraExpired
                                             ? "border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/30 opacity-60 cursor-not-allowed"
                                             : "border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/30 hover:border-amber-400 dark:hover:border-amber-600 hover:bg-amber-100/80 dark:hover:bg-amber-900/40 cursor-pointer"
                                     )}
                                 >
                                     <div className={cn(
                                         "flex-shrink-0 w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform",
-                                        (isExtraExpired || !isExtraUnlocked) ? "bg-gray-400" : "bg-amber-500 group-hover:scale-110"
+                                        isExtraExpired ? "bg-gray-400" : "bg-amber-500 group-hover:scale-110"
                                     )}>
                                         <Check className="w-7 h-7 text-white" />
                                     </div>
                                     <div className="text-left flex-1">
-                                        <h3 className={cn("font-semibold text-lg", (isExtraExpired || !isExtraUnlocked) ? "text-gray-400" : "text-amber-700 dark:text-amber-300")}>
+                                        <h3 className={cn("font-semibold text-lg", isExtraExpired ? "text-gray-400" : "text-amber-700 dark:text-amber-300")}>
                                             {t('additionalPhotos')}
                                             {isExtraExpired && " ⏰"}
                                         </h3>
                                         <p className="text-sm text-muted-foreground">
                                             {isExtraExpired
                                                 ? t('linkExpired')
-                                                : !isExtraUnlocked
-                                                    ? t('extraPhotosLockedDesc')
-                                                    : t('extraPhotosDesc')}
+                                                : t('extraPhotosDesc')}
                                         </p>
                                     </div>
                                 </button>
