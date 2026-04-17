@@ -178,6 +178,8 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
     const lastExtraSyncedRef = useRef<string>('')
     const printSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const lastPrintSyncedRef = useRef<string>('')
+    const hasHydratedPrintSelectionsRef = useRef(false)
+    const hasUserModifiedPrintSelectionsRef = useRef(false)
     const reloadCooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const reloadCooldownEndsAtRef = useRef<number>(0)
     const lastReloadToastAtRef = useRef<number>(0)
@@ -422,6 +424,12 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
     }, [photos, viewMode])
 
     useEffect(() => {
+        hasHydratedPrintSelectionsRef.current = false
+        hasUserModifiedPrintSelectionsRef.current = false
+        lastPrintSyncedRef.current = ''
+    }, [config.projectId])
+
+    useEffect(() => {
         if (photos.length === 0) return
 
         const getNameNoExt = (name: string | undefined) => {
@@ -436,23 +444,32 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
         }
 
         if (hasExtraFeature && (config.extraSelectedPhotos?.length || 0) > 0 && extraSelected.length === 0) {
-            setExtraSelected(toPhotoIds(config.extraSelectedPhotos))
+            const lockedNames = new Set((config.lockedPhotos || []).map((name) => getNameNoExt(name)))
+            const restoredExtraIds = toPhotoIds(config.extraSelectedPhotos)
+                .filter((id) => {
+                    const photo = photos.find((p) => p.id === id)
+                    return photo ? !lockedNames.has(getNameNoExt(photo.name)) : true
+                })
+            setExtraSelected(restoredExtraIds)
         }
 
-        if (hasPrintFeature && config.printSelections && config.printSelections.length > 0) {
-            const hasExistingSelection = Object.values(printSelections).some((ids) => ids.length > 0)
-            if (!hasExistingSelection) {
-                const nextSelections: Record<string, string[]> = {}
-                config.printSizes?.forEach((size) => {
-                    const selectedNames = config.printSelections!
-                        .filter((selection) => selection.size === size.name)
-                        .map((selection) => selection.photo)
-                    nextSelections[size.name] = toPhotoIds(selectedNames)
-                })
-                setPrintSelections(nextSelections)
-            }
+        if (hasPrintFeature && !hasHydratedPrintSelectionsRef.current && !hasUserModifiedPrintSelectionsRef.current) {
+            const nextSelections: Record<string, string[]> = {}
+            config.printSizes?.forEach((size) => {
+                const selectedNames = (config.printSelections || [])
+                    .filter((selection) => selection.size === size.name)
+                    .map((selection) => selection.photo)
+                nextSelections[size.name] = toPhotoIds(selectedNames)
+            })
+
+            hasHydratedPrintSelectionsRef.current = true
+            lastPrintSyncedRef.current = JSON.stringify(Object.entries(nextSelections).map(([sizeName, ids]) => ({
+                sizeName,
+                photos: ids.map(id => getNameNoExt(photos.find(p => p.id === id)?.name)).filter(Boolean)
+            })))
+            setPrintSelections(nextSelections)
         }
-    }, [photos, config.extraSelectedPhotos, config.printSelections, config.printSizes, hasExtraFeature, hasPrintFeature, extraSelected.length, printSelections])
+    }, [photos, config.extraSelectedPhotos, config.lockedPhotos, config.printSelections, config.printSizes, hasExtraFeature, hasPrintFeature, extraSelected.length])
 
     // Debounced sync: auto-sync selections to server 2 seconds after last toggle
     // MUST be before early returns to maintain consistent hook order
@@ -507,9 +524,11 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
             if (!name) return ''
             return name.replace(/\.[^/.]+$/, '')
         }
+        const lockedNames = new Set((config.lockedPhotos || []).map((name) => getNameNoExt(name)))
 
         const selectedNames = extraSelected
             .map(id => getNameNoExt(photos.find(p => p.id === id)?.name))
+            .filter(name => !lockedNames.has(name))
             .filter(Boolean)
 
         const serialized = JSON.stringify(selectedNames)
@@ -536,7 +555,7 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
         return () => {
             if (syncTimerRef.current) clearTimeout(syncTimerRef.current)
         }
-    }, [extraSelected, viewMode, config.projectId, photos, activeFeature])
+    }, [extraSelected, viewMode, config.projectId, config.lockedPhotos, photos, activeFeature])
 
     // Debounced sync for PRINT selections: auto-sync to server 2 seconds after last toggle
     useEffect(() => {
@@ -969,18 +988,25 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
 
     // Get list of locked photo names (without extension for comparison)
     const lockedPhotoNames = config.lockedPhotos?.map(name => getNameWithoutExt(name)) || []
+    const shouldShowLockedPhotos = (isExtraMode || isLegacyExtraProject) && lockedPhotoNames.length > 0
 
     // Helper to check if a photo is locked
     const isPhotoLocked = (photo: Photo) => {
         const photoNameWithoutExt = getNameWithoutExt(photo.name)
         return lockedPhotoNames.includes(photoNameWithoutExt)
     }
+    const lockedPhotoIds = shouldShowLockedPhotos ? photos.filter(isPhotoLocked).map(photo => photo.id) : []
+    const formatLockedAndAdditionalList = (additionalPhotoNames: string[]) => {
+        const lockedList = lockedPhotoNames.join('\n')
+        const additionalList = additionalPhotoNames.join('\n')
+        return `=== ${t('previousPhotos')} (${lockedPhotoNames.length}) ===\n${lockedList}\n\n=== ${t('additionalPhotos')} (${additionalPhotoNames.length}) ===\n${additionalList}`
+    }
 
     const handleToggle = (id: string) => {
         const photo = photos.find(p => p.id === id)
 
         // Prevent unlocking locked photos
-        if (photo && isPhotoLocked(photo)) {
+        if (shouldShowLockedPhotos && photo && isPhotoLocked(photo)) {
             return
         }
 
@@ -989,6 +1015,8 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
             const sizeSelected = printSelections[activePrintSize] || []
             const quota = config.printSizes!.find(s => s.name === activePrintSize)?.quota || 0
             if (sizeSelected.includes(id)) {
+                hasHydratedPrintSelectionsRef.current = true
+                hasUserModifiedPrintSelectionsRef.current = true
                 setPrintSelections(prev => ({
                     ...prev,
                     [activePrintSize]: prev[activePrintSize].filter(x => x !== id)
@@ -999,6 +1027,8 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
                     setTimeout(() => setAlertMax(false), 1000)
                     return
                 }
+                hasHydratedPrintSelectionsRef.current = true
+                hasUserModifiedPrintSelectionsRef.current = true
                 setPrintSelections(prev => ({
                     ...prev,
                     [activePrintSize]: [...(prev[activePrintSize] || []), id]
@@ -1053,14 +1083,15 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
             })
             listText = parts.join('\n\n')
         } else if (isExtraMode) {
-            listText = extraSelected.map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name)).join('\n')
+            const extraPhotoNames = extraSelected
+                .map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name))
+                .filter(name => !lockedPhotoNames.includes(name || ''))
+            listText = shouldShowLockedPhotos ? formatLockedAndAdditionalList(extraPhotoNames) : extraPhotoNames.join('\n')
         } else if (isLegacyExtraProject) {
-            const lockedList = lockedPhotoNames.join('\n')
             const newPhotos = selected
                 .map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name))
                 .filter(name => !lockedPhotoNames.includes(name || ''))
-            const newList = newPhotos.join('\n')
-            listText = `=== ${t('previousPhotos')} (${lockedPhotoNames.length}) ===\n${lockedList}\n\n=== ${t('additionalPhotos')} (${newPhotos.length}) ===\n${newList}`
+            listText = formatLockedAndAdditionalList(newPhotos)
         } else {
             listText = selected.map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name)).join('\n')
         }
@@ -1120,15 +1151,16 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
             listText = parts.join('\n\n')
             totalCount = count
         } else if (isExtraMode) {
-            listText = extraSelected.map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name)).join('\n')
-            totalCount = extraSelected.length
+            const extraPhotoNames = extraSelected
+                .map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name))
+                .filter(name => !lockedPhotoNames.includes(name || ''))
+            listText = shouldShowLockedPhotos ? formatLockedAndAdditionalList(extraPhotoNames) : extraPhotoNames.join('\n')
+            totalCount = shouldShowLockedPhotos ? lockedPhotoNames.length + extraPhotoNames.length : extraPhotoNames.length
         } else if (isLegacyExtraProject) {
-            const lockedList = lockedPhotoNames.join('\n')
             const newPhotos = selected
                 .map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name))
                 .filter(name => !lockedPhotoNames.includes(name || ''))
-            const newList = newPhotos.join('\n')
-            listText = `=== ${t('previousPhotos')} (${lockedPhotoNames.length}) ===\n${lockedList}\n\n=== ${t('additionalPhotos')} (${newPhotos.length}) ===\n${newList}`
+            listText = formatLockedAndAdditionalList(newPhotos)
             totalCount = lockedPhotoNames.length + newPhotos.length
         } else {
             listText = selected.map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name)).join('\n')
@@ -1159,6 +1191,8 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
             // Clear all print selections (reset every size to empty)
             const cleared: Record<string, string[]> = {}
             config.printSizes!.forEach(s => { cleared[s.name] = [] })
+            hasHydratedPrintSelectionsRef.current = true
+            hasUserModifiedPrintSelectionsRef.current = true
             setPrintSelections(cleared)
         } else if (isExtraMode) {
             setExtraSelected([])
@@ -1643,7 +1677,7 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
                                                 ? `${activePrintSize}: ${currentSelected.length} / ${currentMaxPhotos} ${t('selected')} (${totalPrintSelected}/${totalPrintQuota} ${t('total')})`
                                                 : `${currentSelected.length} / ${currentMaxPhotos} ${t('selected')}`
                                             }
-                                            {isLegacyExtraProject && lockedPhotoNames.length > 0 && (
+                                            {shouldShowLockedPhotos && (
                                                 <span className="ml-2 text-amber-600 dark:text-amber-400">
                                                     🔒 {lockedPhotoNames.length} {t('lockedPhotosCount')}
                                                 </span>
@@ -1847,8 +1881,8 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
                     ) : (() => {
                         const activeSelectionIds = isExtraMode ? extraSelected : selected
                         const selectedPhotos = photos.filter(p => activeSelectionIds.includes(p.id))
-                        const hasLockedPhotos = isLegacyExtraProject && lockedPhotoNames.length > 0
-                        const lockedSelected = hasLockedPhotos ? selectedPhotos.filter(p => isPhotoLocked(p)) : []
+                        const hasLockedPhotos = shouldShowLockedPhotos
+                        const lockedSelected = hasLockedPhotos ? photos.filter(p => isPhotoLocked(p)) : []
                         const additionalSelectedPhotos = hasLockedPhotos ? selectedPhotos.filter(p => !isPhotoLocked(p)) : selectedPhotos
 
                         const renderPhotoGrid = (photoList: typeof photos, borderColor: string = 'border-primary') => (
@@ -1918,7 +1952,7 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
                     onToggle={handleToggle}
                     onZoom={handleZoom}
                     detectSubfolders={config.detectSubfolders}
-                    lockedPhotoNames={isLegacyExtraProject ? lockedPhotoNames : []}
+                    lockedPhotoNames={shouldShowLockedPhotos ? lockedPhotoNames : []}
                     headerPortalRef={photoGridHeaderRef}
                 />
             )}
@@ -1932,6 +1966,7 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
                 selectedIds={viewMode === 'download' ? downloadSelected : (isPrintMode ? (viewMode === 'review' ? allPrintSelectedIds : currentSelected) : (isExtraMode ? extraSelected : selected))}
                 onToggleSelect={viewMode === 'download' ? handleDownloadToggle : handleToggle}
                 maxPhotos={viewMode === 'download' ? Infinity : currentMaxPhotos}
+                lockedIds={viewMode === 'download' ? [] : lockedPhotoIds}
             />
 
             {/* Bottom Bar - Conditional based on viewMode */}

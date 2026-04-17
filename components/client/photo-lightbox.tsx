@@ -23,6 +23,7 @@ interface PhotoLightboxProps {
     selectedIds: string[]
     onToggleSelect: (id: string) => void
     maxPhotos: number
+    lockedIds?: string[]
 }
 
 type SlideDirection = 'left' | 'right' | 'none'
@@ -44,7 +45,8 @@ export function PhotoLightbox({
     onClose,
     selectedIds,
     onToggleSelect,
-    maxPhotos
+    maxPhotos,
+    lockedIds = []
 }: PhotoLightboxProps) {
     const t = useTranslations('Client')
     const [currentIndex, setCurrentIndex] = useState(initialIndex)
@@ -161,7 +163,8 @@ export function PhotoLightbox({
         }
     }, [currentIndex, showThumbs])
 
-    const isSelected = currentPhoto && selectedIds.includes(currentPhoto.id)
+    const isLocked = !!currentPhoto && lockedIds.includes(currentPhoto.id)
+    const isSelected = !!currentPhoto && (selectedIds.includes(currentPhoto.id) || isLocked)
     const canSelect = isSelected || selectedIds.length < maxPhotos
 
     // Two-phase swipe commit: animate to full offset, then change index
@@ -260,7 +263,7 @@ export function PhotoLightbox({
                 case 'Escape': onClose(); break
                 case ' ':
                     e.preventDefault()
-                    if (currentPhoto && (canSelect || isSelected)) onToggleSelect(currentPhoto.id)
+                    if (currentPhoto && !isLocked && (canSelect || isSelected)) onToggleSelect(currentPhoto.id)
                     break
                 case 't': case 'T': setShowThumbs(p => !p); break
                 case '1': toggle1to1(); break
@@ -268,7 +271,7 @@ export function PhotoLightbox({
         }
         window.addEventListener('keydown', handleKeyDown)
         return () => window.removeEventListener('keydown', handleKeyDown)
-    }, [isOpen, currentPhoto, canSelect, isSelected, onToggleSelect, goToPrev, goToNext, onClose, toggle1to1])
+    }, [isOpen, currentPhoto, canSelect, isSelected, isLocked, onToggleSelect, goToPrev, goToNext, onClose, toggle1to1])
 
     // ----- Mouse wheel -----
     useEffect(() => {
@@ -736,7 +739,7 @@ export function PhotoLightbox({
                                     }}
                                 >
                                     {photos.map((photo, idx) => {
-                                        const isThumbSelected = selectedIds.includes(photo.id)
+                                        const isThumbSelected = selectedIds.includes(photo.id) || lockedIds.includes(photo.id)
                                         const isActive = idx === currentIndex
                                         return (
                                             <button
@@ -780,16 +783,18 @@ export function PhotoLightbox({
                     <div className="px-3 py-2 pb-6 md:px-4 md:py-3 md:pb-3 flex flex-col items-center gap-1.5 bg-black/90 shrink-0">
                         <div className="flex items-center gap-4">
                             <Button
-                                onClick={() => canSelect && onToggleSelect(currentPhoto.id)}
-                                disabled={!canSelect && !isSelected}
+                                onClick={() => !isLocked && canSelect && onToggleSelect(currentPhoto.id)}
+                                disabled={isLocked || (!canSelect && !isSelected)}
                                 className={cn(
                                     "gap-2 px-6 cursor-pointer transition-all duration-200",
-                                    isSelected
+                                    isLocked
+                                        ? "bg-amber-600 text-white cursor-not-allowed opacity-90"
+                                        : isSelected
                                         ? "bg-green-600 hover:bg-green-700 text-white scale-105"
                                         : "bg-white/20 hover:bg-white/30 text-white"
                                 )}
                             >
-                                {isSelected ? <>✓ {t('photoSelected')}</> : <>{t('selectPhotoBtn')}</>}
+                                {isLocked ? <>🔒 {t('lockedPhoto')}</> : isSelected ? <>✓ {t('photoSelected')}</> : <>{t('selectPhotoBtn')}</>}
                             </Button>
                             <span className="text-white/70 text-sm">
                                 {maxPhotos === Infinity
