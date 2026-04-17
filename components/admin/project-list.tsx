@@ -1426,9 +1426,13 @@ export function ProjectList({
                                 const projectLinkLabel = isProjectLinkReady
                                     ? dynamicLink
                                     : (locale === 'id' ? 'Menyiapkan link...' : 'Preparing link...')
+                                const hasLegacyExtra = !project.extraEnabled && !!(project.lockedPhotos && project.lockedPhotos.length > 0)
+                                const hasExtraDisplay = !!project.extraEnabled || hasLegacyExtra
+                                const hasPrintDisplay = project.projectType === 'print' || !!(project.printEnabled && (project.printSizes || []).length > 0)
+                                const hasExtraAndPrint = hasExtraDisplay && hasPrintDisplay
                                 return (
                                     <motion.div key={project.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -100 }} transition={{ duration: 0.15 }} className="overflow-hidden max-w-full" draggable={!isSelectMode} onDragStart={(e) => handleDragStart(e as any, project.id)}>
-                                        <Card className={cn("overflow-hidden transition-all hover:shadow-md", expired && "opacity-60 border-destructive/30", isSelected && "border-primary bg-primary/5", !isSelected && !expired && project.projectType === 'print' && "border-purple-400 bg-purple-50/50 dark:bg-purple-950/20 dark:border-purple-600", !isSelected && !expired && project.projectType !== 'print' && project.lockedPhotos && project.lockedPhotos.length > 0 && "border-amber-400 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-600")}>
+                                        <Card className={cn("overflow-hidden transition-all hover:shadow-md", expired && "opacity-60 border-destructive/30", isSelected && "border-primary bg-primary/5", !isSelected && !expired && hasExtraAndPrint && "border-teal-400 bg-teal-50/50 dark:bg-teal-950/20 dark:border-teal-600", !isSelected && !expired && !hasExtraAndPrint && hasPrintDisplay && "border-purple-400 bg-purple-50/50 dark:bg-purple-950/20 dark:border-purple-600", !isSelected && !expired && !hasExtraAndPrint && hasExtraDisplay && "border-amber-400 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-600")}>
                                             <CardContent className="p-4 overflow-hidden">
                                                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 w-full overflow-hidden">
                                                     {isSelectMode && (
@@ -1440,7 +1444,7 @@ export function ProjectList({
                                                         <div className="flex items-center gap-2 overflow-hidden">
                                                             <Users className="h-4 w-4 text-muted-foreground shrink-0" />
                                                             <h4 className="font-semibold truncate flex-1 min-w-0 cursor-pointer hover:text-primary hover:underline transition-colors" onClick={() => onEditProject(project)} title={`Edit ${project.clientName}`}>{project.clientName}</h4>
-                                                            {project.lockedPhotos && project.lockedPhotos.length > 0 && (
+                                                            {hasLegacyExtra && (
                                                                 <span className="text-xs bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded shrink-0">📷 {t('extraPhotosBadge')}</span>
                                                             )}
                                                             {project.extraEnabled && (

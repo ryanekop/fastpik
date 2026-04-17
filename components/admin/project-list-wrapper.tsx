@@ -8,13 +8,14 @@ import { ImportProjectForm } from "@/components/admin/import-project-form"
 import { BatchModeForm } from "@/components/admin/batch-mode-form"
 import { BatchProjectDialog } from "@/components/admin/batch-project-dialog"
 import { ClientStatusTab } from "@/components/admin/client-status-tab"
+import { ClientExtraStatusTab } from "@/components/admin/client-extra-status-tab"
 import { ClientPrintStatusTab } from "@/components/admin/client-print-status-tab"
 import type { Project } from "@/lib/project-store"
 import type { Folder } from "@/lib/supabase/folders"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useTranslations } from "next-intl"
 import { cn } from "@/lib/utils"
-import { LayoutList, Eye, Printer } from "lucide-react"
+import { LayoutList, Eye, Printer, ImagePlus } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 interface ProjectListWrapperProps {
     initialProjects: Project[]
@@ -42,7 +43,7 @@ export function ProjectListWrapper({ initialProjects, initialFolders }: ProjectL
     const [view, setView] = useState<'list' | 'create' | 'edit' | 'import' | 'batch'>('list')
     const [editingProject, setEditingProject] = useState<Project | null>(null)
     const [showBatchDialog, setShowBatchDialog] = useState(false)
-    const [activeTab, setActiveTab] = useState<'projects' | 'status' | 'print-status'>('projects')
+    const [activeTab, setActiveTab] = useState<'projects' | 'status' | 'extra-status' | 'print-status'>('projects')
     const [printEnabled, setPrintEnabled] = useState(false)
     const focusFeature = (() => {
         const raw = (searchParams.get('focus') || '').trim()
@@ -199,8 +200,15 @@ export function ProjectListWrapper({ initialProjects, initialFolders }: ProjectL
 
     // Count active selections (in_progress)
     const activeSelections = projects.filter(p =>
-        p.selectionStatus === 'in_progress' && p.projectType !== 'print'
+        p.selectionStatus === 'in_progress' && p.projectType !== 'print' && (p.extraEnabled || (p.lockedPhotos || []).length === 0)
     ).length
+
+    const isLegacyExtraProject = (p: Project) => !p.extraEnabled && p.projectType !== 'print' && (p.lockedPhotos || []).length > 0
+    const activeExtraSelections = projects.filter(p => {
+        if (!p.extraEnabled && !isLegacyExtraProject(p)) return false
+        const status = p.extraEnabled ? p.extraStatus : p.selectionStatus
+        return status === 'in_progress' || status === 'submitted'
+    }).length
 
     // Count active print selections (in_progress or submitted)
     const activePrintSelections = projects.filter(p =>
@@ -252,6 +260,26 @@ export function ProjectListWrapper({ initialProjects, initialFolders }: ProjectL
                         <motion.div layoutId="tab-indicator" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
                     )}
                 </button>
+                <button
+                    onClick={() => { if (view === 'list') setActiveTab('extra-status') }}
+                    className={cn(
+                        "px-4 py-2.5 text-sm font-medium transition-colors relative cursor-pointer flex items-center gap-2 whitespace-nowrap",
+                        activeTab === 'extra-status'
+                            ? "text-primary"
+                            : "text-muted-foreground hover:text-foreground"
+                    )}
+                >
+                    <ImagePlus className="h-4 w-4" />
+                    {t('tabClientExtraStatus')}
+                    {activeExtraSelections > 0 && (
+                        <span className="inline-flex items-center justify-center h-5 min-w-5 px-1.5 text-xs font-bold bg-amber-500 text-white rounded-full">
+                            {activeExtraSelections}
+                        </span>
+                    )}
+                    {activeTab === 'extra-status' && (
+                        <motion.div layoutId="tab-indicator" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+                    )}
+                </button>
                 {printEnabled && (
                     <button
                         onClick={() => { if (view === 'list') setActiveTab('print-status') }}
@@ -285,6 +313,16 @@ export function ProjectListWrapper({ initialProjects, initialFolders }: ProjectL
                         transition={{ duration: 0.15 }}
                     >
                         <ClientPrintStatusTab projects={projects} folders={folders} onProjectsChanged={setProjects} />
+                    </motion.div>
+                ) : view === 'list' && activeTab === 'extra-status' ? (
+                    <motion.div
+                        key="extra-status"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{ duration: 0.15 }}
+                    >
+                        <ClientExtraStatusTab projects={projects} folders={folders} onProjectsChanged={setProjects} />
                     </motion.div>
                 ) : view === 'list' && activeTab === 'status' ? (
                     <motion.div
