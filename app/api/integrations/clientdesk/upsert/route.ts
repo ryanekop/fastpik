@@ -288,6 +288,8 @@ export async function POST(request: NextRequest) {
                 detect_subfolders: defaultDetectSubfolders,
                 expires_at: expiresAt,
                 download_expires_at: downloadExpiresAt,
+                selection_enabled: true,
+                download_enabled: true,
                 created_at: createdAtIso,
                 link,
                 folder_id: null,

@@ -99,6 +99,8 @@ export async function updateProject(id: string, updates: Partial<Project>) {
     if (updates.detectSubfolders !== undefined) dbUpdates.detect_subfolders = updates.detectSubfolders
     if (updates.expiresAt !== undefined) dbUpdates.expires_at = updates.expiresAt ? new Date(updates.expiresAt).toISOString() : null
     if (updates.downloadExpiresAt !== undefined) dbUpdates.download_expires_at = updates.downloadExpiresAt ? new Date(updates.downloadExpiresAt).toISOString() : null
+    if (updates.selectionEnabled !== undefined) dbUpdates.selection_enabled = updates.selectionEnabled
+    if (updates.downloadEnabled !== undefined) dbUpdates.download_enabled = updates.downloadEnabled
     if (updates.link) dbUpdates.link = updates.link
     if (updates.lockedPhotos) dbUpdates.locked_photos = updates.lockedPhotos
     if (updates.extraEnabled !== undefined) dbUpdates.extra_enabled = updates.extraEnabled
@@ -167,6 +169,8 @@ function transformProjectFromDB(db: any): Project {
         detectSubfolders: db.detect_subfolders,
         expiresAt: db.expires_at ? new Date(db.expires_at).getTime() : undefined,
         downloadExpiresAt: db.download_expires_at ? new Date(db.download_expires_at).getTime() : undefined,
+        selectionEnabled: db.selection_enabled !== false,
+        downloadEnabled: db.download_enabled !== false,
         createdAt: new Date(db.created_at).getTime(),
         link: db.link,
         lockedPhotos: db.locked_photos || [],
@@ -209,6 +213,8 @@ function transformProjectToDB(project: Project, userId: string) {
         detect_subfolders: project.detectSubfolders,
         expires_at: project.expiresAt ? new Date(project.expiresAt).toISOString() : null,
         download_expires_at: project.downloadExpiresAt ? new Date(project.downloadExpiresAt).toISOString() : null,
+        selection_enabled: project.selectionEnabled !== false,
+        download_enabled: project.downloadEnabled !== false,
         created_at: new Date(project.createdAt).toISOString(),
         link: project.link,
         locked_photos: project.lockedPhotos || [],

@@ -15,7 +15,7 @@ import { AdminShell } from "@/components/admin/admin-shell"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { MessageTemplateEditor } from "@/components/admin/message-template-editor"
 import { Switch } from "@/components/ui/switch"
-import { PopupDialog } from "@/components/ui/popup-dialog"
+import { PopupDialog, Toast } from "@/components/ui/popup-dialog"
 import type { PrintTemplate } from "@/lib/supabase/settings"
 import { useTenant } from "@/lib/tenant-context"
 import { shouldHideTenantBranding } from "@/lib/tenant-branding"
@@ -106,6 +106,11 @@ export default function SettingsPage() {
     const [saving, setSaving] = useState(false)
     const [success, setSuccess] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const [toast, setToast] = useState<{ open: boolean; message: string; type: 'info' | 'success' | 'warning' | 'danger' }>({ open: false, message: "", type: "success" })
+
+    const showAdminToast = (message: string, type: 'info' | 'success' | 'warning' | 'danger' = 'success') => {
+        setToast({ open: true, message, type })
+    }
 
     const loadSettings = useCallback(async () => {
         try {
@@ -244,9 +249,12 @@ export default function SettingsPage() {
             if (upsertError) throw upsertError
 
             setSuccess(true)
+            showAdminToast(t('settingsSaved'), 'success')
             setTimeout(() => setSuccess(false), 3000)
         } catch (err: unknown) {
-            setError(getErrorMessage(err, "Failed to save settings"))
+            const message = getErrorMessage(err, t('saveFailed'))
+            setError(message)
+            showAdminToast(message, 'danger')
         } finally {
             setSaving(false)
         }
@@ -300,10 +308,13 @@ export default function SettingsPage() {
             setClientDeskIntegrationEnabled(true)
             setGeneratedClientDeskApiKey(fullKey)
             setSuccess(true)
+            showAdminToast(t('settingsSaved'), 'success')
             setTimeout(() => setSuccess(false), 3000)
         } catch (err: unknown) {
             console.error('Failed to generate ClientDesk API key:', err)
-            setError(getErrorMessage(err, "Failed to generate API key"))
+            const message = getErrorMessage(err, "Failed to generate API key")
+            setError(message)
+            showAdminToast(message, 'danger')
         } finally {
             setGeneratingClientDeskApiKey(false)
         }
@@ -314,9 +325,11 @@ export default function SettingsPage() {
         try {
             await navigator.clipboard.writeText(generatedClientDeskApiKey)
             setClientDeskApiKeyCopied(true)
+            showAdminToast(t('copySuccess'), 'success')
             setTimeout(() => setClientDeskApiKeyCopied(false), 2000)
         } catch {
             setClientDeskApiKeyCopied(false)
+            showAdminToast(t('copyFailed'), 'danger')
         }
     }
 
@@ -362,6 +375,7 @@ export default function SettingsPage() {
 
     return (
         <AdminShell>
+            <Toast isOpen={toast.open} message={toast.message} type={toast.type} position="top-right" duration={1800} onClose={() => setToast((current) => ({ ...current, open: false }))} />
             <div className="max-w-4xl mx-auto pb-10">
                 <div className="mb-6 flex items-center justify-between">
                     <Link href={`/${locale}/dashboard`} className="inline-flex items-center text-sm text-muted-foreground hover:text-primary">
@@ -914,6 +928,7 @@ export default function SettingsPage() {
                                         { key: "password", label: t('varPassword') },
                                         { key: "duration", label: t('varDuration') },
                                         { key: "download_duration", label: t('varDownloadDuration') },
+                                        { key: "print_sizes", label: t('varPrintSizes') },
                                         { key: "print_duration", label: t('varPrintDuration') }
                                     ]}
                                     value={tmplLinkInitial}

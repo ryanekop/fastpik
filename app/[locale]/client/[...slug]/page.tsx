@@ -23,6 +23,8 @@ type RawClientConfig = {
     detectSubfolders?: boolean
     expiresAt?: number
     downloadExpiresAt?: number
+    selectionEnabled?: boolean
+    downloadEnabled?: boolean
     password?: string
     lockedPhotos?: string[]
     selectionStatus?: string
@@ -331,6 +333,8 @@ export default async function ClientPage({ params }: { params: Promise<ClientPag
         detectSubfolders: Boolean(safeConfig.detectSubfolders),
         expiresAt: toOptionalNumber(safeConfig.expiresAt),
         downloadExpiresAt: toOptionalNumber(safeConfig.downloadExpiresAt),
+        selectionEnabled: safeConfig.selectionEnabled !== false,
+        downloadEnabled: safeConfig.downloadEnabled !== false,
         lockedPhotos: toStringArray(safeConfig.lockedPhotos),
         selectionStatus: typeof safeConfig.selectionStatus === "string" ? safeConfig.selectionStatus : undefined,
         extraEnabled: typeof safeConfig.extraEnabled === "boolean" ? safeConfig.extraEnabled : undefined,

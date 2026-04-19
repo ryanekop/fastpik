@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS projects (
   password TEXT,
   detect_subfolders BOOLEAN DEFAULT false,
   expires_at TIMESTAMPTZ,
+  selection_enabled BOOLEAN DEFAULT true,
+  download_enabled BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   link TEXT NOT NULL,
   locked_photos TEXT[] DEFAULT '{}',

@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { Card, CardContent } from "@/components/ui/card"
 import { PhoneInput } from "@/components/ui/phone-input"
+import { Toast } from "@/components/ui/popup-dialog"
 import { generateShortId, type Project } from "@/lib/project-store"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
@@ -29,6 +30,8 @@ type FormValues = {
     detectSubfolders: boolean
     expiryDays: string
     downloadExpiryDays: string
+    selectionEnabled: boolean
+    downloadEnabled: boolean
     extraEnabled: boolean
     extraMaxPhotos: string
     extraExpiryDays: string
@@ -53,6 +56,8 @@ const formSchema = z.object({
     detectSubfolders: z.boolean(),
     expiryDays: z.string(),
     downloadExpiryDays: z.string(),
+    selectionEnabled: z.boolean(),
+    downloadEnabled: z.boolean(),
     extraEnabled: z.boolean(),
     extraMaxPhotos: z.string(),
     extraExpiryDays: z.string(),
@@ -116,6 +121,8 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
             detectSubfolders: editProject?.detectSubfolders || false,
             expiryDays: isEditing ? "__keep__" : "",
             downloadExpiryDays: isEditing ? "__keep__" : "",
+            selectionEnabled: editProject?.selectionEnabled !== false,
+            downloadEnabled: editProject?.downloadEnabled !== false,
             extraEnabled: editProject?.extraEnabled || false,
             extraMaxPhotos: editProject?.extraMaxPhotos?.toString() || "",
             extraExpiryDays: isEditing ? "__keep__" : "",
@@ -312,6 +319,11 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
 
     const [error, setError] = useState<string | null>(null)
     const [upgradeRequired, setUpgradeRequired] = useState(false)
+    const [toast, setToast] = useState<{ open: boolean; message: string; type: 'info' | 'success' | 'warning' | 'danger' }>({ open: false, message: "", type: "success" })
+
+    const showAdminToast = (message: string, type: 'info' | 'success' | 'warning' | 'danger' = 'success') => {
+        setToast({ open: true, message, type })
+    }
 
     async function onSubmit(values: FormValues) {
         setIsSubmitting(true)
@@ -322,9 +334,16 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
             const lockedPhotosArray = values.lockedPhotos.split('\n').map(l => l.trim()).filter(l => l.length > 0)
             const extraMaxPhotosNum = values.extraEnabled ? (parseInt(values.extraMaxPhotos) || 0) : 0
             const printSizes = values.printEnabled ? parsePrintSizes(values.printSizes) : []
+            const effectivePrintEnabled = values.printEnabled && globalPrintEnabled
+            if (!values.selectionEnabled && !values.downloadEnabled && !values.extraEnabled && !effectivePrintEnabled) {
+                setError(t('clientFeatureRequired'))
+                showAdminToast(t('clientFeatureRequired'), 'danger')
+                return
+            }
             if (values.printEnabled && globalPrintEnabled && printSizes.length === 0) {
                 form.setError('printSizes', { message: t('printSizesRequired') })
                 setError(t('printSizesRequired'))
+                showAdminToast(t('printSizesRequired'), 'danger')
                 return
             }
 
@@ -346,11 +365,13 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
                 maxPhotos: maxPhotosNum,
                 password: values.password,
                 detectSubfolders: values.detectSubfolders,
+                selectionEnabled: values.selectionEnabled,
+                downloadEnabled: values.downloadEnabled,
                 lockedPhotos: lockedPhotosArray.length > 0 ? lockedPhotosArray : undefined,
                 extraEnabled: values.extraEnabled,
                 extraMaxPhotos: values.extraEnabled ? extraMaxPhotosNum : null,
-                printEnabled: values.printEnabled && globalPrintEnabled,
-                printSizes: values.printEnabled && globalPrintEnabled ? printSizes : [],
+                printEnabled: effectivePrintEnabled,
+                printSizes: effectivePrintEnabled ? printSizes : [],
                 createdAt: isEditing && editProject ? editProject.createdAt : Date.now(),
                 link: link,
                 folderId: isEditing && editProject ? editProject.folderId : (currentFolderId || null)
@@ -370,7 +391,7 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
                 projectPayload.extraExpiresAt = extraExpiryDaysNum ? Date.now() + (extraExpiryDaysNum * 24 * 60 * 60 * 1000) : null
             }
             if (values.printExpiryDays !== '__keep__') {
-                const printExpiryDaysNum = values.printEnabled && values.printExpiryDays ? parseInt(values.printExpiryDays) : undefined
+                const printExpiryDaysNum = effectivePrintEnabled && values.printExpiryDays ? parseInt(values.printExpiryDays) : undefined
                 projectPayload.printExpiresAt = printExpiryDaysNum ? Date.now() + (printExpiryDaysNum * 24 * 60 * 60 * 1000) : null
             }
 
@@ -380,6 +401,7 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
             if (isEditing && editProject) {
                 const res = await fetch(`/api/projects/${editProject.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(projectPayload) })
                 if (!res.ok) throw new Error("Failed to update project")
+                showAdminToast(t('saveSuccess'), 'success')
                 onEditComplete?.()
             } else {
                 const res = await fetch('/api/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(projectPayload) })
@@ -392,6 +414,7 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
                     if (res.status === 403 && errorData.upgradeRequired) {
                         setError(errorData.message)
                         setUpgradeRequired(true)
+                        showAdminToast(errorData.message, 'danger')
                         return
                     }
                     throw new Error(errorData.message || "Failed to create project")
@@ -400,33 +423,58 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
                 setCurrentProject(savedProject)
                 onProjectCreated?.(savedProject)
                 setGeneratedLink(link)
+                showAdminToast(t('saveSuccess'), 'success')
                 import('@/lib/cache').then(({ preloadProjectPhotos }) => { preloadProjectPhotos(values.gdriveLink, values.detectSubfolders, 2000) })
             }
         } catch (error: any) {
             console.error(error)
-            setError(error.message || 'Terjadi kesalahan')
+            const message = error.message || t('saveFailed')
+            setError(message)
+            showAdminToast(message, 'danger')
         } finally {
             setIsSubmitting(false)
         }
     }
 
-    const copyToClipboard = () => {
-        if (!generatedLink) return
-        if (navigator.clipboard && window.isSecureContext) {
-            navigator.clipboard.writeText(generatedLink)
-            setCopied(true)
-            setTimeout(() => setCopied(false), 2000)
-        } else {
+    const copyText = (text: string, onCopied: () => void) => {
+        if (!text) {
+            showAdminToast(t('copyFailed'), 'danger')
+            return
+        }
+        const fallbackCopy = () => {
             const textArea = document.createElement("textarea")
-            textArea.value = generatedLink
+            textArea.value = text
             textArea.style.position = "fixed"
             textArea.style.left = "-9999px"
             document.body.appendChild(textArea)
             textArea.focus()
             textArea.select()
-            try { document.execCommand('copy'); setCopied(true); setTimeout(() => setCopied(false), 2000) } catch (err) { console.error('Failed to copy', err) }
-            document.body.removeChild(textArea)
+            try {
+                const copied = document.execCommand('copy')
+                if (!copied) throw new Error('Copy command failed')
+                onCopied()
+            } catch (err) {
+                console.error('Failed to copy', err)
+                showAdminToast(t('copyFailed'), 'danger')
+            } finally {
+                document.body.removeChild(textArea)
+            }
         }
+
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(text).then(onCopied).catch(fallbackCopy)
+        } else {
+            fallbackCopy()
+        }
+    }
+
+    const copyToClipboard = () => {
+        if (!generatedLink) return
+        copyText(generatedLink, () => {
+            setCopied(true)
+            showAdminToast(t('linkCopied'), 'success')
+            setTimeout(() => setCopied(false), 2000)
+        })
     }
 
     // Compile message using template (same logic as project-list)
@@ -452,7 +500,8 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
             client_name: currentProject.clientName,
             link: generatedLink,
             count: currentProject.maxPhotos.toString(),
-            max_photos: currentProject.maxPhotos.toString()
+            max_photos: currentProject.maxPhotos.toString(),
+            print_sizes: (currentProject.printSizes || []).map((size) => `${size.name}×${size.quota}`).join(', ')
         }
 
         if (currentProject.password) {
@@ -478,6 +527,16 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
                 else variables.download_duration = t('lessThanHour')
             }
         }
+        if (currentProject.printExpiresAt) {
+            const diff = currentProject.printExpiresAt - Date.now()
+            if (diff > 0) {
+                const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+                if (days > 0) variables.print_duration = `${days} ${t('days')}`
+                else if (hours > 0) variables.print_duration = `${hours} ${t('hours')}`
+                else variables.print_duration = t('lessThanHour')
+            }
+        }
 
         // Try custom template first
         const compiledMessage = compileMessage(initialTemplate, variables)
@@ -494,6 +553,9 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
         if (variables.download_duration) {
             message += `\n📥 ${t('downloadValidFor')}: ${variables.download_duration}`
         }
+        if (variables.print_duration) {
+            message += `\n🖨️ ${t('printDuration')}: ${variables.print_duration}`
+        }
         return message
     }
 
@@ -507,28 +569,18 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
     const copyTemplate = () => {
         if (generatedLink && currentProject) {
             const message = buildClientMessage()
-            if (navigator.clipboard && window.isSecureContext) {
-                navigator.clipboard.writeText(message)
+            copyText(message, () => {
                 setCopiedTemplate(true)
+                showAdminToast(t('templateCopied'), 'success')
                 setTimeout(() => setCopiedTemplate(false), 2000)
-            } else {
-                const textArea = document.createElement("textarea")
-                textArea.value = message
-                textArea.style.position = "fixed"
-                textArea.style.left = "-9999px"
-                document.body.appendChild(textArea)
-                textArea.focus()
-                textArea.select()
-                try { document.execCommand('copy'); setCopiedTemplate(true); setTimeout(() => setCopiedTemplate(false), 2000) } catch (err) { console.error('Failed to copy', err) }
-                document.body.removeChild(textArea)
-            }
+            })
         }
     }
 
     const createNewProject = () => {
         setGeneratedLink(null)
         setCurrentProject(null)
-        form.reset({ clientName: "", gdriveLink: "", clientWhatsapp: "", adminWhatsapp: "", countryCode: "ID", maxPhotos: "", password: "", detectSubfolders: false, expiryDays: "", downloadExpiryDays: "", extraEnabled: false, extraMaxPhotos: "", extraExpiryDays: "", printEnabled: false, printSizes: "", printExpiryDays: "", lockedPhotos: "" })
+        form.reset({ clientName: "", gdriveLink: "", clientWhatsapp: "", adminWhatsapp: "", countryCode: "ID", maxPhotos: "", password: "", detectSubfolders: false, expiryDays: "", downloadExpiryDays: "", selectionEnabled: true, downloadEnabled: true, extraEnabled: false, extraMaxPhotos: "", extraExpiryDays: "", printEnabled: false, printSizes: "", printExpiryDays: "", lockedPhotos: "" })
         setSelectedPrintTemplateIdx(printTemplates.length === 0 ? 'custom' : -1)
         // Re-fetch settings so vendor slug and admin WA are fresh from DB
         loadProjectSettings({ applyDefaults: true })
@@ -580,9 +632,40 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
         }
     }
 
+    const selectionEnabled = form.watch('selectionEnabled')
+    const downloadEnabled = form.watch('downloadEnabled')
     const extraEnabled = form.watch('extraEnabled')
     const printEnabled = form.watch('printEnabled')
     const printSizesValue = form.watch('printSizes')
+    const selectedPrintTemplateName = typeof selectedPrintTemplateIdx === 'number' && selectedPrintTemplateIdx >= 0
+        ? printTemplates[selectedPrintTemplateIdx]?.name || null
+        : null
+    const selectionTone = {
+        active: "border-green-200 bg-green-50/50 dark:border-green-800 dark:bg-green-950/30",
+        idle: "border-green-200 bg-green-50/50 dark:border-green-800 dark:bg-green-950/30",
+        title: "text-green-800 dark:text-green-200",
+    }
+    const downloadTone = {
+        active: "border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/30",
+        idle: "border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/30",
+        title: "text-blue-800 dark:text-blue-200",
+    }
+    const extraTone = {
+        active: "border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/30",
+        idle: "border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/30",
+        divider: "border-amber-200/70 dark:border-amber-800/60",
+        helper: "border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/30",
+        title: "text-amber-700 dark:text-amber-300",
+        highlight: "ring-2 ring-amber-400 bg-amber-50/70 dark:bg-amber-950/35",
+    }
+    const printTone = {
+        active: "border-purple-200 bg-purple-50/50 dark:border-purple-800 dark:bg-purple-950/30",
+        idle: "border-purple-200 bg-purple-50/50 dark:border-purple-800 dark:bg-purple-950/30",
+        divider: "border-purple-200/70 dark:border-purple-800/60",
+        helper: "border-purple-200 bg-purple-50/50 dark:border-purple-800 dark:bg-purple-950/30",
+        title: "text-purple-700 dark:text-purple-300",
+        highlight: "ring-2 ring-purple-400 bg-purple-50/70 dark:bg-purple-950/35",
+    }
 
     const confirmCustomExpiry = () => {
         const months = parseInt(customMonths) || 0
@@ -601,6 +684,7 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
 
     return (
         <div className="w-full">
+            <Toast isOpen={toast.open} message={toast.message} type={toast.type} position="top-right" duration={1800} onClose={() => setToast((current) => ({ ...current, open: false }))} />
             {onBack && (<Button variant="ghost" onClick={onBack} className="mb-4 gap-2 cursor-pointer"><ArrowLeft className="h-4 w-4" />{t('backToList')}</Button>)}
             <h2 className="text-xl font-semibold mb-4">{isEditing ? `✏️ ${t('editProject')}` : t('createNew')}</h2>
             <Form {...form}>
@@ -625,80 +709,146 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
                     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.3 }}>
                         <FormField control={form.control} name="maxPhotos" render={({ field }) => (<FormItem><FormLabel>📸 {t('maxPhotos')}</FormLabel><FormControl><Input type="number" min="1" placeholder="5" autoComplete="off" {...field} /></FormControl><FormMessage /></FormItem>)} />
                     </motion.div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.33 }}>
-                            <FormField control={form.control} name="expiryDays" render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>⏰ {t('selectionDuration')}</FormLabel>
-                                    <FormControl>
-                                        <div className="relative">
-                                            {customExpiryLabel && (
-                                                <div className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer" onClick={() => { setCustomExpiryTarget('expiryDays'); setCustomMonths(''); setCustomDays(''); setShowCustomExpiryDialog(true) }}>
-                                                    <span>✏️ {customExpiryLabel}</span>
-                                                    <button type="button" className="text-muted-foreground hover:text-foreground ml-2" onClick={(e) => { e.stopPropagation(); form.setValue('expiryDays', ''); setCustomExpiryLabel(null) }}>✕</button>
-                                                </div>
-                                            )}
-                                            <select className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer ${customExpiryLabel ? 'hidden' : ''}`} value={customExpiryLabel ? 'custom' : field.value} onChange={(e) => handleExpiryChange(e.target.value, 'expiryDays')}>
-                                                {isEditing && <option value="__keep__">{getKeepLabel('expiryDays')}</option>}
-                                                {expiryOptions.filter(o => o.value !== '__keep__').map(opt => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
-                                            </select>
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.32 }} className="rounded-xl border p-4 space-y-4">
+                        <div>
+                            <p className="text-sm font-semibold">🔗 {t('mainClientLinkMenu')}</p>
+                            <p className="text-xs text-muted-foreground">{t('mainClientLinkMenuHint')}</p>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <FormField
+                                control={form.control}
+                                name="selectionEnabled"
+                                render={({ field }) => (
+                                    <FormItem
+                                        className={cn(
+                                            "flex flex-row items-center justify-between rounded-lg border p-3 transition-colors",
+                                            selectionEnabled ? selectionTone.active : selectionTone.idle
+                                        )}
+                                    >
+                                        <div className="space-y-0.5">
+                                            <FormLabel className={cn(selectionTone.title, selectionEnabled && "font-semibold")}>📸 {t('selectPhotos')}</FormLabel>
+                                            <p className="text-xs text-muted-foreground">{t('selectPhotosFeatureHint')}</p>
                                         </div>
-                                    </FormControl>
-                                    {isEditing && editProject?.expiresAt && remainingDays !== null && (<p className="text-xs text-muted-foreground mt-1">⏳ {t('remainingTime')}: {remainingDays} {t('days')}</p>)}
-                                    <FormMessage />
-                                </FormItem>
-                            )} />
-                        </motion.div>
-                        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.35 }}>
-                            <FormField control={form.control} name="downloadExpiryDays" render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>📥 {t('downloadDuration')}</FormLabel>
-                                    <FormControl>
-                                        <div className="relative">
-                                            {customDownloadExpiryLabel && (
-                                                <div className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer" onClick={() => { setCustomExpiryTarget('downloadExpiryDays'); setCustomMonths(''); setCustomDays(''); setShowCustomExpiryDialog(true) }}>
-                                                    <span>✏️ {customDownloadExpiryLabel}</span>
-                                                    <button type="button" className="text-muted-foreground hover:text-foreground ml-2" onClick={(e) => { e.stopPropagation(); form.setValue('downloadExpiryDays', ''); setCustomDownloadExpiryLabel(null) }}>✕</button>
-                                                </div>
-                                            )}
-                                            <select className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer ${customDownloadExpiryLabel ? 'hidden' : ''}`} value={customDownloadExpiryLabel ? 'custom' : field.value} onChange={(e) => handleExpiryChange(e.target.value, 'downloadExpiryDays')}>
-                                                {isEditing && <option value="__keep__">{getKeepLabel('downloadExpiryDays')}</option>}
-                                                {expiryOptions.filter(o => o.value !== '__keep__').map(opt => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
-                                            </select>
+                                        <FormControl>
+                                            <Switch checked={field.value} onCheckedChange={field.onChange} className="cursor-pointer" />
+                                        </FormControl>
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="downloadEnabled"
+                                render={({ field }) => (
+                                    <FormItem
+                                        className={cn(
+                                            "flex flex-row items-center justify-between rounded-lg border p-3 transition-colors",
+                                            downloadEnabled ? downloadTone.active : downloadTone.idle
+                                        )}
+                                    >
+                                        <div className="space-y-0.5">
+                                            <FormLabel className={cn(downloadTone.title, downloadEnabled && "font-semibold")}>📥 {t('downloadPhotos')}</FormLabel>
+                                            <p className="text-xs text-muted-foreground">{t('downloadPhotosFeatureHint')}</p>
                                         </div>
-                                    </FormControl>
-                                    {isEditing && editProject?.downloadExpiresAt && remainingDownloadDays !== null && (<p className="text-xs text-muted-foreground mt-1">⏳ {t('remainingTime')}: {remainingDownloadDays} {t('days')}</p>)}
-                                    <FormMessage />
-                                </FormItem>
-                            )} />
-                        </motion.div>
-                    </div>
+                                        <FormControl>
+                                            <Switch checked={field.value} onCheckedChange={field.onChange} className="cursor-pointer" />
+                                        </FormControl>
+                                    </FormItem>
+                                )}
+                            />
+                        </div>
+                    </motion.div>
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.34 }} className="rounded-xl border p-4 space-y-4">
+                        <div>
+                            <p className="text-sm font-semibold">⏰ {t('mainMenuDurationTitle')}</p>
+                            <p className="text-xs text-muted-foreground">{t('mainMenuDurationHint')}</p>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div
+                                className={cn(
+                                    "rounded-lg border p-3 transition-colors",
+                                    selectionEnabled ? selectionTone.active : selectionTone.idle
+                                )}
+                            >
+                                <FormField control={form.control} name="expiryDays" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className={cn(selectionTone.title, selectionEnabled && "font-semibold")}>⏰ {t('selectionDuration')}</FormLabel>
+                                        <FormControl>
+                                            <div className="relative">
+                                                {customExpiryLabel && (
+                                                    <div className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer" onClick={() => { setCustomExpiryTarget('expiryDays'); setCustomMonths(''); setCustomDays(''); setShowCustomExpiryDialog(true) }}>
+                                                        <span>✏️ {customExpiryLabel}</span>
+                                                        <button type="button" className="text-muted-foreground hover:text-foreground ml-2" onClick={(e) => { e.stopPropagation(); form.setValue('expiryDays', ''); setCustomExpiryLabel(null) }}>✕</button>
+                                                    </div>
+                                                )}
+                                                <select className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer ${customExpiryLabel ? 'hidden' : ''}`} value={customExpiryLabel ? 'custom' : field.value} onChange={(e) => handleExpiryChange(e.target.value, 'expiryDays')}>
+                                                    {isEditing && <option value="__keep__">{getKeepLabel('expiryDays')}</option>}
+                                                    {expiryOptions.filter(o => o.value !== '__keep__').map(opt => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
+                                                </select>
+                                            </div>
+                                        </FormControl>
+                                        {isEditing && editProject?.expiresAt && remainingDays !== null && (<p className="text-xs text-muted-foreground mt-1">⏳ {t('remainingTime')}: {remainingDays} {t('days')}</p>)}
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                            </div>
+                            <div
+                                className={cn(
+                                    "rounded-lg border p-3 transition-colors",
+                                    downloadEnabled ? downloadTone.active : downloadTone.idle
+                                )}
+                            >
+                                <FormField control={form.control} name="downloadExpiryDays" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className={cn(downloadTone.title, downloadEnabled && "font-semibold")}>📥 {t('downloadDuration')}</FormLabel>
+                                        <FormControl>
+                                            <div className="relative">
+                                                {customDownloadExpiryLabel && (
+                                                    <div className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer" onClick={() => { setCustomExpiryTarget('downloadExpiryDays'); setCustomMonths(''); setCustomDays(''); setShowCustomExpiryDialog(true) }}>
+                                                        <span>✏️ {customDownloadExpiryLabel}</span>
+                                                        <button type="button" className="text-muted-foreground hover:text-foreground ml-2" onClick={(e) => { e.stopPropagation(); form.setValue('downloadExpiryDays', ''); setCustomDownloadExpiryLabel(null) }}>✕</button>
+                                                    </div>
+                                                )}
+                                                <select className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer ${customDownloadExpiryLabel ? 'hidden' : ''}`} value={customDownloadExpiryLabel ? 'custom' : field.value} onChange={(e) => handleExpiryChange(e.target.value, 'downloadExpiryDays')}>
+                                                    {isEditing && <option value="__keep__">{getKeepLabel('downloadExpiryDays')}</option>}
+                                                    {expiryOptions.filter(o => o.value !== '__keep__').map(opt => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
+                                                </select>
+                                            </div>
+                                        </FormControl>
+                                        {isEditing && editProject?.downloadExpiresAt && remainingDownloadDays !== null && (<p className="text-xs text-muted-foreground mt-1">⏳ {t('remainingTime')}: {remainingDownloadDays} {t('days')}</p>)}
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                            </div>
+                        </div>
+                    </motion.div>
                     <motion.div
                         ref={extraSectionRef}
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.5, delay: 0.37 }}
-                        className={cn("rounded-xl transition-all duration-500", highlightedSection === 'extra' && "ring-2 ring-amber-400 bg-amber-50/60 dark:bg-amber-950/20 px-3 py-3 -mx-3")}
+                        transition={{ duration: 0.5, delay: 0.38 }}
+                        className={cn(
+                            "rounded-xl border p-4 space-y-4 transition-all duration-500",
+                            extraEnabled ? extraTone.active : extraTone.idle,
+                            highlightedSection === 'extra' && extraTone.highlight
+                        )}
                     >
                         <FormField
                             control={form.control}
                             name="extraEnabled"
                             render={({ field }) => (
-                                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                                    <div className="space-y-0.5">
-                                        <FormLabel>📷 {t('extraFeatureEnabled')}</FormLabel>
-                                        <p className="text-xs text-muted-foreground">{t('extraFeatureEnabledHint')}</p>
+                                <FormItem className="flex flex-row items-start justify-between gap-4">
+                                    <div className="space-y-1">
+                                        <FormLabel className={cn("text-base font-semibold", extraTone.title)}>📷 {t('extraPhotoSectionTitle')}</FormLabel>
+                                        <p className="text-xs text-muted-foreground">{t('extraPhotoSectionHint')}</p>
                                     </div>
                                     <FormControl>
-                                        <Switch checked={field.value} onCheckedChange={field.onChange} className="cursor-pointer" />
+                                        <Switch checked={field.value} onCheckedChange={field.onChange} className="mt-1 cursor-pointer" />
                                     </FormControl>
                                 </FormItem>
                             )}
                         />
-                    </motion.div>
-                    {extraEnabled && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.38 }}>
+                        {extraEnabled ? (
+                            <div className={cn("grid grid-cols-1 sm:grid-cols-2 gap-4 border-t pt-4", extraTone.divider)}>
                                 <FormField control={form.control} name="extraMaxPhotos" render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>➕ {t('extraPhotosCount')}</FormLabel>
@@ -706,11 +856,9 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
                                         <FormMessage />
                                     </FormItem>
                                 )} />
-                            </motion.div>
-                            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.39 }}>
                                 <FormField control={form.control} name="extraExpiryDays" render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>⏰ {t('extraLinkDuration')}</FormLabel>
+                                        <FormLabel>⏰ {t('extraDurationLabel')}</FormLabel>
                                         <FormControl>
                                             <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer" value={field.value} onChange={(e) => handleExpiryChange(e.target.value, 'extraExpiryDays')}>
                                                 {isEditing && <option value="__keep__">{getKeepLabel('extraExpiryDays')}</option>}
@@ -720,54 +868,60 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
                                         <FormMessage />
                                     </FormItem>
                                 )} />
-                            </motion.div>
-                            <motion.div className="sm:col-span-2" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.4 }}>
-                                <FormField control={form.control} name="lockedPhotos" render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>🔒 {t('previouslySelectedPhotos')}</FormLabel>
-                                        <FormControl>
-                                            <textarea
-                                                className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 resize-none"
-                                                placeholder={t('previouslySelectedHint')}
-                                                {...field}
-                                            />
-                                        </FormControl>
-                                        <FormDescription>{t('lockedPhotosHint')}</FormDescription>
-                                        <FormMessage />
-                                    </FormItem>
-                                )} />
-                            </motion.div>
-                        </div>
-                    )}
+                                <div className="sm:col-span-2">
+                                    <FormField control={form.control} name="lockedPhotos" render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>🔒 {t('lockedPhotosLabel')}</FormLabel>
+                                            <FormControl>
+                                                <textarea
+                                                    className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 resize-none"
+                                                    placeholder={t('previouslySelectedHint')}
+                                                    {...field}
+                                                />
+                                            </FormControl>
+                                            <FormDescription>{t('lockedPhotosHint')}</FormDescription>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )} />
+                                </div>
+                            </div>
+                        ) : (
+                            <p className={cn("rounded-lg border border-dashed px-3 py-2 text-xs text-muted-foreground", extraTone.helper)}>
+                                {t('extraPhotoSectionHelper')}
+                            </p>
+                        )}
+                    </motion.div>
                     <motion.div
                         ref={printSectionRef}
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.5, delay: 0.395 }}
-                        className={cn("rounded-xl transition-all duration-500", highlightedSection === 'print' && "ring-2 ring-purple-400 bg-purple-50/60 dark:bg-purple-950/20 px-3 py-3 -mx-3")}
+                        transition={{ duration: 0.5, delay: 0.4 }}
+                        className={cn(
+                            "rounded-xl border p-4 space-y-4 transition-all duration-500",
+                            printEnabled ? printTone.active : printTone.idle,
+                            highlightedSection === 'print' && printTone.highlight
+                        )}
                     >
                         <FormField
                             control={form.control}
                             name="printEnabled"
                             render={({ field }) => (
-                                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                                    <div className="space-y-0.5">
-                                        <FormLabel>🖨️ {t('printEnabled')}</FormLabel>
+                                <FormItem className="flex flex-row items-start justify-between gap-4">
+                                    <div className="space-y-1">
+                                        <FormLabel className={cn("text-base font-semibold", printTone.title)}>🖨️ {t('printPhotoSectionTitle')}</FormLabel>
                                         <p className="text-xs text-muted-foreground">
-                                            {globalPrintEnabled ? t('printEnabledHint') : t('printFeatureDisabledGlobal')}
+                                            {globalPrintEnabled ? t('printPhotoSectionHint') : t('printFeatureDisabledGlobal')}
                                         </p>
                                     </div>
                                     <FormControl>
-                                        <Switch checked={field.value} onCheckedChange={field.onChange} className="cursor-pointer" disabled={!globalPrintEnabled} />
+                                        <Switch checked={field.value} onCheckedChange={field.onChange} className="mt-1 cursor-pointer" disabled={!globalPrintEnabled} />
                                     </FormControl>
                                 </FormItem>
                             )}
                         />
-                    </motion.div>
-                    {printEnabled && globalPrintEnabled && (
-                        <div className="space-y-4">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.4 }}>
+                        {printEnabled && globalPrintEnabled ? (
+                            <div className={cn("space-y-4 border-t pt-4", printTone.divider)}>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <FormItem>
                                         <FormLabel>🖨️ {t('printTemplate')}</FormLabel>
                                         <select
@@ -784,11 +938,9 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
                                             <option value="custom">{t('printTemplateCustom')}</option>
                                         </select>
                                     </FormItem>
-                                </motion.div>
-                                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.41 }}>
                                     <FormField control={form.control} name="printExpiryDays" render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>⏰ {t('printDuration')}</FormLabel>
+                                            <FormLabel>⏰ {t('printDurationLabel')}</FormLabel>
                                             <FormControl>
                                                 <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer" value={field.value} onChange={(e) => handleExpiryChange(e.target.value, 'printExpiryDays')}>
                                                     {isEditing && <option value="__keep__">{getKeepLabel('printExpiryDays')}</option>}
@@ -798,10 +950,8 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
                                             <FormMessage />
                                         </FormItem>
                                     )} />
-                                </motion.div>
-                            </div>
-                            {selectedPrintTemplateIdx === 'custom' ? (
-                                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.42 }}>
+                                </div>
+                                {selectedPrintTemplateIdx === 'custom' ? (
                                     <FormField control={form.control} name="printSizes" render={({ field }) => (
                                         <FormItem>
                                             <FormLabel>🖨️ {t('printSizes')}</FormLabel>
@@ -810,19 +960,33 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
                                             <FormMessage />
                                         </FormItem>
                                     )} />
-                                </motion.div>
-                            ) : printSizesValue ? (
-                                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.42 }} className="rounded-lg border bg-muted/30 p-3">
-                                    <p className="text-xs font-medium text-muted-foreground mb-1">🖨️ {t('printSizes')}</p>
-                                    <p className="text-sm font-medium">{formatPrintSizesSummary(printSizesValue)}</p>
-                                </motion.div>
-                            ) : null}
+                                ) : printSizesValue ? (
+                                    <div className="rounded-lg border bg-background/70 p-3">
+                                        <p className="text-xs font-medium text-muted-foreground mb-1">🖨️ {t('printSizes')}</p>
+                                        <p className="text-sm font-medium">{formatPrintSizesSummary(printSizesValue)}</p>
+                                        {selectedPrintTemplateName && (
+                                            <p className="mt-2 text-xs text-muted-foreground">
+                                                {t('printSizesFromTemplateHint', { name: selectedPrintTemplateName })}
+                                            </p>
+                                        )}
+                                    </div>
+                                ) : null}
+                            </div>
+                        ) : (
+                            <p className={cn("rounded-lg border border-dashed px-3 py-2 text-xs text-muted-foreground", printTone.helper)}>
+                                {globalPrintEnabled ? t('printPhotoSectionHelper') : t('printFeatureDisabledGlobal')}
+                            </p>
+                        )}
+                    </motion.div>
+
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.42 }} className="rounded-xl border p-4 space-y-3">
+                        <div>
+                            <p className="text-sm font-semibold">🔐 {t('password')}</p>
+                            <p className="text-xs text-muted-foreground">{t('passwordHint')}</p>
                         </div>
-                    )}
-                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.4 }}>
                         <FormField control={form.control} name="password" render={({ field }) => (
                             <FormItem>
-                                <FormLabel>🔐 {t('password')}</FormLabel>
+                                <FormLabel className="sr-only">🔐 {t('password')}</FormLabel>
                                 <FormControl>
                                     <div className="relative">
                                         <Input type={showPassword ? "text" : "password"} placeholder={t('passwordPlaceholder')} autoComplete="new-password" {...field} />

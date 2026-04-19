@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
 import { PopupDialog, Toast } from "@/components/ui/popup-dialog"
-import { Copy, Send, AlertCircle, Loader2, RefreshCw, ImageOff, Trash2, Lock, Eye, EyeOff, MessageCircle, Check, Download, MousePointerClick, ArrowLeft, Square, ZoomIn, Printer } from "lucide-react"
+import { Copy, Send, AlertCircle, Loader2, RefreshCw, ImageOff, Trash2, Lock, Eye, EyeOff, MessageCircle, Check, Download, MousePointerClick, ArrowLeft, Square, ZoomIn, Printer, ImagePlus } from "lucide-react"
 // jszip and file-saver are dynamically imported when needed (see handleDownloadPhotos)
 // This reduces the initial JS bundle by ~48KB
 import { cn } from "@/lib/utils"
@@ -47,6 +47,8 @@ interface ClientViewProps {
         detectSubfolders: boolean
         expiresAt?: number
         downloadExpiresAt?: number
+        selectionEnabled?: boolean
+        downloadEnabled?: boolean
         hasPassword?: boolean
         projectId?: string
         lockedPhotos?: string[] // Previously selected photo filenames
@@ -323,14 +325,15 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
         }
     }, [config.downloadExpiresAt, config.expiresAt])
 
-    const isSelectionCardVisible = !isLegacyPrintProject
+    const isSelectionCardVisible = config.selectionEnabled !== false && !isLegacyPrintProject
+    const isDownloadCardVisible = config.downloadEnabled !== false
     const isPrintCardVisible = hasPrintFeature
     const isExtraCardVisible = hasExtraFeature
 
     // Both expired = fully expired
-    const isFullyExpired = !isSelectionCardVisible && isDownloadExpired && !isExtraCardVisible && !isPrintCardVisible
+    const isFullyExpired = !isSelectionCardVisible && !isDownloadCardVisible && !isExtraCardVisible && !isPrintCardVisible
         ? true
-        : [isSelectionCardVisible ? isSelectionExpired : true, isDownloadExpired, isExtraCardVisible ? isExtraExpired : true, isPrintCardVisible ? isPrintExpired : true].every(Boolean)
+        : [isSelectionCardVisible ? isSelectionExpired : true, isDownloadCardVisible ? isDownloadExpired : true, isExtraCardVisible ? isExtraExpired : true, isPrintCardVisible ? isPrintExpired : true].every(Boolean)
 
     // Generate auth storage key (must match the one used in state initializer)
     const authStorageKey = `fastpik-auth-${config.clientName}-${config.gdriveLink}`.replace(/[^a-zA-Z0-9-]/g, '-').substring(0, 60)
@@ -892,11 +895,11 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
                                         "flex-shrink-0 w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform",
                                         isExtraExpired ? "bg-gray-400" : "bg-amber-500 group-hover:scale-110"
                                     )}>
-                                        <Check className="w-7 h-7 text-white" />
+                                        <ImagePlus className="w-7 h-7 text-white" />
                                     </div>
                                     <div className="text-left flex-1">
                                         <h3 className={cn("font-semibold text-lg", isExtraExpired ? "text-gray-400" : "text-amber-700 dark:text-amber-300")}>
-                                            {t('additionalPhotos')}
+                                            {t('selectAdditionalPhotos')}
                                             {isExtraExpired && " ⏰"}
                                         </h3>
                                         <p className="text-sm text-muted-foreground">
@@ -942,36 +945,37 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
                                 </button>
                             )}
 
-                            {/* Download Photos Option */}
-                            <button
-                                onClick={() => !isDownloadExpired && setViewMode('download')}
-                                disabled={isDownloadExpired}
-                                className={cn(
-                                    "group relative flex items-center gap-4 p-5 rounded-xl border-2 transition-all duration-300",
-                                    isDownloadExpired
-                                        ? "border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/30 opacity-60 cursor-not-allowed"
-                                        : "border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/30 hover:border-blue-400 dark:hover:border-blue-600 hover:bg-blue-100/80 dark:hover:bg-blue-900/40 cursor-pointer"
-                                )}
-                            >
-                                <div className={cn(
-                                    "flex-shrink-0 w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform",
-                                    isDownloadExpired ? "bg-gray-400" : "bg-blue-500 group-hover:scale-110"
-                                )}>
-                                    <Download className="w-7 h-7 text-white" />
-                                </div>
-                                <div className="text-left flex-1">
-                                    <h3 className={cn(
-                                        "font-semibold text-lg",
-                                        isDownloadExpired ? "text-gray-400" : "text-blue-700 dark:text-blue-300"
+                            {isDownloadCardVisible && (
+                                <button
+                                    onClick={() => !isDownloadExpired && setViewMode('download')}
+                                    disabled={isDownloadExpired}
+                                    className={cn(
+                                        "group relative flex items-center gap-4 p-5 rounded-xl border-2 transition-all duration-300",
+                                        isDownloadExpired
+                                            ? "border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/30 opacity-60 cursor-not-allowed"
+                                            : "border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/30 hover:border-blue-400 dark:hover:border-blue-600 hover:bg-blue-100/80 dark:hover:bg-blue-900/40 cursor-pointer"
+                                    )}
+                                >
+                                    <div className={cn(
+                                        "flex-shrink-0 w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform",
+                                        isDownloadExpired ? "bg-gray-400" : "bg-blue-500 group-hover:scale-110"
                                     )}>
-                                        {t('downloadPhotos')}
-                                        {isDownloadExpired && " ⏰"}
-                                    </h3>
-                                    <p className="text-sm text-muted-foreground">
-                                        {isDownloadExpired ? t('linkExpired') : t('downloadPhotosDesc')}
-                                    </p>
-                                </div>
-                            </button>
+                                        <Download className="w-7 h-7 text-white" />
+                                    </div>
+                                    <div className="text-left flex-1">
+                                        <h3 className={cn(
+                                            "font-semibold text-lg",
+                                            isDownloadExpired ? "text-gray-400" : "text-blue-700 dark:text-blue-300"
+                                        )}>
+                                            {t('downloadPhotos')}
+                                            {isDownloadExpired && " ⏰"}
+                                        </h3>
+                                        <p className="text-sm text-muted-foreground">
+                                            {isDownloadExpired ? t('linkExpired') : t('downloadPhotosDesc')}
+                                        </p>
+                                    </div>
+                                </button>
+                            )}
                         </div>
 
                         <div className="flex justify-center gap-2 pt-2">

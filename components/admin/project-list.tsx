@@ -3,11 +3,13 @@
 import { useState, useEffect, useRef, DragEvent, MouseEvent as ReactMouseEvent } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useTranslations, useLocale } from "next-intl"
-import { Plus, Trash2, ExternalLink, Copy, Clock, Users, MessageCircle, Edit, CheckSquare, Square, X, PlusCircle, Search, Loader2, Bell, FolderOpen, ArrowUpDown, Move, ChevronRight, Home, FolderPlus, FileText, Zap, LayoutList, Printer, ImagePlus } from "lucide-react"
+import { Plus, Trash2, ExternalLink, Copy, Clock, Users, MessageCircle, Edit, CheckSquare, Square, X, PlusCircle, Search, Loader2, Bell, FolderOpen, ArrowUpDown, Move, ChevronRight, ChevronDown, Home, FolderPlus, FileText, Zap, LayoutList, Printer, ImagePlus } from "lucide-react"
 import { isProjectExpired, getClientWhatsapp, generateShortId, type Project } from "@/lib/project-store"
 import type { Folder } from "@/lib/supabase/folders"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { PopupDialog, Toast } from "@/components/ui/popup-dialog"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
@@ -65,8 +67,9 @@ export function ProjectList({
         extraLink: { id: string, en: string } | null,
         reminderLink: { id: string, en: string } | null,
         reminderExtraLink: { id: string, en: string } | null,
-        reminderPrintLink: { id: string, en: string } | null
-    }>({ initialLink: null, extraLink: null, reminderLink: null, reminderExtraLink: null, reminderPrintLink: null })
+        reminderPrintLink: { id: string, en: string } | null,
+        rawRequest: { id: string, en: string } | null
+    }>({ initialLink: null, extraLink: null, reminderLink: null, reminderExtraLink: null, reminderPrintLink: null, rawRequest: null })
     const [vendorSlug, setVendorSlug] = useState<string | null>(null)
     const [dashboardDurationDisplay, setDashboardDurationDisplay] = useState<'selection' | 'download'>('selection')
 
@@ -105,7 +108,7 @@ export function ProjectList({
 
             const { data } = await supabase
                 .from('settings')
-                .select('msg_tmpl_link_initial, msg_tmpl_link_extra, msg_tmpl_reminder, msg_tmpl_reminder_extra, msg_tmpl_reminder_print, msg_tmpl_link_initial_print, vendor_name, dashboard_duration_display, default_expiry_days, default_download_expiry_days, print_enabled, print_templates, default_print_expiry_days')
+                .select('msg_tmpl_link_initial, msg_tmpl_link_extra, msg_tmpl_reminder, msg_tmpl_reminder_extra, msg_tmpl_reminder_print, msg_tmpl_link_initial_print, msg_tmpl_raw_request, vendor_name, dashboard_duration_display, default_expiry_days, default_download_expiry_days, print_enabled, print_templates, default_print_expiry_days')
                 .eq('user_id', user.id)
                 .maybeSingle()
 
@@ -115,7 +118,8 @@ export function ProjectList({
                     extraLink: data.msg_tmpl_link_extra,
                     reminderLink: data.msg_tmpl_reminder,
                     reminderExtraLink: data.msg_tmpl_reminder_extra,
-                    reminderPrintLink: data.msg_tmpl_reminder_print
+                    reminderPrintLink: data.msg_tmpl_reminder_print,
+                    rawRequest: data.msg_tmpl_raw_request
                 })
                 if (data.vendor_name) {
                     const slug = data.vendor_name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
@@ -211,12 +215,96 @@ export function ProjectList({
         return fallback
     }
 
+    const compileTemplateOnly = (template: { id: string, en: string } | null, variables: Record<string, string>) => {
+        const lang = locale as 'id' | 'en'
+        const tmplText = template?.[lang] || ""
+        if (!tmplText.trim()) return null
+        let msg = tmplText
+        Object.entries(variables).forEach(([key, val]) => {
+            msg = msg.replace(new RegExp(`{{${key}}}`, 'g'), val)
+        })
+        return msg.replace(/{{(\w+)}}/g, '').replace(/\n{3,}/g, '\n\n').trim()
+    }
+
+    const getExtraPhotoQuota = (project: Project) => {
+        if (project.extraEnabled) return project.extraMaxPhotos || 0
+        return Math.max((project.maxPhotos || 0) - (project.lockedPhotos || []).length, 0)
+    }
+
+    const getPrintSizesText = (project: Project) => (project.printSizes || [])
+        .map((s: any) => `${s.name}×${s.quota}`)
+        .join(', ')
+
+    const hasExtraAction = (project: Project) => !!project.extraEnabled || (!project.extraEnabled && !!(project.lockedPhotos && project.lockedPhotos.length > 0))
+    const hasPrintAction = (project: Project) => project.projectType === 'print' || !!(project.printEnabled && (project.printSizes || []).length > 0)
+    const getFreelancerOptions = (project: Project | null) => (project?.freelancersSnapshot || [])
+        .filter((freelancer) => freelancer.name?.trim() && freelancer.whatsapp?.trim())
+
+    const canSendProjectToFreelancer = (project: Project | null) => {
+        return getFreelancerOptions(project).length > 0 && (project?.selectedPhotos || []).length > 0
+    }
+
+    const getClientLinkVariables = (project: Project, link: string, mode: 'client' | 'extra' | 'print') => {
+        const variables: Record<string, string> = {
+            client_name: project.clientName,
+            link,
+            count: mode === 'extra'
+                ? getExtraPhotoQuota(project).toString()
+                : mode === 'print'
+                    ? (project.printSizes || []).reduce((sum: number, s: any) => sum + (Number(s.quota) || 0), 0).toString()
+                    : project.maxPhotos.toString(),
+            max_photos: project.maxPhotos.toString(),
+            print_sizes: getPrintSizesText(project),
+        }
+
+        if (project.password) {
+            variables.password = project.password
+        }
+
+        const addDuration = (key: 'duration' | 'download_duration' | 'print_duration', expiresAt: number | null | undefined) => {
+            if (!expiresAt) return
+            const diff = expiresAt - Date.now()
+            if (diff <= 0) return
+            const days = Math.floor(diff / 86400000)
+            const hours = Math.floor((diff % 86400000) / 3600000)
+            if (days > 0) variables[key] = `${days} ${t('days')}`
+            else if (hours > 0) variables[key] = `${hours} ${t('hours')}`
+            else variables[key] = t('lessThanHour')
+        }
+
+        addDuration('duration', project.expiresAt)
+        addDuration('download_duration', project.downloadExpiresAt)
+        addDuration('print_duration', project.printExpiresAt)
+
+        return variables
+    }
+
+    const buildPrintLinkMessage = (project: Project, variables: Record<string, string>) => {
+        const customMessage = compileTemplateOnly(printWaTemplate, variables)
+        if (customMessage) return customMessage
+
+        let message = locale === 'id'
+            ? `Halo ${project.clientName}! 🖨️\n\nSilakan buka link berikut lalu pilih menu Cetak Foto:\n${variables.link}`
+            : `Hello ${project.clientName}! 🖨️\n\nPlease open this link and choose the Print Photos menu:\n${variables.link}`
+        if (variables.print_sizes) {
+            message += `\n\n${t('printSizes')}: ${variables.print_sizes}`
+        }
+        if (variables.password) {
+            message += `\n\n🔐 Password: ${variables.password}`
+        }
+        if (variables.print_duration) {
+            message += `\n⏰ ${t('printDuration')}: ${variables.print_duration}`
+        }
+        return message
+    }
+
     // Popup states
     const [showDeleteDialog, setShowDeleteDialog] = useState(false)
     const [showBatchDeleteDialog, setShowBatchDeleteDialog] = useState(false)
     const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
-    const [showToast, setShowToast] = useState(false)
-    const [toastMessage, setToastMessage] = useState("")
+    const [copyActionPopup, setCopyActionPopup] = useState<{ open: boolean; project: Project | null }>({ open: false, project: null })
+    const [whatsappActionPopup, setWhatsappActionPopup] = useState<{ open: boolean; project: Project | null }>({ open: false, project: null })
+    const [toast, setToast] = useState<{ open: boolean; message: string; type: 'info' | 'success' | 'warning' | 'danger' }>({ open: false, message: "", type: "success" })
     const [isDeleting, setIsDeleting] = useState(false)
 
     // Add Extra Photos dialog states
@@ -284,6 +372,10 @@ export function ProjectList({
         <span suppressHydrationWarning>{formatExpiry(expiresAt)}</span>
     )
 
+    const showAdminToast = (message: string, type: 'info' | 'success' | 'warning' | 'danger' = 'success') => {
+        setToast({ open: true, message, type })
+    }
+
     // Helper: generate dynamic link from project ID using current vendor slug
     const buildProjectLink = (projectId: string) => {
         return clientLinkBase ? `${clientLinkBase}/${projectId}` : ''
@@ -295,32 +387,81 @@ export function ProjectList({
         action()
     }
 
-    const projectActionButtonClass = "size-10 sm:size-8 cursor-pointer"
-    const projectActionPlaceholderClass = "inline-flex size-10 sm:size-8 shrink-0 invisible"
+    type ActionTone = 'violet' | 'green' | 'blue' | 'slate' | 'cyan' | 'amber' | 'indigo' | 'red'
+    const actionToneClasses: Record<ActionTone, string> = {
+        violet: "border-violet-200 bg-violet-50/70 text-violet-600 hover:bg-violet-100 hover:text-violet-700 dark:border-violet-800 dark:bg-violet-950/30 dark:text-violet-300 dark:hover:bg-violet-900/40",
+        green: "border-green-200 bg-green-50/70 text-green-600 hover:bg-green-100 hover:text-green-700 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300 dark:hover:bg-green-900/40",
+        blue: "border-blue-200 bg-blue-50/70 text-blue-600 hover:bg-blue-100 hover:text-blue-700 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-300 dark:hover:bg-blue-900/40",
+        slate: "border-slate-200 bg-slate-50/70 text-slate-600 hover:bg-slate-100 hover:text-slate-700 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-300 dark:hover:bg-slate-800/70",
+        cyan: "border-cyan-200 bg-cyan-50/70 text-cyan-600 hover:bg-cyan-100 hover:text-cyan-700 dark:border-cyan-800 dark:bg-cyan-950/30 dark:text-cyan-300 dark:hover:bg-cyan-900/40",
+        amber: "border-amber-200 bg-amber-50/70 text-amber-600 hover:bg-amber-100 hover:text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300 dark:hover:bg-amber-900/40",
+        indigo: "border-indigo-200 bg-indigo-50/70 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/30 dark:text-indigo-300 dark:hover:bg-indigo-900/40",
+        red: "border-red-200 bg-red-50/70 text-red-600 hover:bg-red-100 hover:text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-900/40",
+    }
+    const actionButtonClass = (tone: ActionTone) => cn(
+        "h-8 w-8 rounded-md border cursor-pointer transition-colors",
+        actionToneClasses[tone]
+    )
+    const splitButtonWrapperClass = (tone: ActionTone) => cn(
+        "hidden h-8 overflow-hidden rounded-md border sm:inline-flex",
+        actionToneClasses[tone]
+    )
+    const splitMainButtonClass = (tone: ActionTone) => cn(
+        "h-8 w-8 rounded-none border-0 bg-transparent p-0 cursor-pointer hover:bg-transparent",
+        actionToneClasses[tone]
+    )
+    const splitChevronButtonClass = (tone: ActionTone) => cn(
+        "h-8 w-7 rounded-none border-0 border-l bg-transparent p-0 cursor-pointer hover:bg-transparent",
+        actionToneClasses[tone],
+        tone === 'red' ? "border-red-200 dark:border-red-800"
+            : tone === 'green' ? "border-green-200 dark:border-green-800"
+                : tone === 'violet' ? "border-violet-200 dark:border-violet-800"
+                    : tone === 'blue' ? "border-blue-200 dark:border-blue-800"
+                        : tone === 'cyan' ? "border-cyan-200 dark:border-cyan-800"
+                            : tone === 'amber' ? "border-amber-200 dark:border-amber-800"
+                                : tone === 'indigo' ? "border-indigo-200 dark:border-indigo-800"
+                                    : "border-slate-200 dark:border-slate-700"
+    )
+    const projectActionPlaceholderClass = "inline-flex h-8 w-8 shrink-0 invisible"
 
-    const copyLink = (link: string, id: string) => {
-        if (!link) return
-        if (navigator.clipboard && window.isSecureContext) {
-            navigator.clipboard.writeText(link)
-            setCopiedId(id)
-            setTimeout(() => setCopiedId(null), 2000)
-        } else {
+    const copyText = (text: string, onCopied: () => void) => {
+        if (!text) {
+            showAdminToast(t('copyFailed'), 'danger')
+            return
+        }
+        const fallbackCopy = () => {
             const textArea = document.createElement("textarea")
-            textArea.value = link
+            textArea.value = text
             textArea.style.position = "fixed"
             textArea.style.left = "-9999px"
             document.body.appendChild(textArea)
             textArea.focus()
             textArea.select()
             try {
-                document.execCommand('copy')
-                setCopiedId(id)
-                setTimeout(() => setCopiedId(null), 2000)
+                const copied = document.execCommand('copy')
+                if (!copied) throw new Error('Copy command failed')
+                onCopied()
             } catch (err) {
                 console.error('Failed to copy', err)
+                showAdminToast(t('copyFailed'), 'danger')
+            } finally {
+                document.body.removeChild(textArea)
             }
-            document.body.removeChild(textArea)
         }
+
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(text).then(onCopied).catch(fallbackCopy)
+        } else {
+            fallbackCopy()
+        }
+    }
+
+    const copyLink = (link: string, id: string) => {
+        copyText(link, () => {
+            setCopiedId(id)
+            showAdminToast(t('copySuccess'), 'success')
+            setTimeout(() => setCopiedId(null), 2000)
+        })
     }
 
     const openLink = (link: string) => {
@@ -328,272 +469,73 @@ export function ProjectList({
         window.open(link, '_blank')
     }
 
-    const sendToClient = (project: Project) => {
+    const sendToClient = (project: Project, mode: 'client' | 'extra' | 'print' = 'client') => {
         const clientWa = getClientWhatsapp(project)
         if (!clientWa) {
-            setToastMessage(tc('noWhatsapp') || 'WhatsApp not set')
-            setShowToast(true)
+            showAdminToast(tc('noWhatsapp') || 'WhatsApp not set', 'danger')
             return
         }
 
         const dynamicLink = buildProjectLink(project.id)
         if (!dynamicLink) return
 
-        // Print projects use the print template
-        if (project.projectType === 'print') {
-            const printSizesStr = (project.printSizes || []).map((s: any) => `${s.name}×${s.quota}`).join(', ')
-            const variables: Record<string, string> = {
-                client_name: project.clientName,
-                link: dynamicLink,
-                print_sizes: printSizesStr,
-            }
-            if (project.password) {
-                variables.password = project.password
-            }
-            if (project.printExpiresAt) {
-                const diff = project.printExpiresAt - Date.now()
-                if (diff > 0) {
-                    const days = Math.floor(diff / 86400000)
-                    const hours = Math.floor((diff % 86400000) / 3600000)
-                    if (days > 0) {
-                        variables.print_duration = `${days} ${t('days')}`
-                    } else if (hours > 0) {
-                        variables.print_duration = `${hours} ${t('hours')}`
-                    } else {
-                        variables.print_duration = t('lessThanHour')
-                    }
-                }
-            }
-            // Try custom print WA template first
-            if (printWaTemplate) {
-                const lang = locale as 'id' | 'en'
-                const tmplText = printWaTemplate[lang] || ''
-                if (tmplText.trim()) {
-                    let msg = tmplText
-                    Object.entries(variables).forEach(([key, val]) => {
-                        msg = msg.replace(new RegExp(`{{${key}}}`, 'g'), val)
-                    })
-                    msg = msg.replace(/{{(\w+)}}/g, '').replace(/\n{3,}/g, '\n\n').trim()
-                    window.open(`https://api.whatsapp.com/send/?phone=${clientWa}&text=${encodeURIComponent(msg)}`, '_blank')
-                    return
-                }
-            }
-            // Default print message
-            let message = locale === 'id'
-                ? `Halo ${project.clientName}! \u{1F5A8}\u{FE0F}\n\nSilakan pilih foto untuk dicetak melalui link berikut:\n${dynamicLink}`
-                : `Hello ${project.clientName}! \u{1F5A8}\u{FE0F}\n\nPlease select photos for print at the following link:\n${dynamicLink}`
-            if (variables.print_duration) {
-                message += `\n\n\u23F0 ${t('printDuration')}: ${variables.print_duration}`
-            }
-            window.open(`https://api.whatsapp.com/send/?phone=${clientWa}&text=${encodeURIComponent(message)}`, '_blank')
-            return
-        }
-
-        const isExtra = !!(project.lockedPhotos && project.lockedPhotos.length > 0)
-        const effectiveCount = isExtra ? project.maxPhotos - project.lockedPhotos!.length : project.maxPhotos
-        const variables: Record<string, string> = {
-            client_name: project.clientName,
-            link: dynamicLink,
-            count: effectiveCount.toString(),
-            max_photos: effectiveCount.toString()
-        }
-
-        if (project.password) {
-            variables.password = project.password
-        }
-
-        if (project.expiresAt) {
-            const now = Date.now()
-            const diff = project.expiresAt - now
-            if (diff > 0) {
-                const days = Math.floor(diff / (1000 * 60 * 60 * 24))
-                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
-                if (days > 0) {
-                    variables.duration = `${days} ${t('days')}`
-                } else if (hours > 0) {
-                    variables.duration = `${hours} ${t('hours')}`
-                } else {
-                    variables.duration = t('lessThanHour')
-                }
-            }
-        }
-
-        if (project.downloadExpiresAt) {
-            const now = Date.now()
-            const diff = project.downloadExpiresAt - now
-            if (diff > 0) {
-                const days = Math.floor(diff / (1000 * 60 * 60 * 24))
-                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
-                if (days > 0) {
-                    variables.download_duration = `${days} ${t('days')}`
-                } else if (hours > 0) {
-                    variables.download_duration = `${hours} ${t('hours')}`
-                } else {
-                    variables.download_duration = t('lessThanHour')
-                }
-            }
-        }
-
-        const template = isExtra ? templates.extraLink : templates.initialLink
-        const message = compileMessage(template, variables, isExtra)
+        const variables = getClientLinkVariables(project, dynamicLink, mode)
+        const message = mode === 'print'
+            ? buildPrintLinkMessage(project, variables)
+            : compileMessage(mode === 'extra' ? templates.extraLink : templates.initialLink, variables, mode === 'extra')
         window.open(`https://api.whatsapp.com/send/?phone=${clientWa}&text=${encodeURIComponent(message)}`, '_blank')
     }
 
-    const copyTemplateForProject = (project: Project) => {
+    const sendToFreelancer = (project: Project, freelancer: { name: string; whatsapp: string }) => {
+        const selectedPhotos = (project.selectedPhotos || []).filter(Boolean)
+        if (selectedPhotos.length === 0) {
+            showAdminToast(t('selectedPhotosList') || 'No selected photos', 'danger')
+            return
+        }
         const dynamicLink = buildProjectLink(project.id)
         if (!dynamicLink) return
 
-        // Print projects use their own template
-        if (project.projectType === 'print') {
-            const printSizesStr = (project.printSizes || []).map((s: any) => `${s.name}×${s.quota}`).join(', ')
-            const totalQuota = (project.printSizes || []).reduce((sum: number, s: any) => sum + s.quota, 0)
-            const variables: Record<string, string> = {
-                client_name: project.clientName,
-                link: dynamicLink,
-                print_sizes: printSizesStr,
-                count: totalQuota.toString(),
-            }
-            if (project.password) {
-                variables.password = project.password
-            }
-            if (project.printExpiresAt) {
-                const diff = project.printExpiresAt - Date.now()
-                if (diff > 0) {
-                    const days = Math.floor(diff / 86400000)
-                    const hours = Math.floor((diff % 86400000) / 3600000)
-                    if (days > 0) {
-                        variables.print_duration = `${days} ${t('days')}`
-                    } else if (hours > 0) {
-                        variables.print_duration = `${hours} ${t('hours')}`
-                    } else {
-                        variables.print_duration = t('lessThanHour')
-                    }
-                }
-            }
-            // Try custom print WA template
-            let message = ''
-            if (printWaTemplate) {
-                const lang = locale as 'id' | 'en'
-                const tmplText = printWaTemplate[lang] || ''
-                if (tmplText.trim()) {
-                    message = tmplText
-                    Object.entries(variables).forEach(([key, val]) => {
-                        message = message.replace(new RegExp(`{{${key}}}`, 'g'), val)
-                    })
-                    message = message.replace(/{{(\w+)}}/g, '').replace(/\n{3,}/g, '\n\n').trim()
-                }
-            }
-            if (!message) {
-                // Fallback: default print message
-                message = locale === 'id'
-                    ? `Halo ${project.clientName}! \u{1F5A8}\u{FE0F}\n\nSilakan pilih foto untuk dicetak melalui link berikut:\n${dynamicLink}`
-                    : `Hello ${project.clientName}! \u{1F5A8}\u{FE0F}\n\nPlease select photos for print at the following link:\n${dynamicLink}`
-                if (variables.print_duration) {
-                    message += `\n\n\u23F0 ${t('printDuration')}: ${variables.print_duration}`
-                }
-                if (variables.password) {
-                    message += `\n\n🔐 Password: ${variables.password}`
-                }
-            }
-            if (navigator.clipboard && window.isSecureContext) {
-                navigator.clipboard.writeText(message)
-                setCopiedTemplateId(project.id)
-                setTimeout(() => setCopiedTemplateId(null), 2000)
-            } else {
-                const textArea = document.createElement("textarea")
-                textArea.value = message
-                textArea.style.position = "fixed"
-                textArea.style.left = "-9999px"
-                document.body.appendChild(textArea)
-                textArea.focus()
-                textArea.select()
-                try { document.execCommand('copy'); setCopiedTemplateId(project.id); setTimeout(() => setCopiedTemplateId(null), 2000) } catch (err) { console.error('Failed to copy', err) }
-                document.body.removeChild(textArea)
-            }
-            return
-        }
-
-        const isExtra = !!(project.lockedPhotos && project.lockedPhotos.length > 0)
-        const effectiveCount = isExtra ? project.maxPhotos - project.lockedPhotos!.length : project.maxPhotos
-        const variables: Record<string, string> = {
+        const selectedList = selectedPhotos.join('\n')
+        const variables = {
             client_name: project.clientName,
+            selected_count: selectedPhotos.length.toString(),
+            selected_list: selectedList,
+            project_link: dynamicLink,
+        }
+        const message = compileTemplateOnly(templates.rawRequest, variables) || t('waRawRequestMessage', {
+            freelancer: freelancer.name,
+            name: project.clientName,
+            count: selectedPhotos.length,
             link: dynamicLink,
-            count: effectiveCount.toString(),
-            max_photos: effectiveCount.toString()
+            list: selectedList,
+        })
+        window.open(`https://api.whatsapp.com/send/?phone=${freelancer.whatsapp}&text=${encodeURIComponent(message)}`, '_blank')
+    }
+
+    const buildTemplateMessageForProject = (project: Project, mode: 'client' | 'extra' | 'print') => {
+        const dynamicLink = buildProjectLink(project.id)
+        if (!dynamicLink) return ''
+
+        const variables = getClientLinkVariables(project, dynamicLink, mode)
+        if (mode === 'print') {
+            return buildPrintLinkMessage(project, variables)
         }
-        if (project.password) {
-            variables.password = project.password
-        }
-        if (project.expiresAt) {
-            const now = Date.now()
-            const diff = project.expiresAt - now
-            if (diff > 0) {
-                const days = Math.floor(diff / (1000 * 60 * 60 * 24))
-                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
-                if (days > 0) {
-                    variables.duration = `${days} ${t('days')}`
-                } else if (hours > 0) {
-                    variables.duration = `${hours} ${t('hours')}`
-                } else {
-                    variables.duration = t('lessThanHour')
-                }
-            }
-        }
-        if (project.downloadExpiresAt) {
-            const now = Date.now()
-            const diff = project.downloadExpiresAt - now
-            if (diff > 0) {
-                const days = Math.floor(diff / (1000 * 60 * 60 * 24))
-                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
-                if (days > 0) {
-                    variables.download_duration = `${days} ${t('days')}`
-                } else if (hours > 0) {
-                    variables.download_duration = `${hours} ${t('hours')}`
-                } else {
-                    variables.download_duration = t('lessThanHour')
-                }
-            }
-        }
-        // Add print duration if enabled
-        if (project.printEnabled && project.printExpiresAt) {
-            const now = Date.now()
-            const diff = project.printExpiresAt - now
-            if (diff > 0) {
-                const days = Math.floor(diff / (1000 * 60 * 60 * 24))
-                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
-                if (days > 0) {
-                    variables.print_duration = `${days} ${t('days')}`
-                } else if (hours > 0) {
-                    variables.print_duration = `${hours} ${t('hours')}`
-                } else {
-                    variables.print_duration = t('lessThanHour')
-                }
-            }
-        }
-        const template = isExtra ? templates.extraLink : templates.initialLink
-        const message = compileMessage(template, variables, isExtra)
-        if (navigator.clipboard && window.isSecureContext) {
-            navigator.clipboard.writeText(message)
+        return compileMessage(mode === 'extra' ? templates.extraLink : templates.initialLink, variables, mode === 'extra')
+    }
+
+    const copyTemplateForProject = (project: Project, mode: 'client' | 'extra' | 'print' = 'client') => {
+        const message = buildTemplateMessageForProject(project, mode)
+        copyText(message, () => {
             setCopiedTemplateId(project.id)
+            showAdminToast(t('templateCopied'), 'success')
             setTimeout(() => setCopiedTemplateId(null), 2000)
-        } else {
-            const textArea = document.createElement("textarea")
-            textArea.value = message
-            textArea.style.position = "fixed"
-            textArea.style.left = "-9999px"
-            document.body.appendChild(textArea)
-            textArea.focus()
-            textArea.select()
-            try { document.execCommand('copy'); setCopiedTemplateId(project.id); setTimeout(() => setCopiedTemplateId(null), 2000) } catch (err) { console.error('Failed to copy', err) }
-            document.body.removeChild(textArea)
-        }
+        })
     }
 
     const sendReminder = (project: Project) => {
         const clientWa = getClientWhatsapp(project)
         if (!clientWa) {
-            setToastMessage(tc('noWhatsapp') || 'WhatsApp not set')
-            setShowToast(true)
+            showAdminToast(tc('noWhatsapp') || 'WhatsApp not set', 'danger')
             return
         }
 
@@ -673,8 +615,8 @@ export function ProjectList({
         }
 
         // Determine project category: print, extra, or original
-        const isPrint = project.projectType === 'print'
-        const isExtra = !!(project.lockedPhotos && project.lockedPhotos.length > 0)
+        const isPrint = project.projectType === 'print' || !!(project.printEnabled && (project.printSizes || []).length > 0)
+        const isExtra = !!project.extraEnabled || !!(project.lockedPhotos && project.lockedPhotos.length > 0)
 
         // Select template and fallback by category
         let selectedTemplate: { id: string, en: string } | null = null
@@ -723,11 +665,9 @@ export function ProjectList({
             setIsDeleting(true)
             try {
                 await onDeleteProject(deleteTargetId)
-                setToastMessage(t('deleted'))
-                setShowToast(true)
+                showAdminToast(t('deleted'), 'success')
             } catch (error) {
-                setToastMessage("Failed to delete project")
-                setShowToast(true)
+                showAdminToast("Failed to delete project", 'danger')
             } finally {
                 setIsDeleting(false)
                 setDeleteTargetId(null)
@@ -763,13 +703,11 @@ export function ProjectList({
         setIsDeleting(true)
         try {
             await onBatchDeleteProjects(selectedIds)
-            setToastMessage(t('deleted'))
-            setShowToast(true)
+            showAdminToast(t('deleted'), 'success')
             setSelectedIds([])
             setIsSelectMode(false)
         } catch (error) {
-            setToastMessage("Failed to delete projects")
-            setShowToast(true)
+            showAdminToast("Failed to delete projects", 'danger')
         } finally {
             setIsDeleting(false)
             setShowBatchDeleteDialog(false)
@@ -857,8 +795,7 @@ export function ProjectList({
 
             setGeneratedPrintLink(newLink)
         } catch (err: any) {
-            setToastMessage(err.message || 'Failed to generate print link')
-            setShowToast(true)
+            showAdminToast(err.message || 'Failed to generate print link', 'danger')
         } finally {
             setIsGeneratingPrint(false)
         }
@@ -946,8 +883,7 @@ export function ProjectList({
 
             setGeneratedExtraLink(newLink)
         } catch (err: any) {
-            setToastMessage(err.message || 'Failed to generate extra link')
-            setShowToast(true)
+            showAdminToast(err.message || 'Failed to generate extra link', 'danger')
         } finally {
             setIsGeneratingExtra(false)
         }
@@ -955,11 +891,7 @@ export function ProjectList({
 
     const copyExtraLink = () => {
         if (!generatedExtraLink) return
-        if (navigator.clipboard && window.isSecureContext) {
-            navigator.clipboard.writeText(generatedExtraLink)
-            setToastMessage(tc('copied'))
-            setShowToast(true)
-        }
+        copyText(generatedExtraLink, () => showAdminToast(tc('copied'), 'success'))
     }
 
     const closeExtraPhotosDialog = () => {
@@ -1197,6 +1129,11 @@ export function ProjectList({
     }
 
     const allFolderTree = [{ id: null, name: t('rootFolder'), depth: 0 }, ...buildFolderTree(null, 1)]
+    const actionPickerOptionClass = "flex w-full items-center justify-between rounded-lg border border-border bg-background px-4 py-3 text-left text-sm transition-colors hover:bg-muted/50 cursor-pointer disabled:pointer-events-none disabled:opacity-50"
+    const copyPopupProject = copyActionPopup.project
+    const copyPopupLink = copyPopupProject ? buildProjectLink(copyPopupProject.id) : ''
+    const whatsappPopupProject = whatsappActionPopup.project
+    const whatsappPopupFreelancers = getFreelancerOptions(whatsappPopupProject)
 
     if (projects.length === 0 && folders.length === 0) {
         return (
@@ -1427,10 +1364,12 @@ export function ProjectList({
                                     ? dynamicLink
                                     : (locale === 'id' ? 'Menyiapkan link...' : 'Preparing link...')
                                 const hasLegacyExtra = !project.extraEnabled && !!(project.lockedPhotos && project.lockedPhotos.length > 0)
-                                const hasExtraDisplay = !!project.extraEnabled || hasLegacyExtra
-                                const hasPrintDisplay = project.projectType === 'print' || !!(project.printEnabled && (project.printSizes || []).length > 0)
+                                const hasExtraDisplay = hasExtraAction(project)
+                                const hasPrintDisplay = hasPrintAction(project)
                                 const hasExtraAndPrint = hasExtraDisplay && hasPrintDisplay
                                 const hasBadges = hasLegacyExtra || project.extraEnabled || project.projectType === 'print' || !!(project.printEnabled && (project.printSizes || []).length > 0) || expired
+                                const freelancerOptions = getFreelancerOptions(project)
+                                const canSendToFreelancer = canSendProjectToFreelancer(project)
                                 return (
                                     <motion.div key={project.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -100 }} transition={{ duration: 0.15 }} className="overflow-hidden max-w-full" draggable={!isSelectMode} onDragStart={(e) => handleDragStart(e as any, project.id)}>
                                         <Card className={cn("overflow-hidden transition-all hover:shadow-md", expired && "opacity-60 border-destructive/30", isSelected && "border-primary bg-primary/5", !isSelected && !expired && hasExtraAndPrint && "border-teal-400 bg-teal-50/50 dark:bg-teal-950/20 dark:border-teal-600", !isSelected && !expired && !hasExtraAndPrint && hasPrintDisplay && "border-purple-400 bg-purple-50/50 dark:bg-purple-950/20 dark:border-purple-600", !isSelected && !expired && !hasExtraAndPrint && hasExtraDisplay && "border-amber-400 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-600")}>
@@ -1484,20 +1423,165 @@ export function ProjectList({
                                                     </div>
                                                     {!isSelectMode && (
                                                         <div className="flex items-center gap-1 flex-wrap w-full sm:w-auto justify-center sm:justify-end pt-2 sm:pt-0 border-t sm:border-t-0 mt-2 sm:mt-0 border-border/50">
-                                                            <Button type="button" size="icon" variant="ghost" onClick={(e) => handleProjectActionClick(e, () => copyLink(dynamicLink, project.id))} className={projectActionButtonClass} disabled={!isProjectLinkReady} title={t('copyLink')} aria-label={t('copyLink')}>{copiedId === project.id ? <span className="text-green-500 text-xs">✓</span> : <Copy className="h-4 w-4" />}</Button>
-                                                            <Button type="button" size="icon" variant="ghost" onClick={(e) => handleProjectActionClick(e, () => copyTemplateForProject(project))} className={cn(projectActionButtonClass, "text-purple-600 hover:text-purple-700")} disabled={expired || !isProjectLinkReady} title={t('copyTemplate')} aria-label={t('copyTemplate')}>{copiedTemplateId === project.id ? <span className="text-green-500 text-xs">✓</span> : <FileText className="h-4 w-4" />}</Button>
-                                                            <Button type="button" size="icon" variant="ghost" onClick={(e) => handleProjectActionClick(e, () => sendToClient(project))} className={cn(projectActionButtonClass, "text-green-600 hover:text-green-700")} disabled={expired || !isProjectLinkReady} title={t('sendToClient')} aria-label={t('sendToClient')}><MessageCircle className="h-4 w-4" /></Button>
-                                                            <Button type="button" size="icon" variant="ghost" onClick={(e) => handleProjectActionClick(e, () => sendReminder(project))} className={cn(projectActionButtonClass, "text-amber-600 hover:text-amber-700")} disabled={expired || !isProjectLinkReady || (!project.expiresAt && !project.printExpiresAt)} title={t('sendReminder')} aria-label={t('sendReminder')}><Bell className="h-4 w-4" /></Button>
-                                                            <Button type="button" size="icon" variant="ghost" onClick={(e) => handleProjectActionClick(e, () => openLink(dynamicLink))} className={projectActionButtonClass} disabled={!isProjectLinkReady} title={t('openLink')} aria-label={t('openLink')}><ExternalLink className="h-4 w-4" /></Button>
-                                                            <Button type="button" size="icon" variant="ghost" onClick={(e) => handleProjectActionClick(e, () => onEditProject(project))} className={cn(projectActionButtonClass, "text-blue-600 hover:text-blue-700")} title={t('editProject')} aria-label={t('editProject')}><Edit className="h-4 w-4" /></Button>
-                                                            <Button type="button" size="icon" variant="ghost" onClick={(e) => handleProjectActionClick(e, () => onEditProject(project, 'extra'))} className={cn(projectActionButtonClass, "text-amber-600 hover:text-amber-600")} title={t('openExtraFeature')} aria-label={t('openExtraFeature')}><ImagePlus className="h-4 w-4" /></Button>
+                                                            <Button
+                                                                type="button"
+                                                                size="icon"
+                                                                variant="ghost"
+                                                                onClick={(e) => handleProjectActionClick(e, () => setCopyActionPopup({ open: true, project }))}
+                                                                className={cn(actionButtonClass('violet'), "sm:hidden")}
+                                                                disabled={!isProjectLinkReady}
+                                                                title={t('copyActions')}
+                                                                aria-label={t('copyActions')}
+                                                            >
+                                                                {copiedId === project.id || copiedTemplateId === project.id ? <span className="text-green-500 text-xs">✓</span> : <Copy className="h-4 w-4" />}
+                                                            </Button>
+                                                            <div className={splitButtonWrapperClass('violet')} onClick={(e) => e.stopPropagation()}>
+                                                                <Button
+                                                                    type="button"
+                                                                    size="icon"
+                                                                    variant="ghost"
+                                                                    onClick={(e) => handleProjectActionClick(e, () => copyLink(dynamicLink, project.id))}
+                                                                    className={splitMainButtonClass('violet')}
+                                                                    disabled={!isProjectLinkReady}
+                                                                    title={t('copyLink')}
+                                                                    aria-label={t('copyLink')}
+                                                                >
+                                                                    {copiedId === project.id ? <span className="text-green-500 text-xs">✓</span> : <Copy className="h-4 w-4" />}
+                                                                </Button>
+                                                                <DropdownMenu>
+                                                                    <DropdownMenuTrigger asChild>
+                                                                        <Button
+                                                                            type="button"
+                                                                            size="icon"
+                                                                            variant="ghost"
+                                                                            onClick={(e) => e.stopPropagation()}
+                                                                            className={cn(splitChevronButtonClass('violet'), "hidden sm:inline-flex")}
+                                                                            disabled={!isProjectLinkReady}
+                                                                            title={t('copyActions')}
+                                                                            aria-label={t('copyActions')}
+                                                                        >
+                                                                            <ChevronDown className="h-4 w-4" />
+                                                                        </Button>
+                                                                    </DropdownMenuTrigger>
+                                                                    <DropdownMenuContent align="end" className="w-60">
+                                                                        <DropdownMenuItem onSelect={() => copyLink(dynamicLink, project.id)}>
+                                                                            <Copy className="h-4 w-4 text-violet-600" />
+                                                                            {t('copyClientLink')}
+                                                                        </DropdownMenuItem>
+                                                                        <DropdownMenuItem onSelect={() => copyTemplateForProject(project, 'client')}>
+                                                                            <FileText className="h-4 w-4 text-violet-600" />
+                                                                            {t('copyClientTemplate')}
+                                                                        </DropdownMenuItem>
+                                                                        {hasExtraDisplay && (
+                                                                            <DropdownMenuItem onSelect={() => copyTemplateForProject(project, 'extra')}>
+                                                                                <ImagePlus className="h-4 w-4 text-amber-600" />
+                                                                                {t('copyExtraTemplate')}
+                                                                            </DropdownMenuItem>
+                                                                        )}
+                                                                        {hasPrintDisplay && (
+                                                                            <DropdownMenuItem onSelect={() => copyTemplateForProject(project, 'print')}>
+                                                                                <Printer className="h-4 w-4 text-purple-600" />
+                                                                                {t('copyPrintTemplate')}
+                                                                            </DropdownMenuItem>
+                                                                        )}
+                                                                    </DropdownMenuContent>
+                                                                </DropdownMenu>
+                                                            </div>
+                                                            <Button
+                                                                type="button"
+                                                                size="icon"
+                                                                variant="ghost"
+                                                                onClick={(e) => handleProjectActionClick(e, () => setWhatsappActionPopup({ open: true, project }))}
+                                                                className={cn(actionButtonClass('green'), "sm:hidden")}
+                                                                disabled={expired || !isProjectLinkReady}
+                                                                title={t('sendToClient')}
+                                                                aria-label={t('sendToClient')}
+                                                            >
+                                                                <MessageCircle className="h-4 w-4" />
+                                                            </Button>
+                                                            <div className={splitButtonWrapperClass('green')} onClick={(e) => e.stopPropagation()}>
+                                                                <Button
+                                                                    type="button"
+                                                                    size="icon"
+                                                                    variant="ghost"
+                                                                    onClick={(e) => handleProjectActionClick(e, () => sendToClient(project, 'client'))}
+                                                                    className={splitMainButtonClass('green')}
+                                                                    disabled={expired || !isProjectLinkReady}
+                                                                    title={t('sendClientLink')}
+                                                                    aria-label={t('sendClientLink')}
+                                                                >
+                                                                    <MessageCircle className="h-4 w-4" />
+                                                                </Button>
+                                                                <DropdownMenu>
+                                                                    <DropdownMenuTrigger asChild>
+                                                                        <Button
+                                                                            type="button"
+                                                                            size="icon"
+                                                                            variant="ghost"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation()
+                                                                            }}
+                                                                            className={cn(splitChevronButtonClass('green'), "hidden sm:inline-flex")}
+                                                                            disabled={expired || !isProjectLinkReady}
+                                                                            title={t('sendToClient')}
+                                                                            aria-label={t('sendToClient')}
+                                                                        >
+                                                                            <ChevronDown className="h-4 w-4" />
+                                                                        </Button>
+                                                                    </DropdownMenuTrigger>
+                                                                    <DropdownMenuContent align="end" className="w-56">
+                                                                        <DropdownMenuItem onSelect={() => sendToClient(project, 'client')}>
+                                                                            <MessageCircle className="h-4 w-4 text-green-600" />
+                                                                            {t('sendClientLink')}
+                                                                        </DropdownMenuItem>
+                                                                        {hasExtraDisplay && (
+                                                                            <DropdownMenuItem onSelect={() => sendToClient(project, 'extra')}>
+                                                                                <ImagePlus className="h-4 w-4 text-amber-600" />
+                                                                                {t('sendExtraLink')}
+                                                                            </DropdownMenuItem>
+                                                                        )}
+                                                                        {hasPrintDisplay && (
+                                                                            <DropdownMenuItem onSelect={() => sendToClient(project, 'print')}>
+                                                                                <Printer className="h-4 w-4 text-purple-600" />
+                                                                                {t('sendPrintLink')}
+                                                                            </DropdownMenuItem>
+                                                                        )}
+                                                                        {canSendToFreelancer && (
+                                                                            <>
+                                                                                <DropdownMenuSeparator />
+                                                                                <DropdownMenuSub>
+                                                                                    <DropdownMenuSubTrigger>
+                                                                                        <Users className="h-4 w-4 text-cyan-600" />
+                                                                                        {t('sendToFreelancer')}
+                                                                                    </DropdownMenuSubTrigger>
+                                                                                    <DropdownMenuSubContent className="w-52">
+                                                                                        {freelancerOptions.map((freelancer, index) => (
+                                                                                            <DropdownMenuItem
+                                                                                                key={freelancer.id || `${freelancer.whatsapp}-${index}`}
+                                                                                                onSelect={() => sendToFreelancer(project, freelancer)}
+                                                                                            >
+                                                                                                <MessageCircle className="h-4 w-4 text-green-600" />
+                                                                                                <span className="truncate">{freelancer.name}</span>
+                                                                                            </DropdownMenuItem>
+                                                                                        ))}
+                                                                                    </DropdownMenuSubContent>
+                                                                                </DropdownMenuSub>
+                                                                            </>
+                                                                        )}
+                                                                    </DropdownMenuContent>
+                                                                </DropdownMenu>
+                                                            </div>
+                                                            <Button type="button" size="icon" variant="ghost" onClick={(e) => handleProjectActionClick(e, () => sendReminder(project))} className={actionButtonClass('amber')} disabled={expired || !isProjectLinkReady || (!project.expiresAt && !project.printExpiresAt)} title={t('sendReminder')} aria-label={t('sendReminder')}><Bell className="h-4 w-4" /></Button>
+                                                            <Button type="button" size="icon" variant="ghost" onClick={(e) => handleProjectActionClick(e, () => openLink(dynamicLink))} className={actionButtonClass('blue')} disabled={!isProjectLinkReady} title={t('openLink')} aria-label={t('openLink')}><ExternalLink className="h-4 w-4" /></Button>
+                                                            <Button type="button" size="icon" variant="ghost" onClick={(e) => handleProjectActionClick(e, () => onEditProject(project))} className={actionButtonClass('indigo')} title={t('editProject')} aria-label={t('editProject')}><Edit className="h-4 w-4" /></Button>
+                                                            <Button type="button" size="icon" variant="ghost" onClick={(e) => handleProjectActionClick(e, () => onEditProject(project, 'extra'))} className={actionButtonClass('amber')} title={t('openExtraFeature')} aria-label={t('openExtraFeature')}><ImagePlus className="h-4 w-4" /></Button>
                                                             {printEnabled && (
-                                                                <Button type="button" size="icon" variant="ghost" onClick={(e) => handleProjectActionClick(e, () => onEditProject(project, 'print'))} className={cn(projectActionButtonClass, "text-purple-600 hover:text-purple-600")} title={t('openPrintFeature')} aria-label={t('openPrintFeature')}><Printer className="h-4 w-4" /></Button>
+                                                                <Button type="button" size="icon" variant="ghost" onClick={(e) => handleProjectActionClick(e, () => onEditProject(project, 'print'))} className={actionButtonClass('violet')} title={t('openPrintFeature')} aria-label={t('openPrintFeature')}><Printer className="h-4 w-4" /></Button>
                                                             )}
                                                             {!printEnabled && (
                                                                 <span className={projectActionPlaceholderClass} aria-hidden="true" />
                                                             )}
-                                                            <Button type="button" size="icon" variant="ghost" onClick={(e) => handleProjectActionClick(e, () => handleDeleteClick(project.id))} className={cn(projectActionButtonClass, "text-destructive hover:text-destructive")} title={t('delete')} aria-label={t('delete')}><Trash2 className="h-4 w-4" /></Button>
+                                                            <Button type="button" size="icon" variant="ghost" onClick={(e) => handleProjectActionClick(e, () => handleDeleteClick(project.id))} className={actionButtonClass('red')} title={t('delete')} aria-label={t('delete')}><Trash2 className="h-4 w-4" /></Button>
                                                         </div>
                                                     )}
                                                 </div>
@@ -1513,7 +1597,146 @@ export function ProjectList({
 
             <PopupDialog isOpen={showDeleteDialog} onClose={() => setShowDeleteDialog(false)} onConfirm={confirmDelete} title={t('confirmDelete')} message={t('confirmDeleteSingle')} type="danger" confirmText={isDeleting ? "Deleting..." : t('delete')} cancelText={t('cancel')} />
             <PopupDialog isOpen={showBatchDeleteDialog} onClose={() => setShowBatchDeleteDialog(false)} onConfirm={confirmBatchDelete} title={t('confirmDelete')} message={t('confirmDeleteMsg', { count: selectedIds.length })} type="danger" confirmText={isDeleting ? "Deleting..." : t('deleteSelected')} cancelText={t('cancel')} />
-            <Toast isOpen={showToast} message={toastMessage} type="success" onClose={() => setShowToast(false)} />
+            <Toast isOpen={toast.open} message={toast.message} type={toast.type} position="top-right" duration={1800} onClose={() => setToast((current) => ({ ...current, open: false }))} />
+
+            {copyPopupProject && (
+                <Dialog
+                    open={copyActionPopup.open}
+                    onOpenChange={(open) => {
+                        if (!open) setCopyActionPopup({ open: false, project: null })
+                    }}
+                >
+                    <DialogContent className="rounded-xl sm:max-w-md">
+                        <DialogHeader className="items-center text-center">
+                            <DialogTitle>{t('copyActionPickerTitle')}</DialogTitle>
+                            <DialogDescription>{t('copyActionPickerDesc')}</DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-2">
+                            <button
+                                type="button"
+                                className={actionPickerOptionClass}
+                                disabled={!copyPopupLink}
+                                onClick={() => {
+                                    setCopyActionPopup({ open: false, project: null })
+                                    copyLink(copyPopupLink, copyPopupProject.id)
+                                }}
+                            >
+                                <span>{t('copyClientLink')}</span>
+                                <Copy className="h-4 w-4 text-violet-600" />
+                            </button>
+                            <button
+                                type="button"
+                                className={actionPickerOptionClass}
+                                disabled={!copyPopupLink}
+                                onClick={() => {
+                                    setCopyActionPopup({ open: false, project: null })
+                                    copyTemplateForProject(copyPopupProject, 'client')
+                                }}
+                            >
+                                <span>{t('copyClientTemplate')}</span>
+                                <FileText className="h-4 w-4 text-violet-600" />
+                            </button>
+                            {hasExtraAction(copyPopupProject) && (
+                                <button
+                                    type="button"
+                                    className={actionPickerOptionClass}
+                                    disabled={!copyPopupLink}
+                                    onClick={() => {
+                                        setCopyActionPopup({ open: false, project: null })
+                                        copyTemplateForProject(copyPopupProject, 'extra')
+                                    }}
+                                >
+                                    <span>{t('copyExtraTemplate')}</span>
+                                    <ImagePlus className="h-4 w-4 text-amber-600" />
+                                </button>
+                            )}
+                            {hasPrintAction(copyPopupProject) && (
+                                <button
+                                    type="button"
+                                    className={actionPickerOptionClass}
+                                    disabled={!copyPopupLink}
+                                    onClick={() => {
+                                        setCopyActionPopup({ open: false, project: null })
+                                        copyTemplateForProject(copyPopupProject, 'print')
+                                    }}
+                                >
+                                    <span>{t('copyPrintTemplate')}</span>
+                                    <Printer className="h-4 w-4 text-purple-600" />
+                                </button>
+                            )}
+                        </div>
+                    </DialogContent>
+                </Dialog>
+            )}
+
+            {whatsappPopupProject && (
+                <Dialog
+                    open={whatsappActionPopup.open}
+                    onOpenChange={(open) => {
+                        if (!open) setWhatsappActionPopup({ open: false, project: null })
+                    }}
+                >
+                    <DialogContent className="rounded-xl sm:max-w-md">
+                        <DialogHeader className="items-center text-center">
+                            <DialogTitle>{t('whatsappActionPickerTitle')}</DialogTitle>
+                            <DialogDescription>{t('whatsappActionPickerDesc')}</DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-2">
+                            <button
+                                type="button"
+                                className={actionPickerOptionClass}
+                                onClick={() => {
+                                    setWhatsappActionPopup({ open: false, project: null })
+                                    sendToClient(whatsappPopupProject, 'client')
+                                }}
+                            >
+                                <span>{t('sendClientLink')}</span>
+                                <MessageCircle className="h-4 w-4 text-green-600" />
+                            </button>
+                            {hasExtraAction(whatsappPopupProject) && (
+                                <button
+                                    type="button"
+                                    className={actionPickerOptionClass}
+                                    onClick={() => {
+                                        setWhatsappActionPopup({ open: false, project: null })
+                                        sendToClient(whatsappPopupProject, 'extra')
+                                    }}
+                                >
+                                    <span>{t('sendExtraLink')}</span>
+                                    <ImagePlus className="h-4 w-4 text-amber-600" />
+                                </button>
+                            )}
+                            {hasPrintAction(whatsappPopupProject) && (
+                                <button
+                                    type="button"
+                                    className={actionPickerOptionClass}
+                                    onClick={() => {
+                                        setWhatsappActionPopup({ open: false, project: null })
+                                        sendToClient(whatsappPopupProject, 'print')
+                                    }}
+                                >
+                                    <span>{t('sendPrintLink')}</span>
+                                    <Printer className="h-4 w-4 text-purple-600" />
+                                </button>
+                            )}
+                            {canSendProjectToFreelancer(whatsappPopupProject) && whatsappPopupFreelancers.map((freelancer, index) => (
+                                <button
+                                    key={freelancer.id || `${freelancer.whatsapp}-${index}`}
+                                    type="button"
+                                    className={actionPickerOptionClass}
+                                    onClick={() => {
+                                        setWhatsappActionPopup({ open: false, project: null })
+                                        sendToFreelancer(whatsappPopupProject, freelancer)
+                                    }}
+                                >
+                                    <span className="truncate">{t('sendToFreelancer')} - {freelancer.name}</span>
+                                    <MessageCircle className="h-4 w-4 shrink-0 text-green-600" />
+                                </button>
+                            ))}
+                        </div>
+                    </DialogContent>
+                </Dialog>
+            )}
 
             {showExtraPhotosDialog && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -1641,17 +1864,13 @@ export function ProjectList({
                                         <div className="flex flex-col sm:flex-row gap-2">
                                             <Button onClick={() => {
                                                 const clientWa = extraPhotosProject?.clientWhatsapp || ''
-                                                if (!clientWa) { setToastMessage(tc('noWhatsapp')); setShowToast(true); return }
+                                                if (!clientWa) { showAdminToast(tc('noWhatsapp'), 'danger'); return }
                                                 const message = buildExtraTemplateMessage()
                                                 window.open(`https://api.whatsapp.com/send/?phone=${clientWa}&text=${encodeURIComponent(message)}`, '_blank')
                                             }} className="flex-1 bg-green-600 hover:bg-green-700 text-white cursor-pointer"><MessageCircle className="h-4 w-4 mr-2" />{t('sendToClientWa')}</Button>
                                             <Button variant="outline" className="flex-1 cursor-pointer" onClick={() => {
                                                 const message = buildExtraTemplateMessage()
-                                                if (navigator.clipboard && window.isSecureContext) {
-                                                    navigator.clipboard.writeText(message)
-                                                    setToastMessage(t('templateCopied'))
-                                                    setShowToast(true)
-                                                }
+                                                copyText(message, () => showAdminToast(t('templateCopied'), 'success'))
                                             }}><Copy className="h-4 w-4 mr-2" />{t('copyTemplate')}</Button>
                                         </div>
                                     )
@@ -1786,35 +2005,20 @@ export function ProjectList({
                                     <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg break-all text-sm border border-purple-200 dark:border-purple-800">{generatedPrintLink}</div>
                                     <div className="flex gap-2">
                                         <Button onClick={() => {
-                                            if (navigator.clipboard && window.isSecureContext) {
-                                                navigator.clipboard.writeText(generatedPrintLink)
-                                            } else {
-                                                const textArea = document.createElement('textarea')
-                                                textArea.value = generatedPrintLink
-                                                document.body.appendChild(textArea)
-                                                textArea.select()
-                                                document.execCommand('copy')
-                                                document.body.removeChild(textArea)
-                                            }
-                                            setToastMessage(t('linkCopied'))
-                                            setShowToast(true)
+                                            copyText(generatedPrintLink, () => showAdminToast(t('linkCopied'), 'success'))
                                         }} variant="outline" className="flex-1 cursor-pointer"><Copy className="h-4 w-4 mr-2" />{t('copyLink')}</Button>
                                         <Button onClick={() => window.open(generatedPrintLink, '_blank')} variant="outline" className="flex-1 cursor-pointer"><ExternalLink className="h-4 w-4 mr-2" />{t('openLink')}</Button>
                                     </div>
                                     <div className="flex flex-col sm:flex-row gap-2">
                                         <Button onClick={() => {
                                             const clientWa = printProject?.clientWhatsapp || ''
-                                            if (!clientWa) { setToastMessage('No WhatsApp number'); setShowToast(true); return }
+                                            if (!clientWa) { showAdminToast('No WhatsApp number', 'danger'); return }
                                             const message = buildPrintTemplateMessage()
                                             window.open(`https://api.whatsapp.com/send/?phone=${clientWa}&text=${encodeURIComponent(message)}`, '_blank')
                                         }} className="flex-1 bg-green-600 hover:bg-green-700 text-white cursor-pointer"><MessageCircle className="h-4 w-4 mr-2" />{t('sendToClientWa')}</Button>
                                         <Button variant="outline" className="flex-1 cursor-pointer" onClick={() => {
                                             const message = buildPrintTemplateMessage()
-                                            if (navigator.clipboard && window.isSecureContext) {
-                                                navigator.clipboard.writeText(message)
-                                                setToastMessage(t('templateCopied'))
-                                                setShowToast(true)
-                                            }
+                                            copyText(message, () => showAdminToast(t('templateCopied'), 'success'))
                                         }}><Copy className="h-4 w-4 mr-2" />{t('copyTemplate')}</Button>
                                     </div>
                                 </div>

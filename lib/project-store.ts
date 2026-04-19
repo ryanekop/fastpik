@@ -19,6 +19,8 @@ export interface Project {
     detectSubfolders: boolean
     expiresAt?: number | null // Unix timestamp, undefined/null = never expires
     downloadExpiresAt?: number | null // Unix timestamp for download mode expiry
+    selectionEnabled?: boolean // Whether the select/edit card is shown on the client link
+    downloadEnabled?: boolean // Whether the download card is shown on the client link
     createdAt: number
     link: string
     lockedPhotos?: string[] // List of previously selected photo filenames

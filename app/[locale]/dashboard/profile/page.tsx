@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
+import { Toast } from '@/components/ui/popup-dialog'
 import { Loader2, Save, KeyRound, Crown, ArrowLeft, RefreshCw, AlertCircle, User } from 'lucide-react'
 import Link from 'next/link'
 
@@ -54,6 +55,11 @@ export default function ProfilePage() {
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [success, setSuccess] = useState<string | null>(null)
+    const [toast, setToast] = useState<{ open: boolean; message: string; type: 'info' | 'success' | 'warning' | 'danger' }>({ open: false, message: "", type: "success" })
+
+    const showAdminToast = (message: string, type: 'info' | 'success' | 'warning' | 'danger' = 'success') => {
+        setToast({ open: true, message, type })
+    }
 
     const [email, setEmail] = useState('')
     const [name, setName] = useState('')
@@ -152,9 +158,11 @@ export default function ProfilePage() {
             if (profileError) throw profileError
 
             setSuccess(t('saveSuccess'))
+            showAdminToast(tAdmin('saveSuccess'), 'success')
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : t('saveError')
             setError(message)
+            showAdminToast(message, 'danger')
         } finally {
             setSaving(false)
         }
@@ -233,8 +241,10 @@ export default function ProfilePage() {
 
         if (error) {
             setError(error.message)
+            showAdminToast(error.message, 'danger')
         } else {
             setSuccess(t('resetEmailSent'))
+            showAdminToast(t('resetEmailSent'), 'success')
         }
     }
 
@@ -293,6 +303,7 @@ export default function ProfilePage() {
 
     return (
         <AdminShell>
+            <Toast isOpen={toast.open} message={toast.message} type={toast.type} position="top-right" duration={1800} onClose={() => setToast((current) => ({ ...current, open: false }))} />
             <div className="max-w-4xl mx-auto pb-10">
                 <div className="mb-6 flex items-center justify-between">
                     <Link href={`/${locale}/dashboard`} className="inline-flex items-center text-sm text-muted-foreground hover:text-primary">
