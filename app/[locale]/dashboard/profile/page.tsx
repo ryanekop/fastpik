@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { Toast } from '@/components/ui/popup-dialog'
+import { buildRecoveryRedirectUrl } from '@/lib/auth-redirect'
 import { Loader2, Save, KeyRound, Crown, ArrowLeft, RefreshCw, AlertCircle, User } from 'lucide-react'
 import Link from 'next/link'
 
@@ -236,7 +237,7 @@ export default function ProfilePage() {
 
     const handleResetPassword = async () => {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-            redirectTo: `${window.location.origin}/${locale}/auth/callback?type=recovery`
+            redirectTo: buildRecoveryRedirectUrl(locale)
         })
 
         if (error) {

@@ -11,6 +11,7 @@ import { Loader2, ArrowLeft, Mail } from "lucide-react"
 import Link from "next/link"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { LanguageToggle } from "@/components/language-toggle"
+import { buildRecoveryRedirectUrl } from "@/lib/auth-redirect"
 
 export default function ForgotPasswordPage() {
     const supabase = createClient()
@@ -29,7 +30,7 @@ export default function ForgotPasswordPage() {
 
         try {
             const { error } = await supabase.auth.resetPasswordForEmail(email, {
-                redirectTo: `${window.location.origin}/${locale}/auth/callback?type=recovery`,
+                redirectTo: buildRecoveryRedirectUrl(locale),
             })
 
             if (error) {
@@ -37,7 +38,7 @@ export default function ForgotPasswordPage() {
             } else {
                 setSuccess(true)
             }
-        } catch (err) {
+        } catch {
             setError("An unexpected error occurred")
         } finally {
             setLoading(false)
@@ -64,6 +65,9 @@ export default function ForgotPasswordPage() {
                             <p className="text-sm text-muted-foreground">
                                 {t('checkEmailForLink')}
                             </p>
+                            <p className="text-xs text-muted-foreground">
+                                {t('resetMainDomainNotice')}
+                            </p>
                             <p className="text-xs text-amber-600 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-400 p-2 rounded-md">
                                 {t('resetLinkNote')}
                             </p>
@@ -84,6 +88,10 @@ export default function ForgotPasswordPage() {
                                     onChange={(e) => setEmail(e.target.value)}
                                 />
                             </div>
+
+                            <p className="text-xs text-muted-foreground">
+                                {t('resetMainDomainNotice')}
+                            </p>
 
                             {error && (
                                 <div className="p-3 bg-destructive/15 text-destructive text-sm rounded-md">

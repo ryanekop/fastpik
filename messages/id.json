@@ -323,6 +323,7 @@
         "resetPasswordTitle": "Reset Password",
         "resetPasswordDesc": "Masukkan email Anda untuk menerima link reset",
         "checkEmailForLink": "Cek email Anda untuk link reset.",
+        "resetMainDomainNotice": "Link reset akan melanjutkan proses di domain utama Fastpik.",
         "resetLinkNote": "⚠️ Buka link dari browser/device yang sama untuk menghindari error.",
         "sendingLink": "Mengirim link...",
         "sendResetLink": "Kirim Link Reset",
