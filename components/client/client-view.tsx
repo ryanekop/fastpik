@@ -79,7 +79,7 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
     const RELOAD_COOLDOWN_MS = 10 * 1000
     const RELOAD_TOAST_THROTTLE_MS = 2 * 1000
     const chooseActionHeading = customChooseActionText?.[currentLocale as 'id' | 'en']?.trim() || t('chooseAction')
-    const { selected, toggleSelection, clearSelection, setSelection, setProjectId, projectId } = useSelectionStore()
+    const { selected, toggleSelection, clearSelection, setProjectId, projectId } = useSelectionStore()
     const isHydrated = useStoreHydration() // Use proper Zustand hydration detection
     const [photos, setPhotos] = useState<Photo[]>([])
     const [folders, setFolders] = useState<FolderNode[]>([])
@@ -407,25 +407,6 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
             }
         }
     }, [isAuthenticated, hasPendingSelection, viewMode])
-
-    // Auto-select locked photos when photos are loaded (fixes counter showing 0/8 instead of 5/8)
-    // Must be before early returns to maintain consistent hook order
-    useEffect(() => {
-        if (photos.length > 0 && config.lockedPhotos && config.lockedPhotos.length > 0 && viewMode === 'culling') {
-            const getNameNoExt = (name: string) => name.replace(/\.[^/.]+$/, '')
-            const lockedNames = config.lockedPhotos.map(n => getNameNoExt(n))
-            const lockedPhotoIds = photos
-                .filter(p => lockedNames.includes(getNameNoExt(p.name)))
-                .map(p => p.id)
-                .filter(id => !selected.includes(id))
-
-            if (lockedPhotoIds.length > 0) {
-                lockedPhotoIds.forEach(id => {
-                    toggleSelection(id, config.maxPhotos)
-                })
-            }
-        }
-    }, [photos, viewMode])
 
     useEffect(() => {
         hasHydratedPrintSelectionsRef.current = false
@@ -1208,23 +1189,11 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
             hasHydratedExtraSelectionsRef.current = true
             hasUserModifiedExtraSelectionsRef.current = true
             setExtraSelected([])
-        } else if (config.lockedPhotos && config.lockedPhotos.length > 0) {
-            // If there are locked photos, keep them and only clear new selections
-            const getNameNoExt = (name: string) => name.replace(/\.[^/.]+$/, '')
-            const lockedNames = config.lockedPhotos.map(n => getNameNoExt(n))
-
-            const lockedPhotoIds = photos
-                .filter(p => lockedNames.includes(getNameNoExt(p.name)))
-                .map(p => p.id)
-
-            // Set selection to ONLY the locked photos
-            setSelection(lockedPhotoIds)
         } else {
-            // Normal project, clear everything
             clearSelection()
         }
         setShowClearDialog(false)
-        setToastMessage(t('selectionCleared'))
+        setToastMessage(isExtraMode ? t('extraSelectionCleared') : t('selectionCleared'))
         setShowToast(true)
     }
 
@@ -1559,7 +1528,16 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
     const allPrintSelectedIds = hasPrintFeature ? Object.values(printSelections).flat() : []
     const effectiveSelected = isPrintMode ? allPrintSelectedIds : (isExtraMode ? extraSelected : selected)
     const effectiveCount = effectiveSelected.length
+    const reviewSelectedIds = isPrintMode
+        ? allPrintSelectedIds
+        : shouldShowLockedPhotos
+            ? Array.from(new Set([...lockedPhotoIds, ...effectiveSelected]))
+            : effectiveSelected
+    const reviewActivationCount = isPrintMode ? allPrintSelectedIds.length : (isExtraMode ? extraSelected.length : selected.length)
+    const reviewCount = reviewActivationCount
+    const hasReviewContent = reviewActivationCount > 0
     const selectedPhotoNames = effectiveSelected.slice(0, 5).map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name))
+    const clearDialogMessage = isExtraMode ? t('confirmClearExtraMsg') : t('confirmClearMsg')
 
     // Format photos for lightbox using the active source list from the clicked section/grid
     const activeLightboxSource = lightboxSourcePhotos.length > 0 ? lightboxSourcePhotos : photos
@@ -1844,7 +1822,7 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
                             }
                         </p>
                     </div>
-                    {effectiveCount === 0 ? (
+                    {!hasReviewContent ? (
                         <div className="flex flex-col items-center justify-center py-16 gap-4">
                             <ImageOff className="h-12 w-12 text-muted-foreground" />
                             <p className="text-muted-foreground">{t('noPhotosSelected')}</p>
@@ -1975,7 +1953,7 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
                 initialIndex={lightboxIndex}
                 isOpen={lightboxOpen}
                 onClose={() => setLightboxOpen(false)}
-                selectedIds={viewMode === 'download' ? downloadSelected : (isPrintMode ? (viewMode === 'review' ? allPrintSelectedIds : currentSelected) : (isExtraMode ? extraSelected : selected))}
+                selectedIds={viewMode === 'download' ? downloadSelected : (isPrintMode ? (viewMode === 'review' ? allPrintSelectedIds : currentSelected) : (viewMode === 'review' ? reviewSelectedIds : (isExtraMode ? extraSelected : selected)))}
                 onToggleSelect={viewMode === 'download' ? handleDownloadToggle : handleToggle}
                 maxPhotos={viewMode === 'download' ? Infinity : currentMaxPhotos}
                 lockedIds={viewMode === 'download' ? [] : lockedPhotoIds}
@@ -2091,11 +2069,11 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
                             {/* Review Selection Button */}
                             <Button
                                 onClick={() => setViewMode('review')}
-                                disabled={effectiveCount === 0}
+                                disabled={!hasReviewContent}
                                 className="flex-1 bg-blue-600 hover:bg-blue-700 text-white gap-2 cursor-pointer"
                             >
                                 <Eye className="h-4 w-4" />
-                                {t('reviewSelection')} ({effectiveCount})
+                                {t('reviewSelection')} ({reviewCount})
                             </Button>
                         </div>
                     </>
@@ -2108,7 +2086,7 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
                 onClose={() => setShowClearDialog(false)}
                 onConfirm={handleClearSelection}
                 title={t('confirmClear')}
-                message={t('confirmClearMsg')}
+                message={clearDialogMessage}
                 type="danger"
                 confirmText={t('clearSelection')}
                 cancelText={t('cancel') || 'Batal'}
