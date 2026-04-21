@@ -387,6 +387,122 @@ export default function SettingsPage() {
         }, 0)
     }
 
+    const openDefaultCustomDuration = (target: 'selection' | 'download' | 'extra' | 'print') => {
+        setCustomDefaultExpiryTarget(target)
+        setCustomDefaultMonths('')
+        setCustomDefaultDays('')
+        setShowCustomDefaultExpiryDialog(true)
+    }
+
+    const renderDefaultDurationField = ({
+        icon,
+        label,
+        target,
+        value,
+        customLabel,
+        setValue,
+        setCustomLabel,
+    }: {
+        icon: string
+        label: string
+        target: 'selection' | 'download' | 'extra' | 'print'
+        value: string
+        customLabel: string | null
+        setValue: (value: string) => void
+        setCustomLabel: (value: string | null) => void
+    }) => (
+        <div className="space-y-2">
+            <Label>{icon} {label}</Label>
+            <div className="relative">
+                {customLabel && (
+                    <div
+                        className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer"
+                        onClick={() => openDefaultCustomDuration(target)}
+                    >
+                        <span>✏️ {customLabel}</span>
+                        <button
+                            type="button"
+                            className="text-muted-foreground hover:text-foreground ml-2"
+                            onClick={(e) => {
+                                e.stopPropagation()
+                                setValue('')
+                                setCustomLabel(null)
+                            }}
+                        >
+                            ✕
+                        </button>
+                    </div>
+                )}
+                <select
+                    className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer ${customLabel ? 'hidden' : ''}`}
+                    value={customLabel ? 'custom' : value}
+                    onChange={(e) => {
+                        if (e.target.value === 'custom') {
+                            openDefaultCustomDuration(target)
+                        } else {
+                            setValue(e.target.value)
+                            setCustomLabel(null)
+                        }
+                    }}
+                >
+                    <option value="">♾️ {t('forever')}</option>
+                    <option value="1">1 {t('days')}</option>
+                    <option value="3">3 {t('days')}</option>
+                    <option value="5">5 {t('days')}</option>
+                    <option value="7">7 {t('days')}</option>
+                    <option value="14">14 {t('days')}</option>
+                    <option value="30">30 {t('days')}</option>
+                    <option value="custom">✏️ {t('custom')}</option>
+                </select>
+            </div>
+        </div>
+    )
+
+    const defaultFeatureCards = [
+        {
+            key: 'selection',
+            icon: '🖼️',
+            label: t('selectPhotos'),
+            hint: t('selectPhotosFeatureHint'),
+            enabled: defaultSelectionEnabled,
+            setEnabled: setDefaultSelectionEnabled,
+            disabled: false,
+            disabledHint: null,
+        },
+        {
+            key: 'download',
+            icon: '📥',
+            label: t('downloadPhotos'),
+            hint: t('downloadPhotosFeatureHint'),
+            enabled: defaultDownloadEnabled,
+            setEnabled: setDefaultDownloadEnabled,
+            disabled: false,
+            disabledHint: null,
+        },
+        {
+            key: 'extra',
+            icon: '📷',
+            label: t('defaultExtraPhotoLabel'),
+            hint: t('extraPhotoSectionHint'),
+            enabled: defaultExtraEnabled,
+            setEnabled: setDefaultExtraEnabled,
+            disabled: false,
+            disabledHint: null,
+        },
+        {
+            key: 'print',
+            icon: '🖨️',
+            label: t('defaultPrintPhotoLabel'),
+            hint: printEnabled ? t('printPhotoSectionHint') : t('defaultPrintFeatureDisabledHint'),
+            enabled: defaultPrintSelectionEnabled,
+            setEnabled: setDefaultPrintSelectionEnabled,
+            disabled: !printEnabled,
+            disabledHint: !printEnabled ? t('defaultPrintFeatureDisabledHint') : null,
+        },
+    ] as const
+
+    const hasDefaultFeatureDetails = defaultSelectionEnabled || defaultDownloadEnabled || defaultExtraEnabled || (defaultPrintSelectionEnabled && printEnabled)
+
     if (loading) {
         return (
             <AdminShell>
@@ -550,226 +666,149 @@ export default function SettingsPage() {
                                     <CardDescription>{t('defaultProjectDesc')}</CardDescription>
                                 </CardHeader>
                                 <CardContent className="space-y-6">
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <Label>📸 {t('defaultMaxPhotos')}</Label>
-                                            <Input
-                                                type="number"
-                                                min="1"
-                                                value={defaultMaxPhotos}
-                                                onChange={(e) => setDefaultMaxPhotos(e.target.value)}
-                                                placeholder="10"
-                                            />
+                                    <div className="space-y-3">
+                                        <div className="space-y-1">
+                                            <p className="text-sm font-semibold">{t('defaultProjectGeneralTitle')}</p>
                                         </div>
-                                        <div className="space-y-2">
-                                            <Label>🔐 {t('defaultPasswordLabel')}</Label>
-                                            <Input
-                                                value={defaultPassword}
-                                                onChange={(e) => setDefaultPassword(e.target.value)}
-                                                placeholder={t('defaultPasswordPlaceholder')}
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                        <div className="flex items-center justify-between rounded-lg border p-3">
-                                            <Label className="cursor-pointer">🖼️ {t('selectPhotos')}</Label>
-                                            <Switch
-                                                checked={defaultSelectionEnabled}
-                                                onCheckedChange={setDefaultSelectionEnabled}
-                                                className="cursor-pointer"
-                                            />
-                                        </div>
-                                        <div className="flex items-center justify-between rounded-lg border p-3">
-                                            <Label className="cursor-pointer">📥 {t('downloadPhotos')}</Label>
-                                            <Switch
-                                                checked={defaultDownloadEnabled}
-                                                onCheckedChange={setDefaultDownloadEnabled}
-                                                className="cursor-pointer"
-                                            />
-                                        </div>
-                                        <div className="flex items-center justify-between rounded-lg border p-3">
-                                            <Label className="cursor-pointer">📷 {t('extraPhotoSectionTitle')}</Label>
-                                            <Switch
-                                                checked={defaultExtraEnabled}
-                                                onCheckedChange={setDefaultExtraEnabled}
-                                                className="cursor-pointer"
-                                            />
-                                        </div>
-                                        <div className="flex items-center justify-between rounded-lg border p-3">
-                                            <Label className="cursor-pointer">🖨️ {t('printPhotoSectionTitle')}</Label>
-                                            <Switch
-                                                checked={defaultPrintSelectionEnabled}
-                                                onCheckedChange={setDefaultPrintSelectionEnabled}
-                                                disabled={!printEnabled}
-                                                className="cursor-pointer"
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <Label>⏰ {t('defaultSelectionDuration')}</Label>
-                                            <div className="relative">
-                                                {customDefaultExpiryLabel && (
-                                                    <div className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer" onClick={() => { setCustomDefaultExpiryTarget('selection'); setCustomDefaultMonths(''); setCustomDefaultDays(''); setShowCustomDefaultExpiryDialog(true) }}>
-                                                        <span>✏️ {customDefaultExpiryLabel}</span>
-                                                        <button type="button" className="text-muted-foreground hover:text-foreground ml-2" onClick={(e) => { e.stopPropagation(); setDefaultExpiryDays(''); setCustomDefaultExpiryLabel(null) }}>✕</button>
-                                                    </div>
-                                                )}
-                                                <select
-                                                    className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer ${customDefaultExpiryLabel ? 'hidden' : ''}`}
-                                                    value={customDefaultExpiryLabel ? 'custom' : defaultExpiryDays}
-                                                    onChange={(e) => {
-                                                        if (e.target.value === 'custom') {
-                                                            setCustomDefaultExpiryTarget('selection')
-                                                            setCustomDefaultMonths('')
-                                                            setCustomDefaultDays('')
-                                                            setShowCustomDefaultExpiryDialog(true)
-                                                        } else {
-                                                            setDefaultExpiryDays(e.target.value)
-                                                            setCustomDefaultExpiryLabel(null)
-                                                        }
-                                                    }}
-                                                >
-                                                    <option value="">♾️ {t('forever')}</option>
-                                                    <option value="1">1 {t('days')}</option>
-                                                    <option value="3">3 {t('days')}</option>
-                                                    <option value="5">5 {t('days')}</option>
-                                                    <option value="7">7 {t('days')}</option>
-                                                    <option value="14">14 {t('days')}</option>
-                                                    <option value="30">30 {t('days')}</option>
-                                                    <option value="custom">✏️ {t('custom')}</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label>📥 {t('defaultDownloadDuration')}</Label>
-                                            <div className="relative">
-                                                {customDefaultDownloadExpiryLabel && (
-                                                    <div className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer" onClick={() => { setCustomDefaultExpiryTarget('download'); setCustomDefaultMonths(''); setCustomDefaultDays(''); setShowCustomDefaultExpiryDialog(true) }}>
-                                                        <span>✏️ {customDefaultDownloadExpiryLabel}</span>
-                                                        <button type="button" className="text-muted-foreground hover:text-foreground ml-2" onClick={(e) => { e.stopPropagation(); setDefaultDownloadExpiryDays(''); setCustomDefaultDownloadExpiryLabel(null) }}>✕</button>
-                                                    </div>
-                                                )}
-                                                <select
-                                                    className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer ${customDefaultDownloadExpiryLabel ? 'hidden' : ''}`}
-                                                    value={customDefaultDownloadExpiryLabel ? 'custom' : defaultDownloadExpiryDays}
-                                                    onChange={(e) => {
-                                                        if (e.target.value === 'custom') {
-                                                            setCustomDefaultExpiryTarget('download')
-                                                            setCustomDefaultMonths('')
-                                                            setCustomDefaultDays('')
-                                                            setShowCustomDefaultExpiryDialog(true)
-                                                        } else {
-                                                            setDefaultDownloadExpiryDays(e.target.value)
-                                                            setCustomDefaultDownloadExpiryLabel(null)
-                                                        }
-                                                    }}
-                                                >
-                                                    <option value="">♾️ {t('forever')}</option>
-                                                    <option value="1">1 {t('days')}</option>
-                                                    <option value="3">3 {t('days')}</option>
-                                                    <option value="5">5 {t('days')}</option>
-                                                    <option value="7">7 {t('days')}</option>
-                                                    <option value="14">14 {t('days')}</option>
-                                                    <option value="30">30 {t('days')}</option>
-                                                    <option value="custom">✏️ {t('custom')}</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    {defaultExtraEnabled && (
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-lg border border-amber-200 bg-amber-50/40 p-3 dark:border-amber-800 dark:bg-amber-950/20">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                             <div className="space-y-2">
-                                                <Label>➕ {t('extraPhotosCount')}</Label>
+                                                <Label>📸 {t('defaultMaxPhotos')}</Label>
                                                 <Input
                                                     type="number"
                                                     min="1"
-                                                    value={defaultExtraMaxPhotos}
-                                                    onChange={(e) => setDefaultExtraMaxPhotos(e.target.value)}
-                                                    placeholder="5"
+                                                    value={defaultMaxPhotos}
+                                                    onChange={(e) => setDefaultMaxPhotos(e.target.value)}
+                                                    placeholder="10"
                                                 />
                                             </div>
                                             <div className="space-y-2">
-                                                <Label>⏰ {t('extraDurationLabel')}</Label>
-                                                <div className="relative">
-                                                    {customDefaultExtraExpiryLabel && (
-                                                        <div className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer" onClick={() => { setCustomDefaultExpiryTarget('extra'); setCustomDefaultMonths(''); setCustomDefaultDays(''); setShowCustomDefaultExpiryDialog(true) }}>
-                                                            <span>✏️ {customDefaultExtraExpiryLabel}</span>
-                                                            <button type="button" className="text-muted-foreground hover:text-foreground ml-2" onClick={(e) => { e.stopPropagation(); setDefaultExtraExpiryDays(''); setCustomDefaultExtraExpiryLabel(null) }}>✕</button>
+                                                <Label>🔐 {t('defaultPasswordLabel')}</Label>
+                                                <Input
+                                                    value={defaultPassword}
+                                                    onChange={(e) => setDefaultPassword(e.target.value)}
+                                                    placeholder={t('defaultPasswordPlaceholder')}
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center justify-between rounded-lg border p-3">
+                                            <div className="space-y-1">
+                                                <Label className="cursor-pointer">📂 {t('detectSubfolders')}</Label>
+                                            </div>
+                                            <Switch
+                                                checked={defaultDetectSubfolders}
+                                                onCheckedChange={setDefaultDetectSubfolders}
+                                                className="cursor-pointer"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        <div className="space-y-1">
+                                            <p className="text-sm font-semibold">{t('defaultProjectFeaturesTitle')}</p>
+                                            <p className="text-xs text-muted-foreground">{t('defaultProjectFeaturesHint')}</p>
+                                        </div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                            {defaultFeatureCards.map((feature) => (
+                                                <div key={feature.key} className={`rounded-lg border p-3 transition-colors ${feature.disabled ? 'opacity-70' : ''}`}>
+                                                    <div className="flex items-start justify-between gap-4">
+                                                        <div className="space-y-1">
+                                                            <Label className="cursor-pointer text-base font-medium">
+                                                                {feature.icon} {feature.label}
+                                                            </Label>
+                                                            <p className="text-xs text-muted-foreground">{feature.hint}</p>
+                                                            {feature.disabledHint ? (
+                                                                <p className="text-xs text-amber-700 dark:text-amber-300">{feature.disabledHint}</p>
+                                                            ) : null}
                                                         </div>
-                                                    )}
-                                                    <select
-                                                        className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer ${customDefaultExtraExpiryLabel ? 'hidden' : ''}`}
-                                                        value={customDefaultExtraExpiryLabel ? 'custom' : defaultExtraExpiryDays}
-                                                        onChange={(e) => {
-                                                            if (e.target.value === 'custom') {
-                                                                setCustomDefaultExpiryTarget('extra')
-                                                                setCustomDefaultMonths('')
-                                                                setCustomDefaultDays('')
-                                                                setShowCustomDefaultExpiryDialog(true)
-                                                            } else {
-                                                                setDefaultExtraExpiryDays(e.target.value)
-                                                                setCustomDefaultExtraExpiryLabel(null)
-                                                            }
-                                                        }}
-                                                    >
-                                                        <option value="">♾️ {t('forever')}</option>
-                                                        <option value="1">1 {t('days')}</option>
-                                                        <option value="3">3 {t('days')}</option>
-                                                        <option value="5">5 {t('days')}</option>
-                                                        <option value="7">7 {t('days')}</option>
-                                                        <option value="14">14 {t('days')}</option>
-                                                        <option value="30">30 {t('days')}</option>
-                                                        <option value="custom">✏️ {t('custom')}</option>
-                                                    </select>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-                                    {defaultPrintSelectionEnabled && printEnabled && (
-                                        <div className="space-y-2 rounded-lg border border-purple-200 bg-purple-50/40 p-3 dark:border-purple-800 dark:bg-purple-950/20">
-                                            <Label>⏰ {t('defaultPrintDuration')}</Label>
-                                            <div className="relative">
-                                                {customDefaultPrintExpiryLabel && (
-                                                    <div className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer" onClick={() => { setCustomDefaultExpiryTarget('print'); setCustomDefaultMonths(''); setCustomDefaultDays(''); setShowCustomDefaultExpiryDialog(true) }}>
-                                                        <span>✏️ {customDefaultPrintExpiryLabel}</span>
-                                                        <button type="button" className="text-muted-foreground hover:text-foreground ml-2" onClick={(e) => { e.stopPropagation(); setDefaultPrintExpiryDays(''); setCustomDefaultPrintExpiryLabel(null) }}>✕</button>
+                                                        <Switch
+                                                            checked={feature.enabled}
+                                                            onCheckedChange={feature.setEnabled}
+                                                            disabled={feature.disabled}
+                                                            className="cursor-pointer mt-1"
+                                                        />
                                                     </div>
-                                                )}
-                                                <select
-                                                    className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer ${customDefaultPrintExpiryLabel ? 'hidden' : ''}`}
-                                                    value={customDefaultPrintExpiryLabel ? 'custom' : defaultPrintExpiryDays}
-                                                    onChange={(e) => {
-                                                        if (e.target.value === 'custom') {
-                                                            setCustomDefaultExpiryTarget('print')
-                                                            setCustomDefaultMonths('')
-                                                            setCustomDefaultDays('')
-                                                            setShowCustomDefaultExpiryDialog(true)
-                                                        } else {
-                                                            setDefaultPrintExpiryDays(e.target.value)
-                                                            setCustomDefaultPrintExpiryLabel(null)
-                                                        }
-                                                    }}
-                                                >
-                                                    <option value="">♾️ {t('forever')}</option>
-                                                    <option value="1">1 {t('days')}</option>
-                                                    <option value="3">3 {t('days')}</option>
-                                                    <option value="5">5 {t('days')}</option>
-                                                    <option value="7">7 {t('days')}</option>
-                                                    <option value="14">14 {t('days')}</option>
-                                                    <option value="30">30 {t('days')}</option>
-                                                    <option value="custom">✏️ {t('custom')}</option>
-                                                </select>
-                                            </div>
+                                                </div>
+                                            ))}
                                         </div>
-                                    )}
-                                    <div className="flex items-center justify-between rounded-lg border p-3">
-                                        <Label className="cursor-pointer">📂 {t('detectSubfolders')}</Label>
-                                        <Switch
-                                            checked={defaultDetectSubfolders}
-                                            onCheckedChange={setDefaultDetectSubfolders}
-                                            className="cursor-pointer"
-                                        />
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        <div className="space-y-1">
+                                            <p className="text-sm font-semibold">{t('defaultProjectDetailsTitle')}</p>
+                                            <p className="text-xs text-muted-foreground">{t('defaultProjectDetailsHint')}</p>
+                                        </div>
+                                        {hasDefaultFeatureDetails ? (
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                {defaultSelectionEnabled ? (
+                                                    <div className="rounded-lg border border-emerald-200 bg-emerald-50/30 p-3 dark:border-emerald-800 dark:bg-emerald-950/20">
+                                                        {renderDefaultDurationField({
+                                                            icon: '⏰',
+                                                            label: t('defaultSelectionDurationShort'),
+                                                            target: 'selection',
+                                                            value: defaultExpiryDays,
+                                                            customLabel: customDefaultExpiryLabel,
+                                                            setValue: setDefaultExpiryDays,
+                                                            setCustomLabel: setCustomDefaultExpiryLabel,
+                                                        })}
+                                                    </div>
+                                                ) : null}
+                                                {defaultDownloadEnabled ? (
+                                                    <div className="rounded-lg border border-blue-200 bg-blue-50/30 p-3 dark:border-blue-800 dark:bg-blue-950/20">
+                                                        {renderDefaultDurationField({
+                                                            icon: '⏰',
+                                                            label: t('defaultDownloadDurationShort'),
+                                                            target: 'download',
+                                                            value: defaultDownloadExpiryDays,
+                                                            customLabel: customDefaultDownloadExpiryLabel,
+                                                            setValue: setDefaultDownloadExpiryDays,
+                                                            setCustomLabel: setCustomDefaultDownloadExpiryLabel,
+                                                        })}
+                                                    </div>
+                                                ) : null}
+                                                {defaultExtraEnabled ? (
+                                                    <div className="rounded-lg border border-amber-200 bg-amber-50/30 p-3 dark:border-amber-800 dark:bg-amber-950/20">
+                                                        <div className="grid grid-cols-1 gap-4">
+                                                            <div className="space-y-2">
+                                                                <Label>➕ {t('extraPhotosCount')}</Label>
+                                                                <Input
+                                                                    type="number"
+                                                                    min="1"
+                                                                    value={defaultExtraMaxPhotos}
+                                                                    onChange={(e) => setDefaultExtraMaxPhotos(e.target.value)}
+                                                                    placeholder="5"
+                                                                />
+                                                            </div>
+                                                            {renderDefaultDurationField({
+                                                                icon: '⏰',
+                                                                label: t('defaultExtraDurationShort'),
+                                                                target: 'extra',
+                                                                value: defaultExtraExpiryDays,
+                                                                customLabel: customDefaultExtraExpiryLabel,
+                                                                setValue: setDefaultExtraExpiryDays,
+                                                                setCustomLabel: setCustomDefaultExtraExpiryLabel,
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                ) : null}
+                                                {defaultPrintSelectionEnabled && printEnabled ? (
+                                                    <div className="rounded-lg border border-purple-200 bg-purple-50/30 p-3 dark:border-purple-800 dark:bg-purple-950/20">
+                                                        {renderDefaultDurationField({
+                                                            icon: '⏰',
+                                                            label: t('defaultPrintDurationShort'),
+                                                            target: 'print',
+                                                            value: defaultPrintExpiryDays,
+                                                            customLabel: customDefaultPrintExpiryLabel,
+                                                            setValue: setDefaultPrintExpiryDays,
+                                                            setCustomLabel: setCustomDefaultPrintExpiryLabel,
+                                                        })}
+                                                    </div>
+                                                ) : null}
+                                            </div>
+                                        ) : (
+                                            <div className="rounded-lg border border-dashed px-3 py-3 text-sm text-muted-foreground">
+                                                {t('defaultProjectDetailsEmpty')}
+                                            </div>
+                                        )}
                                     </div>
                                     <p className="text-xs text-muted-foreground">{t('defaultProjectHint')}</p>
                                 </CardContent>
