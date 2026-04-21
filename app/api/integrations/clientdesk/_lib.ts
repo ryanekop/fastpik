@@ -11,6 +11,15 @@ export type IntegrationSettingsRow = {
     default_detect_subfolders: boolean | null
     default_expiry_days: number | null
     default_download_expiry_days: number | null
+    default_selection_enabled: boolean | null
+    default_download_enabled: boolean | null
+    default_extra_enabled: boolean | null
+    default_extra_max_photos: number | null
+    default_extra_expiry_days: number | null
+    print_enabled: boolean | null
+    default_print_selection_enabled: boolean | null
+    default_print_expiry_days: number | null
+    print_templates: unknown
     default_password: string | null
     clientdesk_integration_enabled: boolean | null
     clientdesk_api_key_id: string | null
@@ -112,7 +121,7 @@ export async function resolveClientDeskIntegrationContext(request: NextRequest) 
     const supabaseAdmin = createServiceClient()
     const { data, error } = await supabaseAdmin
         .from('settings')
-        .select('user_id, vendor_name, default_admin_whatsapp, default_country_code, default_max_photos, default_detect_subfolders, default_expiry_days, default_download_expiry_days, default_password, clientdesk_integration_enabled, clientdesk_api_key_id, clientdesk_api_key_hash, tenant_id')
+        .select('user_id, vendor_name, default_admin_whatsapp, default_country_code, default_max_photos, default_detect_subfolders, default_expiry_days, default_download_expiry_days, default_selection_enabled, default_download_enabled, default_extra_enabled, default_extra_max_photos, default_extra_expiry_days, print_enabled, default_print_selection_enabled, default_print_expiry_days, print_templates, default_password, clientdesk_integration_enabled, clientdesk_api_key_id, clientdesk_api_key_hash, tenant_id')
         .eq('clientdesk_api_key_id', parsed.keyId)
         .maybeSingle()
 

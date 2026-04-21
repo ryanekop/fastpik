@@ -14,6 +14,8 @@ type ClientDeskDefaults = {
     max_photos?: number | null
     selection_days?: number | null
     download_days?: number | null
+    selection_enabled?: boolean | null
+    download_enabled?: boolean | null
     detect_subfolders?: boolean | null
     default_password?: string | null
 }
@@ -62,6 +64,26 @@ function toNullableDays(value: unknown) {
     if (!Number.isFinite(parsed)) return null
     if (parsed <= 0) return null
     return Math.floor(parsed)
+}
+
+function normalizePrintSizes(value: unknown) {
+    if (!Array.isArray(value)) return []
+    return value
+        .map((entry) => {
+            if (!entry || typeof entry !== 'object') return null
+            const typed = entry as { name?: unknown; quota?: unknown }
+            const name = typeof typed.name === 'string' ? typed.name.trim() : ''
+            if (!name) return null
+            return { name, quota: Math.max(1, Number(typed.quota) || 1) }
+        })
+        .filter((entry): entry is { name: string; quota: number } => Boolean(entry))
+}
+
+function getFirstPrintTemplateSizes(value: unknown) {
+    if (!Array.isArray(value)) return []
+    const firstTemplate = value[0]
+    if (!firstTemplate || typeof firstTemplate !== 'object') return []
+    return normalizePrintSizes((firstTemplate as { sizes?: unknown }).sizes)
 }
 
 function sanitizeString(value: unknown) {
@@ -251,6 +273,26 @@ export async function POST(request: NextRequest) {
         const defaultDownloadDays = presetSource === 'clientdesk'
             ? toNullableDays(fromClientDesk.download_days)
             : toNullableDays(settings.default_download_expiry_days)
+        const defaultSelectionEnabled = presetSource === 'clientdesk'
+            ? fromClientDesk.selection_enabled !== false
+            : settings.default_selection_enabled !== false
+        const defaultDownloadEnabled = presetSource === 'clientdesk'
+            ? fromClientDesk.download_enabled !== false
+            : settings.default_download_enabled !== false
+        const defaultExtraEnabled = presetSource === 'fastpik' && Boolean(settings.default_extra_enabled)
+        const defaultExtraMaxPhotos = defaultExtraEnabled
+            ? toPositiveInt(settings.default_extra_max_photos, 1)
+            : null
+        const defaultExtraDays = defaultExtraEnabled
+            ? toNullableDays(settings.default_extra_expiry_days)
+            : null
+        const defaultPrintSizes = presetSource === 'fastpik' && settings.print_enabled && settings.default_print_selection_enabled
+            ? getFirstPrintTemplateSizes(settings.print_templates)
+            : []
+        const defaultPrintEnabled = defaultPrintSizes.length > 0
+        const defaultPrintDays = defaultPrintEnabled
+            ? toNullableDays(settings.default_print_expiry_days)
+            : null
         const defaultDetectSubfolders = presetSource === 'clientdesk'
             ? Boolean(fromClientDesk.detect_subfolders)
             : Boolean(settings.default_detect_subfolders)
@@ -265,6 +307,12 @@ export async function POST(request: NextRequest) {
             : null
         const downloadExpiresAt = defaultDownloadDays
             ? new Date(syncAtMs + defaultDownloadDays * DAY_IN_MS).toISOString()
+            : null
+        const extraExpiresAt = defaultExtraDays
+            ? new Date(syncAtMs + defaultExtraDays * DAY_IN_MS).toISOString()
+            : null
+        const printExpiresAt = defaultPrintDays
+            ? new Date(syncAtMs + defaultPrintDays * DAY_IN_MS).toISOString()
             : null
         const link = buildClientProjectLink(
             publicOrigin,
@@ -288,8 +336,14 @@ export async function POST(request: NextRequest) {
                 detect_subfolders: defaultDetectSubfolders,
                 expires_at: expiresAt,
                 download_expires_at: downloadExpiresAt,
-                selection_enabled: true,
-                download_enabled: true,
+                selection_enabled: defaultSelectionEnabled,
+                download_enabled: defaultDownloadEnabled,
+                extra_enabled: defaultExtraEnabled,
+                extra_max_photos: defaultExtraMaxPhotos,
+                extra_expires_at: extraExpiresAt,
+                print_enabled: defaultPrintEnabled,
+                print_sizes: defaultPrintSizes,
+                print_expires_at: printExpiresAt,
                 created_at: createdAtIso,
                 link,
                 folder_id: null,

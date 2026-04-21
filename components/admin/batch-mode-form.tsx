@@ -61,13 +61,20 @@ export function BatchModeForm({ onBack, onProjectsCreated, currentFolderId }: Ba
         defaultMaxPhotos: 10,
         defaultExpiryDays: 0,
         defaultDownloadExpiryDays: 0,
+        defaultSelectionEnabled: true,
+        defaultDownloadEnabled: true,
+        defaultExtraEnabled: false,
+        defaultExtraMaxPhotos: 0,
+        defaultExtraExpiryDays: 0,
         defaultDetectSubfolders: false,
         defaultAdminWhatsapp: '',
         defaultCountryCode: 'ID',
         defaultPassword: '',
         vendorSlug: null as string | null,
         printEnabled: false,
+        defaultPrintSelectionEnabled: false,
         defaultPrintExpiryDays: 0,
+        defaultPrintSizes: '',
     })
 
     const form = useForm<BatchFormValues>({
@@ -93,15 +100,27 @@ export function BatchModeForm({ onBack, onProjectsCreated, currentFolderId }: Ba
 
             const { data } = await supabase
                 .from('settings')
-                .select('default_admin_whatsapp, vendor_name, default_max_photos, default_detect_subfolders, default_expiry_days, default_download_expiry_days, default_country_code, default_password, print_enabled, default_print_expiry_days')
+                .select('default_admin_whatsapp, vendor_name, default_max_photos, default_detect_subfolders, default_expiry_days, default_download_expiry_days, default_selection_enabled, default_download_enabled, default_extra_enabled, default_extra_max_photos, default_extra_expiry_days, default_country_code, default_password, print_enabled, default_print_selection_enabled, default_print_expiry_days, print_templates')
                 .eq('user_id', user.id)
                 .maybeSingle()
 
             if (data) {
+                const firstPrintTemplate = Array.isArray(data.print_templates) ? data.print_templates[0] : null
+                const defaultPrintSizes = Array.isArray(firstPrintTemplate?.sizes)
+                    ? firstPrintTemplate.sizes
+                        .map((size: { name?: string; quota?: number }) => `${(size.name || '').trim()}:${Math.max(1, Number(size.quota) || 1)}`)
+                        .filter((entry: string) => !entry.startsWith(':'))
+                        .join(', ')
+                    : ''
                 const settings = {
                     defaultMaxPhotos: data.default_max_photos || 10,
                     defaultExpiryDays: data.default_expiry_days || 0,
                     defaultDownloadExpiryDays: data.default_download_expiry_days || 0,
+                    defaultSelectionEnabled: data.default_selection_enabled !== false,
+                    defaultDownloadEnabled: data.default_download_enabled !== false,
+                    defaultExtraEnabled: Boolean(data.default_extra_enabled),
+                    defaultExtraMaxPhotos: data.default_extra_max_photos || 0,
+                    defaultExtraExpiryDays: data.default_extra_expiry_days || 0,
                     defaultDetectSubfolders: Boolean(data.default_detect_subfolders),
                     defaultAdminWhatsapp: data.default_admin_whatsapp || '',
                     defaultCountryCode: data.default_country_code || 'ID',
@@ -110,7 +129,9 @@ export function BatchModeForm({ onBack, onProjectsCreated, currentFolderId }: Ba
                         ? data.vendor_name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
                         : null,
                     printEnabled: data.print_enabled || false,
+                    defaultPrintSelectionEnabled: Boolean(data.default_print_selection_enabled),
                     defaultPrintExpiryDays: data.default_print_expiry_days || 0,
+                    defaultPrintSizes,
                 }
                 setDefaults(settings)
 
@@ -138,7 +159,7 @@ export function BatchModeForm({ onBack, onProjectsCreated, currentFolderId }: Ba
             downloadExpiryDays: settings.defaultDownloadExpiryDays.toString(),
             detectSubfolders: settings.defaultDetectSubfolders,
             projectType: 'edit',
-            printSizes: '',
+            printSizes: settings.printEnabled && settings.defaultPrintSelectionEnabled ? settings.defaultPrintSizes : '',
             printExpiryDays: settings.defaultPrintExpiryDays.toString(),
         })
     }
@@ -168,14 +189,17 @@ export function BatchModeForm({ onBack, onProjectsCreated, currentFolderId }: Ba
                 const downloadExpiryDays = parseInt(row.downloadExpiryDays) || 0
 
                 const isPrint = row.projectType === 'print'
+                const effectivePrintEnabled = defaults.printEnabled && (isPrint || defaults.defaultPrintSelectionEnabled)
+                const printSizesSource = row.printSizes || (effectivePrintEnabled ? defaults.defaultPrintSizes : '')
                 let parsedPrintSizes: { name: string, quota: number }[] = []
-                if (isPrint && row.printSizes) {
-                    parsedPrintSizes = row.printSizes.split(',').map(s => {
+                if (effectivePrintEnabled && printSizesSource) {
+                    parsedPrintSizes = printSizesSource.split(',').map(s => {
                         const [name, qty] = s.trim().split(':')
                         return { name: name?.trim() || '', quota: parseInt(qty) || 1 }
                     }).filter(s => s.name)
                 }
                 const printExpiDays = parseInt(row.printExpiryDays || '0') || 0
+                const extraExpiryDays = defaults.defaultExtraExpiryDays || 0
 
                 return {
                     id: projectId,
@@ -187,13 +211,18 @@ export function BatchModeForm({ onBack, onProjectsCreated, currentFolderId }: Ba
                     maxPhotos,
                     password: row.password || undefined,
                     detectSubfolders: row.detectSubfolders,
+                    selectionEnabled: defaults.defaultSelectionEnabled,
+                    downloadEnabled: defaults.defaultDownloadEnabled,
                     expiresAt: expiryDays > 0 ? Date.now() + (expiryDays * 24 * 60 * 60 * 1000) : undefined,
                     downloadExpiresAt: downloadExpiryDays > 0 ? Date.now() + (downloadExpiryDays * 24 * 60 * 60 * 1000) : undefined,
+                    extraEnabled: defaults.defaultExtraEnabled,
+                    extraMaxPhotos: defaults.defaultExtraEnabled ? Math.max(1, defaults.defaultExtraMaxPhotos || 1) : null,
+                    extraExpiresAt: defaults.defaultExtraEnabled && extraExpiryDays > 0 ? Date.now() + (extraExpiryDays * 24 * 60 * 60 * 1000) : undefined,
                     createdAt: Date.now(),
                     link,
                     folderId: currentFolderId || null,
-                    ...(isPrint ? {
-                        projectType: 'print' as const,
+                    ...(effectivePrintEnabled ? {
+                        projectType: isPrint ? 'print' as const : 'edit' as const,
                         printEnabled: true,
                         printSizes: parsedPrintSizes,
                         printExpiresAt: printExpiDays > 0 ? Date.now() + (printExpiDays * 24 * 60 * 60 * 1000) : undefined,

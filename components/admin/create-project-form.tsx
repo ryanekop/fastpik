@@ -100,8 +100,10 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
     const [customExpiryTarget, setCustomExpiryTarget] = useState<'expiryDays' | 'downloadExpiryDays' | 'extraExpiryDays' | 'printExpiryDays'>('expiryDays')
     const [customMonths, setCustomMonths] = useState("")
     const [customDays, setCustomDays] = useState("")
-    const [customExpiryLabel, setCustomExpiryLabel] = useState<string | null>(null)
+    const [customSelectionExpiryLabel, setCustomSelectionExpiryLabel] = useState<string | null>(null)
     const [customDownloadExpiryLabel, setCustomDownloadExpiryLabel] = useState<string | null>(null)
+    const [customExtraExpiryLabel, setCustomExtraExpiryLabel] = useState<string | null>(null)
+    const [customPrintExpiryLabel, setCustomPrintExpiryLabel] = useState<string | null>(null)
     const extraSectionRef = useRef<HTMLDivElement | null>(null)
     const printSectionRef = useRef<HTMLDivElement | null>(null)
     const [highlightedSection, setHighlightedSection] = useState<'extra' | 'print' | null>(null)
@@ -218,7 +220,7 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
 
             const { data } = await supabase
                 .from('settings')
-                .select('default_admin_whatsapp, vendor_name, default_max_photos, default_detect_subfolders, default_expiry_days, default_download_expiry_days, default_password, msg_tmpl_link_initial, print_enabled, print_templates, default_print_expiry_days')
+                .select('default_admin_whatsapp, vendor_name, default_max_photos, default_detect_subfolders, default_expiry_days, default_download_expiry_days, default_password, default_selection_enabled, default_download_enabled, default_extra_enabled, default_extra_max_photos, default_extra_expiry_days, default_print_selection_enabled, msg_tmpl_link_initial, print_enabled, print_templates, default_print_expiry_days')
                 .eq('user_id', user.id)
                 .maybeSingle()
 
@@ -244,6 +246,15 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
 
             if (!applyDefaults) return
 
+            const standardOptions = ['', '1', '3', '5', '7', '14', '30']
+            const formatCustomDuration = (days: number) => {
+                const months = Math.floor(days / 30)
+                const remainDays = days % 30
+                const parts: string[] = []
+                if (months > 0) parts.push(`${months} ${t('customMonthsLabel')}`)
+                if (remainDays > 0 || parts.length === 0) parts.push(`${remainDays > 0 ? remainDays : days} ${t('customDaysLabel')}`)
+                return parts.join(' ')
+            }
             if (data?.default_admin_whatsapp) {
                 form.setValue('adminWhatsapp', data.default_admin_whatsapp)
             }
@@ -253,39 +264,50 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
             if (data?.default_detect_subfolders !== undefined && data?.default_detect_subfolders !== null) {
                 form.setValue('detectSubfolders', Boolean(data.default_detect_subfolders))
             }
-            const standardOptions = ['', '1', '3', '5', '7', '14', '30']
+            form.setValue('selectionEnabled', data?.default_selection_enabled !== false)
+            form.setValue('downloadEnabled', data?.default_download_enabled !== false)
+            form.setValue('extraEnabled', Boolean(data?.default_extra_enabled))
+            if (data?.default_extra_max_photos) {
+                form.setValue('extraMaxPhotos', data.default_extra_max_photos.toString())
+            } else if (data?.default_extra_enabled) {
+                form.setValue('extraMaxPhotos', '1')
+            }
+            const defaultPrintEnabled = Boolean(data?.default_print_selection_enabled) && Boolean(data?.print_enabled)
+            form.setValue('printEnabled', defaultPrintEnabled)
             if (data?.default_expiry_days) {
                 const val = data.default_expiry_days.toString()
                 form.setValue('expiryDays', val)
                 if (!standardOptions.includes(val)) {
-                    // Non-standard value = custom, generate label
-                    const days = data.default_expiry_days
-                    const months = Math.floor(days / 30)
-                    const remainDays = days % 30
-                    const parts: string[] = []
-                    if (months > 0) parts.push(`${months} ${t('customMonthsLabel')}`)
-                    if (remainDays > 0 || parts.length === 0) parts.push(`${remainDays > 0 ? remainDays : days} ${t('customDaysLabel')}`)
-                    setCustomExpiryLabel(parts.join(' '))
+                    setCustomSelectionExpiryLabel(formatCustomDuration(data.default_expiry_days))
                 }
             }
             if (data?.default_download_expiry_days) {
                 const val = data.default_download_expiry_days.toString()
                 form.setValue('downloadExpiryDays', val)
                 if (!standardOptions.includes(val)) {
-                    const days = data.default_download_expiry_days
-                    const months = Math.floor(days / 30)
-                    const remainDays = days % 30
-                    const parts: string[] = []
-                    if (months > 0) parts.push(`${months} ${t('customMonthsLabel')}`)
-                    if (remainDays > 0 || parts.length === 0) parts.push(`${remainDays > 0 ? remainDays : days} ${t('customDaysLabel')}`)
-                    setCustomDownloadExpiryLabel(parts.join(' '))
+                    setCustomDownloadExpiryLabel(formatCustomDuration(data.default_download_expiry_days))
+                }
+            }
+            if (data?.default_extra_expiry_days) {
+                const val = data.default_extra_expiry_days.toString()
+                form.setValue('extraExpiryDays', val)
+                if (!standardOptions.includes(val)) {
+                    setCustomExtraExpiryLabel(formatCustomDuration(data.default_extra_expiry_days))
                 }
             }
             if (data?.default_password) {
                 form.setValue('password', data.default_password)
             }
             if (data?.default_print_expiry_days) {
-                form.setValue('printExpiryDays', data.default_print_expiry_days.toString())
+                const val = data.default_print_expiry_days.toString()
+                form.setValue('printExpiryDays', val)
+                if (!standardOptions.includes(val)) {
+                    setCustomPrintExpiryLabel(formatCustomDuration(data.default_print_expiry_days))
+                }
+            }
+            if (defaultPrintEnabled && templates.length > 0 && !form.getValues('printSizes')) {
+                setSelectedPrintTemplateIdx(0)
+                form.setValue('printSizes', serializePrintSizes(templates[0].sizes), { shouldValidate: true })
             }
 
         } catch (err) {
@@ -581,6 +603,10 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
         setGeneratedLink(null)
         setCurrentProject(null)
         form.reset({ clientName: "", gdriveLink: "", clientWhatsapp: "", adminWhatsapp: "", countryCode: "ID", maxPhotos: "", password: "", detectSubfolders: false, expiryDays: "", downloadExpiryDays: "", selectionEnabled: true, downloadEnabled: true, extraEnabled: false, extraMaxPhotos: "", extraExpiryDays: "", printEnabled: false, printSizes: "", printExpiryDays: "", lockedPhotos: "" })
+        setCustomSelectionExpiryLabel(null)
+        setCustomDownloadExpiryLabel(null)
+        setCustomExtraExpiryLabel(null)
+        setCustomPrintExpiryLabel(null)
         setSelectedPrintTemplateIdx(printTemplates.length === 0 ? 'custom' : -1)
         // Re-fetch settings so vendor slug and admin WA are fresh from DB
         loadProjectSettings({ applyDefaults: true })
@@ -627,8 +653,10 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
             setShowCustomExpiryDialog(true)
         } else {
             form.setValue(fieldName, value)
-            if (fieldName === 'expiryDays' || fieldName === 'extraExpiryDays' || fieldName === 'printExpiryDays') setCustomExpiryLabel(null)
-            else setCustomDownloadExpiryLabel(null)
+            if (fieldName === 'expiryDays') setCustomSelectionExpiryLabel(null)
+            if (fieldName === 'downloadExpiryDays') setCustomDownloadExpiryLabel(null)
+            if (fieldName === 'extraExpiryDays') setCustomExtraExpiryLabel(null)
+            if (fieldName === 'printExpiryDays') setCustomPrintExpiryLabel(null)
         }
     }
 
@@ -677,8 +705,10 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
         if (days > 0) parts.push(`${days} ${t('customDaysLabel')}`)
         const label = parts.join(' ')
         form.setValue(customExpiryTarget, totalDays.toString())
+        if (customExpiryTarget === 'expiryDays') setCustomSelectionExpiryLabel(label)
         if (customExpiryTarget === 'downloadExpiryDays') setCustomDownloadExpiryLabel(label)
-        else setCustomExpiryLabel(label)
+        if (customExpiryTarget === 'extraExpiryDays') setCustomExtraExpiryLabel(label)
+        if (customExpiryTarget === 'printExpiryDays') setCustomPrintExpiryLabel(label)
         setShowCustomExpiryDialog(false)
     }
 
@@ -774,13 +804,13 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
                                         <FormLabel className={cn(selectionTone.title, selectionEnabled && "font-semibold")}>⏰ {t('selectionDuration')}</FormLabel>
                                         <FormControl>
                                             <div className="relative">
-                                                {customExpiryLabel && (
+                                                {customSelectionExpiryLabel && (
                                                     <div className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer" onClick={() => { setCustomExpiryTarget('expiryDays'); setCustomMonths(''); setCustomDays(''); setShowCustomExpiryDialog(true) }}>
-                                                        <span>✏️ {customExpiryLabel}</span>
-                                                        <button type="button" className="text-muted-foreground hover:text-foreground ml-2" onClick={(e) => { e.stopPropagation(); form.setValue('expiryDays', ''); setCustomExpiryLabel(null) }}>✕</button>
+                                                        <span>✏️ {customSelectionExpiryLabel}</span>
+                                                        <button type="button" className="text-muted-foreground hover:text-foreground ml-2" onClick={(e) => { e.stopPropagation(); form.setValue('expiryDays', ''); setCustomSelectionExpiryLabel(null) }}>✕</button>
                                                     </div>
                                                 )}
-                                                <select className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer ${customExpiryLabel ? 'hidden' : ''}`} value={customExpiryLabel ? 'custom' : field.value} onChange={(e) => handleExpiryChange(e.target.value, 'expiryDays')}>
+                                                <select className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer ${customSelectionExpiryLabel ? 'hidden' : ''}`} value={customSelectionExpiryLabel ? 'custom' : field.value} onChange={(e) => handleExpiryChange(e.target.value, 'expiryDays')}>
                                                     {isEditing && <option value="__keep__">{getKeepLabel('expiryDays')}</option>}
                                                     {expiryOptions.filter(o => o.value !== '__keep__').map(opt => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
                                                 </select>
@@ -860,10 +890,18 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
                                     <FormItem>
                                         <FormLabel>⏰ {t('extraDurationLabel')}</FormLabel>
                                         <FormControl>
-                                            <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer" value={field.value} onChange={(e) => handleExpiryChange(e.target.value, 'extraExpiryDays')}>
-                                                {isEditing && <option value="__keep__">{getKeepLabel('extraExpiryDays')}</option>}
-                                                {expiryOptions.filter(o => o.value !== '__keep__' && o.value !== 'custom').map(opt => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
-                                            </select>
+                                            <div className="relative">
+                                                {customExtraExpiryLabel && (
+                                                    <div className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer" onClick={() => { setCustomExpiryTarget('extraExpiryDays'); setCustomMonths(''); setCustomDays(''); setShowCustomExpiryDialog(true) }}>
+                                                        <span>✏️ {customExtraExpiryLabel}</span>
+                                                        <button type="button" className="text-muted-foreground hover:text-foreground ml-2" onClick={(e) => { e.stopPropagation(); form.setValue('extraExpiryDays', ''); setCustomExtraExpiryLabel(null) }}>✕</button>
+                                                    </div>
+                                                )}
+                                                <select className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer ${customExtraExpiryLabel ? 'hidden' : ''}`} value={customExtraExpiryLabel ? 'custom' : field.value} onChange={(e) => handleExpiryChange(e.target.value, 'extraExpiryDays')}>
+                                                    {isEditing && <option value="__keep__">{getKeepLabel('extraExpiryDays')}</option>}
+                                                    {expiryOptions.filter(o => o.value !== '__keep__').map(opt => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
+                                                </select>
+                                            </div>
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -942,10 +980,18 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
                                         <FormItem>
                                             <FormLabel>⏰ {t('printDurationLabel')}</FormLabel>
                                             <FormControl>
-                                                <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer" value={field.value} onChange={(e) => handleExpiryChange(e.target.value, 'printExpiryDays')}>
-                                                    {isEditing && <option value="__keep__">{getKeepLabel('printExpiryDays')}</option>}
-                                                    {expiryOptions.filter(o => o.value !== '__keep__' && o.value !== 'custom').map(opt => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
-                                                </select>
+                                                <div className="relative">
+                                                    {customPrintExpiryLabel && (
+                                                        <div className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer" onClick={() => { setCustomExpiryTarget('printExpiryDays'); setCustomMonths(''); setCustomDays(''); setShowCustomExpiryDialog(true) }}>
+                                                            <span>✏️ {customPrintExpiryLabel}</span>
+                                                            <button type="button" className="text-muted-foreground hover:text-foreground ml-2" onClick={(e) => { e.stopPropagation(); form.setValue('printExpiryDays', ''); setCustomPrintExpiryLabel(null) }}>✕</button>
+                                                        </div>
+                                                    )}
+                                                    <select className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer ${customPrintExpiryLabel ? 'hidden' : ''}`} value={customPrintExpiryLabel ? 'custom' : field.value} onChange={(e) => handleExpiryChange(e.target.value, 'printExpiryDays')}>
+                                                        {isEditing && <option value="__keep__">{getKeepLabel('printExpiryDays')}</option>}
+                                                        {expiryOptions.filter(o => o.value !== '__keep__').map(opt => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
+                                                    </select>
+                                                </div>
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>

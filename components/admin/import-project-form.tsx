@@ -39,12 +39,20 @@ interface DefaultSettings {
     defaultMaxPhotos: number
     defaultExpiryDays: number
     defaultDownloadExpiryDays: number
+    defaultSelectionEnabled: boolean
+    defaultDownloadEnabled: boolean
+    defaultExtraEnabled: boolean
+    defaultExtraMaxPhotos: number
+    defaultExtraExpiryDays: number
     defaultDetectSubfolders: boolean
     defaultAdminWhatsapp: string
     defaultCountryCode: string
     defaultPassword: string
     vendorSlug: string | null
     printEnabled: boolean
+    defaultPrintSelectionEnabled: boolean
+    defaultPrintExpiryDays: number
+    defaultPrintSizes: string
 }
 
 export function ImportProjectForm({ onBack, onProjectsImported, currentFolderId }: ImportProjectFormProps) {
@@ -64,12 +72,20 @@ export function ImportProjectForm({ onBack, onProjectsImported, currentFolderId 
         defaultMaxPhotos: 10,
         defaultExpiryDays: 0,
         defaultDownloadExpiryDays: 0,
+        defaultSelectionEnabled: true,
+        defaultDownloadEnabled: true,
+        defaultExtraEnabled: false,
+        defaultExtraMaxPhotos: 0,
+        defaultExtraExpiryDays: 0,
         defaultDetectSubfolders: false,
         defaultAdminWhatsapp: '',
         defaultCountryCode: 'ID',
         defaultPassword: '',
         vendorSlug: null,
         printEnabled: false,
+        defaultPrintSelectionEnabled: false,
+        defaultPrintExpiryDays: 0,
+        defaultPrintSizes: '',
     })
 
     // Load default settings
@@ -84,15 +100,27 @@ export function ImportProjectForm({ onBack, onProjectsImported, currentFolderId 
 
             const { data } = await supabase
                 .from('settings')
-                .select('default_admin_whatsapp, vendor_name, default_max_photos, default_detect_subfolders, default_expiry_days, default_download_expiry_days, default_country_code, default_password, print_enabled')
+                .select('default_admin_whatsapp, vendor_name, default_max_photos, default_detect_subfolders, default_expiry_days, default_download_expiry_days, default_selection_enabled, default_download_enabled, default_extra_enabled, default_extra_max_photos, default_extra_expiry_days, default_country_code, default_password, print_enabled, default_print_selection_enabled, default_print_expiry_days, print_templates')
                 .eq('user_id', user.id)
                 .maybeSingle()
 
             if (data) {
+                const firstPrintTemplate = Array.isArray(data.print_templates) ? data.print_templates[0] : null
+                const defaultPrintSizes = Array.isArray(firstPrintTemplate?.sizes)
+                    ? firstPrintTemplate.sizes
+                        .map((size: { name?: string; quota?: number }) => `${(size.name || '').trim()}:${Math.max(1, Number(size.quota) || 1)}`)
+                        .filter((entry: string) => !entry.startsWith(':'))
+                        .join(', ')
+                    : ''
                 setDefaults({
                     defaultMaxPhotos: data.default_max_photos || 10,
                     defaultExpiryDays: data.default_expiry_days || 0,
                     defaultDownloadExpiryDays: data.default_download_expiry_days || 0,
+                    defaultSelectionEnabled: data.default_selection_enabled !== false,
+                    defaultDownloadEnabled: data.default_download_enabled !== false,
+                    defaultExtraEnabled: Boolean(data.default_extra_enabled),
+                    defaultExtraMaxPhotos: data.default_extra_max_photos || 0,
+                    defaultExtraExpiryDays: data.default_extra_expiry_days || 0,
                     defaultDetectSubfolders: Boolean(data.default_detect_subfolders),
                     defaultAdminWhatsapp: data.default_admin_whatsapp || '',
                     defaultCountryCode: data.default_country_code || 'ID',
@@ -101,6 +129,9 @@ export function ImportProjectForm({ onBack, onProjectsImported, currentFolderId 
                         ? data.vendor_name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
                         : null,
                     printEnabled: data.print_enabled || false,
+                    defaultPrintSelectionEnabled: Boolean(data.default_print_selection_enabled),
+                    defaultPrintExpiryDays: data.default_print_expiry_days || 0,
+                    defaultPrintSizes,
                 })
             }
         } catch (err) {
@@ -267,14 +298,18 @@ export function ImportProjectForm({ onBack, onProjectsImported, currentFolderId 
                     : `${origin}/${loc}/client/${projectId}`
 
                 const isPrint = row.projectType === 'print'
+                const effectivePrintEnabled = defaults.printEnabled && (isPrint || defaults.defaultPrintSelectionEnabled)
                 // Parse printSizes from format "4R:2, 5R:3" → [{ name: '4R', quota: 2 }, ...]
+                const printSizesSource = row.printSizes || (effectivePrintEnabled ? defaults.defaultPrintSizes : '')
                 let parsedPrintSizes: { name: string, quota: number }[] = []
-                if (isPrint && row.printSizes) {
-                    parsedPrintSizes = row.printSizes.split(',').map(s => {
+                if (effectivePrintEnabled && printSizesSource) {
+                    parsedPrintSizes = printSizesSource.split(',').map(s => {
                         const [name, quota] = s.trim().split(':')
                         return { name: name?.trim() || '', quota: parseInt(quota?.trim()) || 1 }
                     }).filter(s => s.name)
                 }
+                const printExpiryDays = defaults.defaultPrintExpiryDays || expiryDaysNum
+                const extraExpiryDays = defaults.defaultExtraExpiryDays || 0
 
                 const project: Project = {
                     id: projectId,
@@ -286,16 +321,21 @@ export function ImportProjectForm({ onBack, onProjectsImported, currentFolderId 
                     maxPhotos: isPrint ? 0 : maxPhotos,
                     password: row.password || defaults.defaultPassword || undefined,
                     detectSubfolders: detectSub,
+                    selectionEnabled: defaults.defaultSelectionEnabled,
+                    downloadEnabled: defaults.defaultDownloadEnabled,
                     expiresAt: expiryDaysNum > 0 ? Date.now() + (expiryDaysNum * 24 * 60 * 60 * 1000) : undefined,
                     downloadExpiresAt: downloadExpiryDaysNum > 0 ? Date.now() + (downloadExpiryDaysNum * 24 * 60 * 60 * 1000) : undefined,
+                    extraEnabled: defaults.defaultExtraEnabled,
+                    extraMaxPhotos: defaults.defaultExtraEnabled ? Math.max(1, defaults.defaultExtraMaxPhotos || 1) : null,
+                    extraExpiresAt: defaults.defaultExtraEnabled && extraExpiryDays > 0 ? Date.now() + (extraExpiryDays * 24 * 60 * 60 * 1000) : undefined,
                     createdAt: Date.now(),
                     link,
                     folderId: currentFolderId || null,
-                    ...(isPrint ? {
-                        projectType: 'print' as const,
+                    ...(effectivePrintEnabled ? {
+                        projectType: isPrint ? 'print' as const : 'edit' as const,
                         printEnabled: true,
                         printSizes: parsedPrintSizes,
-                        printExpiresAt: expiryDaysNum > 0 ? Date.now() + (expiryDaysNum * 24 * 60 * 60 * 1000) : undefined,
+                        printExpiresAt: printExpiryDays > 0 ? Date.now() + (printExpiryDays * 24 * 60 * 60 * 1000) : undefined,
                     } : {}),
                 }
                 return project

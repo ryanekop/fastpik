@@ -41,15 +41,23 @@ export default function SettingsPage() {
     const [dashboardDurationDisplay, setDashboardDurationDisplay] = useState<'selection' | 'download'>('selection')
     const [defaultMaxPhotos, setDefaultMaxPhotos] = useState("")
     const [defaultDetectSubfolders, setDefaultDetectSubfolders] = useState(false)
+    const [defaultSelectionEnabled, setDefaultSelectionEnabled] = useState(true)
+    const [defaultDownloadEnabled, setDefaultDownloadEnabled] = useState(true)
+    const [defaultExtraEnabled, setDefaultExtraEnabled] = useState(false)
+    const [defaultExtraMaxPhotos, setDefaultExtraMaxPhotos] = useState("")
+    const [defaultExtraExpiryDays, setDefaultExtraExpiryDays] = useState("")
+    const [defaultPrintSelectionEnabled, setDefaultPrintSelectionEnabled] = useState(false)
     const [defaultExpiryDays, setDefaultExpiryDays] = useState("")
     const [defaultDownloadExpiryDays, setDefaultDownloadExpiryDays] = useState("")
     const [defaultPassword, setDefaultPassword] = useState("")
     const [showCustomDefaultExpiryDialog, setShowCustomDefaultExpiryDialog] = useState(false)
-    const [customDefaultExpiryTarget, setCustomDefaultExpiryTarget] = useState<'selection' | 'download'>('selection')
+    const [customDefaultExpiryTarget, setCustomDefaultExpiryTarget] = useState<'selection' | 'download' | 'extra' | 'print'>('selection')
     const [customDefaultMonths, setCustomDefaultMonths] = useState("")
     const [customDefaultDays, setCustomDefaultDays] = useState("")
     const [customDefaultExpiryLabel, setCustomDefaultExpiryLabel] = useState<string | null>(null)
     const [customDefaultDownloadExpiryLabel, setCustomDefaultDownloadExpiryLabel] = useState<string | null>(null)
+    const [customDefaultExtraExpiryLabel, setCustomDefaultExtraExpiryLabel] = useState<string | null>(null)
+    const [customDefaultPrintExpiryLabel, setCustomDefaultPrintExpiryLabel] = useState<string | null>(null)
     const [seoMetaTitle, setSeoMetaTitle] = useState("")
     const [seoMetaDescription, setSeoMetaDescription] = useState("")
     const [seoMetaKeywords, setSeoMetaKeywords] = useState("")
@@ -130,29 +138,35 @@ export default function SettingsPage() {
                 setDashboardDurationDisplay(data.dashboard_duration_display || 'selection')
                 setDefaultMaxPhotos(data.default_max_photos?.toString() || "")
                 setDefaultDetectSubfolders(Boolean(data.default_detect_subfolders))
+                setDefaultSelectionEnabled(data.default_selection_enabled !== false)
+                setDefaultDownloadEnabled(data.default_download_enabled !== false)
+                setDefaultExtraEnabled(Boolean(data.default_extra_enabled))
+                setDefaultExtraMaxPhotos(data.default_extra_max_photos?.toString() || "")
+                setDefaultPrintSelectionEnabled(Boolean(data.default_print_selection_enabled))
                 const standardOptions = ['', '1', '3', '5', '7', '14', '30']
+                const formatCustomDuration = (days: number) => {
+                    const months = Math.floor(days / 30)
+                    const remainDays = days % 30
+                    const parts: string[] = []
+                    if (months > 0) parts.push(`${months} ${t('customMonthsLabel')}`)
+                    if (remainDays > 0 || parts.length === 0) parts.push(`${remainDays > 0 ? remainDays : days} ${t('customDaysLabel')}`)
+                    return parts.join(' ')
+                }
                 const expiryVal = data.default_expiry_days?.toString() || ""
                 setDefaultExpiryDays(expiryVal)
                 if (expiryVal && !standardOptions.includes(expiryVal)) {
-                    const days = data.default_expiry_days
-                    const months = Math.floor(days / 30)
-                    const remainDays = days % 30
-                    const parts: string[] = []
-                    if (months > 0) parts.push(`${months} ${t('customMonthsLabel')}`)
-                    if (remainDays > 0 || parts.length === 0) parts.push(`${remainDays > 0 ? remainDays : days} ${t('customDaysLabel')}`)
-                    setCustomDefaultExpiryLabel(parts.join(' '))
-                }
+                    setCustomDefaultExpiryLabel(formatCustomDuration(data.default_expiry_days))
+                } else setCustomDefaultExpiryLabel(null)
                 const dlExpiryVal = data.default_download_expiry_days?.toString() || ""
                 setDefaultDownloadExpiryDays(dlExpiryVal)
                 if (dlExpiryVal && !standardOptions.includes(dlExpiryVal)) {
-                    const days = data.default_download_expiry_days
-                    const months = Math.floor(days / 30)
-                    const remainDays = days % 30
-                    const parts: string[] = []
-                    if (months > 0) parts.push(`${months} ${t('customMonthsLabel')}`)
-                    if (remainDays > 0 || parts.length === 0) parts.push(`${remainDays > 0 ? remainDays : days} ${t('customDaysLabel')}`)
-                    setCustomDefaultDownloadExpiryLabel(parts.join(' '))
-                }
+                    setCustomDefaultDownloadExpiryLabel(formatCustomDuration(data.default_download_expiry_days))
+                } else setCustomDefaultDownloadExpiryLabel(null)
+                const extraExpiryVal = data.default_extra_expiry_days?.toString() || ""
+                setDefaultExtraExpiryDays(extraExpiryVal)
+                if (extraExpiryVal && !standardOptions.includes(extraExpiryVal)) {
+                    setCustomDefaultExtraExpiryLabel(formatCustomDuration(data.default_extra_expiry_days))
+                } else setCustomDefaultExtraExpiryLabel(null)
                 setDefaultPassword(data.default_password || "")
                 setSeoMetaTitle(data.seo_meta_title || "")
                 setSeoMetaDescription(data.seo_meta_description || "")
@@ -182,7 +196,11 @@ export default function SettingsPage() {
                 // Print
                 setPrintEnabled(data.print_enabled || false)
                 setPrintTemplates(data.print_templates || [])
-                setDefaultPrintExpiryDays(data.default_print_expiry_days?.toString() || "")
+                const printExpiryVal = data.default_print_expiry_days?.toString() || ""
+                setDefaultPrintExpiryDays(printExpiryVal)
+                if (printExpiryVal && !standardOptions.includes(printExpiryVal)) {
+                    setCustomDefaultPrintExpiryLabel(formatCustomDuration(data.default_print_expiry_days))
+                } else setCustomDefaultPrintExpiryLabel(null)
             }
         } catch (err) {
             console.error('Failed to load settings:', err)
@@ -215,6 +233,12 @@ export default function SettingsPage() {
                     dashboard_duration_display: dashboardDurationDisplay,
                     default_max_photos: defaultMaxPhotos ? parseInt(defaultMaxPhotos) : null,
                     default_detect_subfolders: defaultDetectSubfolders,
+                    default_selection_enabled: defaultSelectionEnabled,
+                    default_download_enabled: defaultDownloadEnabled,
+                    default_extra_enabled: defaultExtraEnabled,
+                    default_extra_max_photos: defaultExtraEnabled && defaultExtraMaxPhotos ? parseInt(defaultExtraMaxPhotos) : null,
+                    default_extra_expiry_days: defaultExtraEnabled && defaultExtraExpiryDays ? parseInt(defaultExtraExpiryDays) : null,
+                    default_print_selection_enabled: defaultPrintSelectionEnabled,
                     default_expiry_days: defaultExpiryDays ? parseInt(defaultExpiryDays) : null,
                     default_download_expiry_days: defaultDownloadExpiryDays ? parseInt(defaultDownloadExpiryDays) : null,
                     default_password: defaultPassword || null,
@@ -546,6 +570,41 @@ export default function SettingsPage() {
                                             />
                                         </div>
                                     </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <div className="flex items-center justify-between rounded-lg border p-3">
+                                            <Label className="cursor-pointer">🖼️ {t('selectPhotos')}</Label>
+                                            <Switch
+                                                checked={defaultSelectionEnabled}
+                                                onCheckedChange={setDefaultSelectionEnabled}
+                                                className="cursor-pointer"
+                                            />
+                                        </div>
+                                        <div className="flex items-center justify-between rounded-lg border p-3">
+                                            <Label className="cursor-pointer">📥 {t('downloadPhotos')}</Label>
+                                            <Switch
+                                                checked={defaultDownloadEnabled}
+                                                onCheckedChange={setDefaultDownloadEnabled}
+                                                className="cursor-pointer"
+                                            />
+                                        </div>
+                                        <div className="flex items-center justify-between rounded-lg border p-3">
+                                            <Label className="cursor-pointer">📷 {t('extraPhotoSectionTitle')}</Label>
+                                            <Switch
+                                                checked={defaultExtraEnabled}
+                                                onCheckedChange={setDefaultExtraEnabled}
+                                                className="cursor-pointer"
+                                            />
+                                        </div>
+                                        <div className="flex items-center justify-between rounded-lg border p-3">
+                                            <Label className="cursor-pointer">🖨️ {t('printPhotoSectionTitle')}</Label>
+                                            <Switch
+                                                checked={defaultPrintSelectionEnabled}
+                                                onCheckedChange={setDefaultPrintSelectionEnabled}
+                                                disabled={!printEnabled}
+                                                className="cursor-pointer"
+                                            />
+                                        </div>
+                                    </div>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div className="space-y-2">
                                             <Label>⏰ {t('defaultSelectionDuration')}</Label>
@@ -618,6 +677,92 @@ export default function SettingsPage() {
                                             </div>
                                         </div>
                                     </div>
+                                    {defaultExtraEnabled && (
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-lg border border-amber-200 bg-amber-50/40 p-3 dark:border-amber-800 dark:bg-amber-950/20">
+                                            <div className="space-y-2">
+                                                <Label>➕ {t('extraPhotosCount')}</Label>
+                                                <Input
+                                                    type="number"
+                                                    min="1"
+                                                    value={defaultExtraMaxPhotos}
+                                                    onChange={(e) => setDefaultExtraMaxPhotos(e.target.value)}
+                                                    placeholder="5"
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label>⏰ {t('extraDurationLabel')}</Label>
+                                                <div className="relative">
+                                                    {customDefaultExtraExpiryLabel && (
+                                                        <div className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer" onClick={() => { setCustomDefaultExpiryTarget('extra'); setCustomDefaultMonths(''); setCustomDefaultDays(''); setShowCustomDefaultExpiryDialog(true) }}>
+                                                            <span>✏️ {customDefaultExtraExpiryLabel}</span>
+                                                            <button type="button" className="text-muted-foreground hover:text-foreground ml-2" onClick={(e) => { e.stopPropagation(); setDefaultExtraExpiryDays(''); setCustomDefaultExtraExpiryLabel(null) }}>✕</button>
+                                                        </div>
+                                                    )}
+                                                    <select
+                                                        className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer ${customDefaultExtraExpiryLabel ? 'hidden' : ''}`}
+                                                        value={customDefaultExtraExpiryLabel ? 'custom' : defaultExtraExpiryDays}
+                                                        onChange={(e) => {
+                                                            if (e.target.value === 'custom') {
+                                                                setCustomDefaultExpiryTarget('extra')
+                                                                setCustomDefaultMonths('')
+                                                                setCustomDefaultDays('')
+                                                                setShowCustomDefaultExpiryDialog(true)
+                                                            } else {
+                                                                setDefaultExtraExpiryDays(e.target.value)
+                                                                setCustomDefaultExtraExpiryLabel(null)
+                                                            }
+                                                        }}
+                                                    >
+                                                        <option value="">♾️ {t('forever')}</option>
+                                                        <option value="1">1 {t('days')}</option>
+                                                        <option value="3">3 {t('days')}</option>
+                                                        <option value="5">5 {t('days')}</option>
+                                                        <option value="7">7 {t('days')}</option>
+                                                        <option value="14">14 {t('days')}</option>
+                                                        <option value="30">30 {t('days')}</option>
+                                                        <option value="custom">✏️ {t('custom')}</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {defaultPrintSelectionEnabled && printEnabled && (
+                                        <div className="space-y-2 rounded-lg border border-purple-200 bg-purple-50/40 p-3 dark:border-purple-800 dark:bg-purple-950/20">
+                                            <Label>⏰ {t('defaultPrintDuration')}</Label>
+                                            <div className="relative">
+                                                {customDefaultPrintExpiryLabel && (
+                                                    <div className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer" onClick={() => { setCustomDefaultExpiryTarget('print'); setCustomDefaultMonths(''); setCustomDefaultDays(''); setShowCustomDefaultExpiryDialog(true) }}>
+                                                        <span>✏️ {customDefaultPrintExpiryLabel}</span>
+                                                        <button type="button" className="text-muted-foreground hover:text-foreground ml-2" onClick={(e) => { e.stopPropagation(); setDefaultPrintExpiryDays(''); setCustomDefaultPrintExpiryLabel(null) }}>✕</button>
+                                                    </div>
+                                                )}
+                                                <select
+                                                    className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer ${customDefaultPrintExpiryLabel ? 'hidden' : ''}`}
+                                                    value={customDefaultPrintExpiryLabel ? 'custom' : defaultPrintExpiryDays}
+                                                    onChange={(e) => {
+                                                        if (e.target.value === 'custom') {
+                                                            setCustomDefaultExpiryTarget('print')
+                                                            setCustomDefaultMonths('')
+                                                            setCustomDefaultDays('')
+                                                            setShowCustomDefaultExpiryDialog(true)
+                                                        } else {
+                                                            setDefaultPrintExpiryDays(e.target.value)
+                                                            setCustomDefaultPrintExpiryLabel(null)
+                                                        }
+                                                    }}
+                                                >
+                                                    <option value="">♾️ {t('forever')}</option>
+                                                    <option value="1">1 {t('days')}</option>
+                                                    <option value="3">3 {t('days')}</option>
+                                                    <option value="5">5 {t('days')}</option>
+                                                    <option value="7">7 {t('days')}</option>
+                                                    <option value="14">14 {t('days')}</option>
+                                                    <option value="30">30 {t('days')}</option>
+                                                    <option value="custom">✏️ {t('custom')}</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    )}
                                     <div className="flex items-center justify-between rounded-lg border p-3">
                                         <Label className="cursor-pointer">📂 {t('detectSubfolders')}</Label>
                                         <Switch
@@ -871,19 +1016,38 @@ export default function SettingsPage() {
 
                                             <div className="space-y-2">
                                                 <Label>⏰ {t('defaultPrintDuration')}</Label>
-                                                <select
-                                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer"
-                                                    value={defaultPrintExpiryDays}
-                                                    onChange={(e) => setDefaultPrintExpiryDays(e.target.value)}
-                                                >
-                                                    <option value="">♾️ {t('forever')}</option>
-                                                    <option value="1">1 {t('days')}</option>
-                                                    <option value="3">3 {t('days')}</option>
-                                                    <option value="5">5 {t('days')}</option>
-                                                    <option value="7">7 {t('days')}</option>
-                                                    <option value="14">14 {t('days')}</option>
-                                                    <option value="30">30 {t('days')}</option>
-                                                </select>
+                                                <div className="relative">
+                                                    {customDefaultPrintExpiryLabel && (
+                                                        <div className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer" onClick={() => { setCustomDefaultExpiryTarget('print'); setCustomDefaultMonths(''); setCustomDefaultDays(''); setShowCustomDefaultExpiryDialog(true) }}>
+                                                            <span>✏️ {customDefaultPrintExpiryLabel}</span>
+                                                            <button type="button" className="text-muted-foreground hover:text-foreground ml-2" onClick={(e) => { e.stopPropagation(); setDefaultPrintExpiryDays(''); setCustomDefaultPrintExpiryLabel(null) }}>✕</button>
+                                                        </div>
+                                                    )}
+                                                    <select
+                                                        className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer ${customDefaultPrintExpiryLabel ? 'hidden' : ''}`}
+                                                        value={customDefaultPrintExpiryLabel ? 'custom' : defaultPrintExpiryDays}
+                                                        onChange={(e) => {
+                                                            if (e.target.value === 'custom') {
+                                                                setCustomDefaultExpiryTarget('print')
+                                                                setCustomDefaultMonths('')
+                                                                setCustomDefaultDays('')
+                                                                setShowCustomDefaultExpiryDialog(true)
+                                                            } else {
+                                                                setDefaultPrintExpiryDays(e.target.value)
+                                                                setCustomDefaultPrintExpiryLabel(null)
+                                                            }
+                                                        }}
+                                                    >
+                                                        <option value="">♾️ {t('forever')}</option>
+                                                        <option value="1">1 {t('days')}</option>
+                                                        <option value="3">3 {t('days')}</option>
+                                                        <option value="5">5 {t('days')}</option>
+                                                        <option value="7">7 {t('days')}</option>
+                                                        <option value="14">14 {t('days')}</option>
+                                                        <option value="30">30 {t('days')}</option>
+                                                        <option value="custom">✏️ {t('custom')}</option>
+                                                    </select>
+                                                </div>
                                             </div>
                                         </>
                                     )}
@@ -1434,9 +1598,15 @@ export default function SettingsPage() {
                                 if (customDefaultExpiryTarget === 'selection') {
                                     setDefaultExpiryDays(totalDays.toString())
                                     setCustomDefaultExpiryLabel(parts.join(' '))
-                                } else {
+                                } else if (customDefaultExpiryTarget === 'download') {
                                     setDefaultDownloadExpiryDays(totalDays.toString())
                                     setCustomDefaultDownloadExpiryLabel(parts.join(' '))
+                                } else if (customDefaultExpiryTarget === 'extra') {
+                                    setDefaultExtraExpiryDays(totalDays.toString())
+                                    setCustomDefaultExtraExpiryLabel(parts.join(' '))
+                                } else {
+                                    setDefaultPrintExpiryDays(totalDays.toString())
+                                    setCustomDefaultPrintExpiryLabel(parts.join(' '))
                                 }
                                 setShowCustomDefaultExpiryDialog(false)
                             }} disabled={(parseInt(customDefaultMonths) || 0) <= 0 && (parseInt(customDefaultDays) || 0) <= 0}>✓ OK</Button>
