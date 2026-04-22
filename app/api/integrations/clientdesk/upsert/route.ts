@@ -45,9 +45,14 @@ type SyncedProjectRow = {
     link: string | null
     max_photos: number | null
     detect_subfolders: boolean | null
+    selection_enabled: boolean | null
+    download_enabled: boolean | null
+    print_enabled: boolean | null
     password: string | null
     expires_at: string | null
     download_expires_at: string | null
+    print_expires_at: string | null
+    project_type: string | null
 }
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000
@@ -130,8 +135,13 @@ function buildProjectInfoSnapshot(project: SyncedProjectRow, referenceTimeMs: nu
         password: sanitizeString(project.password) || null,
         max_photos: toNullableNonNegativeInt(project.max_photos),
         detect_subfolders: Boolean(project.detect_subfolders),
+        selection_enabled: project.selection_enabled !== false,
+        download_enabled: project.download_enabled !== false,
+        print_enabled: Boolean(project.print_enabled),
         selection_days: toRemainingDays(project.expires_at, referenceTimeMs),
         download_days: toRemainingDays(project.download_expires_at, referenceTimeMs),
+        print_days: toRemainingDays(project.print_expires_at, referenceTimeMs),
+        project_type: sanitizeString(project.project_type) || null,
     }
 }
 
@@ -194,7 +204,7 @@ export async function POST(request: NextRequest) {
 
         const { data: existingProject, error: findError } = await supabaseAdmin
             .from('projects')
-            .select('id, link, max_photos, detect_subfolders, password, expires_at, download_expires_at')
+            .select('id, link, max_photos, detect_subfolders, selection_enabled, download_enabled, print_enabled, password, expires_at, download_expires_at, print_expires_at, project_type')
             .eq('user_id', settings.user_id)
             .eq('source_app', sourceApp)
             .eq('source_ref_id', sourceRefId)
@@ -256,8 +266,14 @@ export async function POST(request: NextRequest) {
                 ),
                 password: projectInfo.password,
                 max_photos: projectInfo.max_photos,
+                selection_enabled: projectInfo.selection_enabled,
+                download_enabled: projectInfo.download_enabled,
+                print_enabled: projectInfo.print_enabled,
+                detect_subfolders: projectInfo.detect_subfolders,
                 selection_days: projectInfo.selection_days,
                 download_days: projectInfo.download_days,
+                print_days: projectInfo.print_days,
+                project_type: projectInfo.project_type,
                 project_info: projectInfo,
             })
         }
@@ -353,7 +369,7 @@ export async function POST(request: NextRequest) {
                 source_ref_id: sourceRefId,
                 source_last_synced_at: syncAtIso,
             })
-            .select('id, link, max_photos, detect_subfolders, password, expires_at, download_expires_at')
+            .select('id, link, max_photos, detect_subfolders, selection_enabled, download_enabled, print_enabled, password, expires_at, download_expires_at, print_expires_at, project_type')
             .single()
 
         if (insertError) {
@@ -380,8 +396,14 @@ export async function POST(request: NextRequest) {
             ),
             password: projectInfo.password,
             max_photos: projectInfo.max_photos,
+            selection_enabled: projectInfo.selection_enabled,
+            download_enabled: projectInfo.download_enabled,
+            print_enabled: projectInfo.print_enabled,
+            detect_subfolders: projectInfo.detect_subfolders,
             selection_days: projectInfo.selection_days,
             download_days: projectInfo.download_days,
+            print_days: projectInfo.print_days,
+            project_type: projectInfo.project_type,
             project_info: projectInfo,
         })
     } catch (error: any) {
