@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect, useCallback } from "react"
+import { useState, useRef, useEffect, useCallback, useLayoutEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useTranslations } from "next-intl"
 import { X, ChevronLeft, ChevronRight, Loader2, LayoutGrid, Maximize } from "lucide-react"
@@ -49,7 +49,12 @@ export function PhotoLightbox({
     lockedIds = []
 }: PhotoLightboxProps) {
     const t = useTranslations('Client')
-    const [currentIndex, setCurrentIndex] = useState(initialIndex)
+    const clampIndex = useCallback((index: number) => {
+        if (photos.length <= 0) return 0
+        return Math.min(Math.max(index, 0), photos.length - 1)
+    }, [photos.length])
+    const resolvedInitialIndex = clampIndex(initialIndex)
+    const [currentIndex, setCurrentIndex] = useState(resolvedInitialIndex)
     const [scale, setScale] = useState(1)
     const [displayScale, setDisplayScale] = useState(1)  // smooth indicator value
     const [position, setPosition] = useState({ x: 0, y: 0 })
@@ -64,6 +69,7 @@ export function PhotoLightbox({
     const [swipeDelta, setSwipeDelta] = useState(0)
     const [isSwiping, setIsSwiping] = useState(false)
     const [isSwipeAnimating, setIsSwipeAnimating] = useState(false)
+    const [isZoomAnimating, setIsZoomAnimating] = useState(false)
 
     const containerRef = useRef<HTMLDivElement>(null)
     const imageRef = useRef<HTMLImageElement>(null)
@@ -83,42 +89,96 @@ export function PhotoLightbox({
     const isTouchDevice = useRef(false)  // skip mouse click-to-zoom on touch
     const zoomAnimRef = useRef<number | null>(null)  // for canceling zoom animation
     const displayAnimRef = useRef<number | null>(null)  // for indicator animation (separate)
+    const [lastTouchDistance, setLastTouchDistance] = useState<number | null>(null)
+    const lastTapTimeRef = useRef(0)
+    const [pinchCenter, setPinchCenter] = useState<{ x: number; y: number } | null>(null)
+    const swipeStartRef = useRef<number | null>(null)
+    const activeIndex = clampIndex(currentIndex)
+    const currentPhoto = photos[activeIndex]
+    const currentPhotoId = currentPhoto?.id || ''
+    const currentPhotoFull = currentPhoto?.full || ''
+    const [imgSrc, setImgSrc] = useState(() => photos[resolvedInitialIndex]?.full || '')
+    const activeSourceKey = `${photos.map((photo) => photo.id).join('|')}::${resolvedInitialIndex}`
 
     useEffect(() => {
         setScale(1)
         setPosition({ x: 0, y: 0 })
         setTransformOrigin('center center')
         setNaturalSize(null)
-    }, [currentIndex, isOpen])
+    }, [activeIndex, isOpen])
 
     // Sync displayScale with scale when not animating (pinch, wheel, click)
     useEffect(() => {
         if (!displayAnimRef.current) setDisplayScale(scale)
     }, [scale])
 
-    useEffect(() => {
-        setCurrentIndex(initialIndex)
+    useLayoutEffect(() => {
+        if (!isOpen) return
+
+        if (swipeTimerRef.current !== null) {
+            clearTimeout(swipeTimerRef.current)
+            swipeTimerRef.current = null
+        }
+        pendingSwipeIdx.current = null
+        doubleTapRef.current = false
+        wasDrag.current = false
+
+        if (zoomAnimRef.current !== null) {
+            cancelAnimationFrame(zoomAnimRef.current)
+            zoomAnimRef.current = null
+        }
+        if (displayAnimRef.current !== null) {
+            cancelAnimationFrame(displayAnimRef.current)
+            displayAnimRef.current = null
+        }
+
+        setCurrentIndex(resolvedInitialIndex)
         setSlideDirection('none')
-    }, [initialIndex])
+        setSwipeDelta(0)
+        setIsSwiping(false)
+        setIsSwipeAnimating(false)
+        setIsZoomAnimating(false)
+        setScale(1)
+        setDisplayScale(1)
+        setPosition({ x: 0, y: 0 })
+        setIsDragging(false)
+        setTransformOrigin('center center')
+        setNaturalSize(null)
+        setLastTouchDistance(null)
+        setPinchCenter(null)
+        setIsImageLoading(true)
+        setImgSrc('')
+        swipeStartRef.current = null
+    }, [activeSourceKey, isOpen, resolvedInitialIndex])
 
-    const currentPhoto = photos[currentIndex]
-    const [imgSrc, setImgSrc] = useState(currentPhoto?.full || '')
+    // Sync imgSrc whenever the active photo identity changes, even if the numeric
+    // index stays the same across folder/sort/source changes.
+    useLayoutEffect(() => {
+        if (!isOpen) return
+        if (!currentPhoto) {
+            setImgSrc('')
+            setIsImageLoading(false)
+            return
+        }
 
-    // Sync imgSrc when index changes
-    useEffect(() => {
-        if (!currentPhoto) return
-        const nextUrl = currentPhoto.full
-
-        if (isImageCached(nextUrl)) {
+        if (isImageCached(currentPhotoFull)) {
             // Already cached — swap instantly, no loading
-            setImgSrc(nextUrl)
+            setImgSrc(currentPhotoFull)
             setIsImageLoading(false)
         } else {
             // Not cached — show black + spinner, swap src so it starts loading
             setIsImageLoading(true)
-            setImgSrc(nextUrl)
+            setImgSrc(currentPhotoFull)
         }
-    }, [currentIndex]) // eslint-disable-line react-hooks/exhaustive-deps
+    }, [currentPhoto, currentPhotoFull, currentPhotoId, isImageCached, isOpen])
+
+    useEffect(() => {
+        return () => {
+            if (swipeTimerRef.current !== null) clearTimeout(swipeTimerRef.current)
+            if (zoomAnimRef.current !== null) cancelAnimationFrame(zoomAnimRef.current)
+            if (displayAnimRef.current !== null) cancelAnimationFrame(displayAnimRef.current)
+        }
+    }, [])
 
     // Lock scroll
     useEffect(() => {
@@ -130,6 +190,7 @@ export function PhotoLightbox({
     // Full JS animated zoom for double-tap (animates scale, position, and indicator)
     const animateZoom = useCallback((fromScale: number, toScale: number, fromPos?: { x: number, y: number }, toPos?: { x: number, y: number }, duration = 300, onComplete?: () => void) => {
         if (zoomAnimRef.current) cancelAnimationFrame(zoomAnimRef.current)
+        setIsZoomAnimating(true)
         const start = performance.now()
         const ease = (t: number) => 1 - Math.pow(1 - t, 3)
         const fPos = fromPos || { x: 0, y: 0 }
@@ -149,6 +210,7 @@ export function PhotoLightbox({
                 zoomAnimRef.current = requestAnimationFrame(animate)
             } else {
                 zoomAnimRef.current = null
+                setIsZoomAnimating(false)
                 onComplete?.()
             }
         }
@@ -158,10 +220,10 @@ export function PhotoLightbox({
     // Auto-scroll thumbs
     useEffect(() => {
         if (thumbsRef.current && showThumbs) {
-            const thumb = thumbsRef.current.querySelector(`[data-thumb-index="${currentIndex}"]`) as HTMLElement
+            const thumb = thumbsRef.current.querySelector(`[data-thumb-index="${activeIndex}"]`) as HTMLElement
             if (thumb) thumb.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
         }
-    }, [currentIndex, showThumbs])
+    }, [activeIndex, showThumbs])
 
     const isLocked = !!currentPhoto && lockedIds.includes(currentPhoto.id)
     const isSelected = !!currentPhoto && (selectedIds.includes(currentPhoto.id) || isLocked)
@@ -181,7 +243,7 @@ export function PhotoLightbox({
         }
 
         // Use pending index if a previous swipe hasn't committed yet
-        const effectiveIndex = pendingSwipeIdx.current ?? currentIndex
+        const effectiveIndex = pendingSwipeIdx.current ?? activeIndex
         const newIdx = direction === 'next'
             ? Math.min(effectiveIndex + 1, photos.length - 1)
             : Math.max(effectiveIndex - 1, 0)
@@ -201,17 +263,17 @@ export function PhotoLightbox({
             setSlideDirection(direction === 'next' ? 'left' : 'right')
             setCurrentIndex(newIdx)
         }, 280)
-    }, [photos, currentIndex])
+    }, [activeIndex, photos])
 
     const goToPrev = useCallback(() => {
-        const idx = pendingSwipeIdx.current ?? currentIndex
+        const idx = pendingSwipeIdx.current ?? activeIndex
         if (idx > 0) commitSwipe('prev')
-    }, [currentIndex, commitSwipe])
+    }, [activeIndex, commitSwipe])
 
     const goToNext = useCallback(() => {
-        const idx = pendingSwipeIdx.current ?? currentIndex
+        const idx = pendingSwipeIdx.current ?? activeIndex
         if (idx < photos.length - 1) commitSwipe('next')
-    }, [currentIndex, photos.length, commitSwipe])
+    }, [activeIndex, photos.length, commitSwipe])
 
     // ----- Clamp position so image edge never goes past container edge -----
     const clampPosition = useCallback((pos: { x: number; y: number }, s: number) => {
@@ -315,7 +377,7 @@ export function PhotoLightbox({
 
         container.addEventListener('wheel', handleWheel, { passive: false })
         return () => container.removeEventListener('wheel', handleWheel)
-    }, [isOpen])
+    }, [isOpen, scale])
 
     // Clamp position whenever scale changes
     useEffect(() => {
@@ -365,9 +427,9 @@ export function PhotoLightbox({
             setIsSwiping(false)
             if (Math.abs(swipeDelta) > 80) {
                 // Threshold reached — animate to full slide then commit
-                if (swipeDelta < 0 && currentIndex < photos.length - 1) {
+                if (swipeDelta < 0 && activeIndex < photos.length - 1) {
                     commitSwipe('next')
-                } else if (swipeDelta > 0 && currentIndex > 0) {
+                } else if (swipeDelta > 0 && activeIndex > 0) {
                     commitSwipe('prev')
                 } else {
                     setSwipeDelta(0)
@@ -425,10 +487,6 @@ export function PhotoLightbox({
     }
 
     // ----- Touch gestures -----
-    const [lastTouchDistance, setLastTouchDistance] = useState<number | null>(null)
-    const lastTapTimeRef = useRef(0)
-    const [pinchCenter, setPinchCenter] = useState<{ x: number; y: number } | null>(null)
-
     const handleTouchStart = (e: React.TouchEvent) => {
         isTouchDevice.current = true  // mark as touch device
         if (e.touches.length === 2) {
@@ -508,9 +566,9 @@ export function PhotoLightbox({
             if (isSwiping && scale <= 1) {
                 setIsSwiping(false)
                 if (Math.abs(swipeDelta) > 80) {
-                    if (swipeDelta < 0 && currentIndex < photos.length - 1) {
+                    if (swipeDelta < 0 && activeIndex < photos.length - 1) {
                         commitSwipe('next')
-                    } else if (swipeDelta > 0 && currentIndex > 0) {
+                    } else if (swipeDelta > 0 && activeIndex > 0) {
                         commitSwipe('prev')
                     } else {
                         setSwipeDelta(0)
@@ -529,14 +587,13 @@ export function PhotoLightbox({
     }
 
     // Touch swipe start (only when not zoomed)
-    const swipeStartRef = useRef<number | null>(null)
     const handleSwipeStart = (e: React.TouchEvent) => {
         if (scale > 1 || e.touches.length !== 1 || doubleTapRef.current) return
         swipeStartRef.current = e.touches[0].clientX
         setIsSwiping(true)
         setSwipeDelta(0)
     }
-    const handleSwipeEnd = (_e: React.TouchEvent) => {
+    const handleSwipeEnd = () => {
         swipeStartRef.current = null
     }
 
@@ -545,11 +602,11 @@ export function PhotoLightbox({
     const imageMaxH = showThumbs ? 'calc(100dvh - 220px)' : 'calc(100dvh - 140px)'
 
     // Carousel: get prev/current/next photos
-    const prevPhoto = currentIndex > 0 ? photos[currentIndex - 1] : null
-    const nextPhoto = currentIndex < photos.length - 1 ? photos[currentIndex + 1] : null
+    const prevPhoto = activeIndex > 0 ? photos[activeIndex - 1] : null
+    const nextPhoto = activeIndex < photos.length - 1 ? photos[activeIndex + 1] : null
 
     // Dynamic opacity for carousel photos based on swipe position
-    const containerW = containerRef.current?.clientWidth || (typeof window !== 'undefined' ? window.innerWidth : 1000)
+    const containerW = typeof window !== 'undefined' ? window.innerWidth : 1000
     const progress = Math.abs(swipeDelta) / containerW  // 0=center, 1=fully swiped
     const prevOpacity = swipeDelta > 0 ? 0.5 + 0.5 * progress : 0.5
     const nextOpacity = swipeDelta < 0 ? 0.5 + 0.5 * progress : 0.5
@@ -569,7 +626,7 @@ export function PhotoLightbox({
                     <div className="flex items-center justify-between px-3 py-2 md:px-4 md:py-3 text-white shrink-0">
                         <div className="flex items-center gap-3 min-w-0">
                             <span className="text-sm opacity-60 shrink-0">
-                                {currentIndex + 1} / {photos.length}
+                                {activeIndex + 1} / {photos.length}
                             </span>
                             <span className="text-sm md:text-base font-medium truncate opacity-80">
                                 {currentPhoto.name}
@@ -616,7 +673,7 @@ export function PhotoLightbox({
                         onMouseLeave={handleMouseLeave}
                         onTouchStart={(e) => { handleTouchStart(e); handleSwipeStart(e) }}
                         onTouchMove={handleTouchMove}
-                        onTouchEnd={(e) => { handleTouchEnd(e); handleSwipeEnd(e) }}
+                        onTouchEnd={(e) => { handleTouchEnd(e); handleSwipeEnd() }}
                     >
                         {/* Nav arrows (only when not zoomed) */}
                         {scale <= 1 && (
@@ -679,7 +736,7 @@ export function PhotoLightbox({
                                     style={{
                                         transform: `scale(${scale}) translate(${position.x / scale}px, ${position.y / scale}px)`,
                                         transformOrigin: transformOrigin,
-                                        transition: (isDragging || isSwiping || lastTouchDistance !== null || zoomAnimRef.current !== null)
+                                        transition: (isDragging || isSwiping || lastTouchDistance !== null || isZoomAnimating)
                                             ? 'none'
                                             : `transform 0.35s cubic-bezier(0.2, 0, 0, 1)${isImageLoading ? ', opacity 0.3s ease' : ''}`,
                                         maxHeight: imageMaxH,
@@ -740,13 +797,13 @@ export function PhotoLightbox({
                                 >
                                     {photos.map((photo, idx) => {
                                         const isThumbSelected = selectedIds.includes(photo.id) || lockedIds.includes(photo.id)
-                                        const isActive = idx === currentIndex
+                                        const isActive = idx === activeIndex
                                         return (
                                             <button
                                                 key={photo.id}
                                                 data-thumb-index={idx}
                                                 onClick={() => {
-                                                    setSlideDirection(idx > currentIndex ? 'left' : 'right')
+                                                    setSlideDirection(idx > activeIndex ? 'left' : 'right')
                                                     setCurrentIndex(idx)
                                                 }}
                                                 className={cn(
