@@ -52,7 +52,18 @@ type SyncedProjectRow = {
     expires_at: string | null
     download_expires_at: string | null
     print_expires_at: string | null
+    print_sizes: unknown
     project_type: string | null
+}
+
+type PrintSize = {
+    name: string
+    quota: number
+}
+
+type PrintTemplate = {
+    name: string
+    sizes: PrintSize[]
 }
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000
@@ -85,10 +96,7 @@ function normalizePrintSizes(value: unknown) {
 }
 
 function getFirstPrintTemplateSizes(value: unknown) {
-    if (!Array.isArray(value)) return []
-    const firstTemplate = value[0]
-    if (!firstTemplate || typeof firstTemplate !== 'object') return []
-    return normalizePrintSizes((firstTemplate as { sizes?: unknown }).sizes)
+    return normalizePrintTemplates(value)[0]?.sizes || []
 }
 
 function sanitizeString(value: unknown) {
@@ -130,7 +138,64 @@ function toRemainingDays(expiresAt: string | null | undefined, referenceTimeMs: 
     return Math.ceil(diff / DAY_IN_MS)
 }
 
-function buildProjectInfoSnapshot(project: SyncedProjectRow, referenceTimeMs: number) {
+function normalizePrintTemplates(value: unknown): PrintTemplate[] {
+    if (!Array.isArray(value)) return []
+    return value
+        .map((entry) => {
+            if (!entry || typeof entry !== 'object') return null
+            const typed = entry as { name?: unknown; sizes?: unknown }
+            const name = sanitizeString(typed.name)
+            if (!name) return null
+            const sizes = normalizePrintSizes(typed.sizes)
+            return {
+                name,
+                sizes,
+            }
+        })
+        .filter((entry): entry is PrintTemplate => Boolean(entry))
+}
+
+function arePrintSizesEqual(left: PrintSize[], right: PrintSize[]) {
+    if (left.length !== right.length) return false
+    return left.every((entry, index) => {
+        const counterpart = right[index]
+        if (!counterpart) return false
+        return entry.name === counterpart.name && entry.quota === counterpart.quota
+    })
+}
+
+function formatPrintSizesLabel(printSizes: PrintSize[]) {
+    if (printSizes.length === 0) return null
+    return printSizes.map((size) => `${size.name}x${size.quota}`).join(', ')
+}
+
+function resolvePrintTemplateDetail(
+    projectPrintSizesInput: unknown,
+    settingsPrintTemplatesInput: unknown,
+) {
+    const projectPrintSizes = normalizePrintSizes(projectPrintSizesInput)
+    const printSizeLabel = formatPrintSizesLabel(projectPrintSizes)
+    const printTemplates = normalizePrintTemplates(settingsPrintTemplatesInput)
+    const matchedTemplate = printTemplates.find((template) =>
+        arePrintSizesEqual(template.sizes, projectPrintSizes),
+    ) || null
+
+    return {
+        printSizeLabel,
+        printTemplateLabel: matchedTemplate?.name || null,
+    }
+}
+
+function buildProjectInfoSnapshot(
+    project: SyncedProjectRow,
+    referenceTimeMs: number,
+    settingsPrintTemplatesInput: unknown,
+) {
+    const printDetail = resolvePrintTemplateDetail(
+        project.print_sizes,
+        settingsPrintTemplatesInput,
+    )
+
     return {
         password: sanitizeString(project.password) || null,
         max_photos: toNullableNonNegativeInt(project.max_photos),
@@ -142,6 +207,22 @@ function buildProjectInfoSnapshot(project: SyncedProjectRow, referenceTimeMs: nu
         download_days: toRemainingDays(project.download_expires_at, referenceTimeMs),
         print_days: toRemainingDays(project.print_expires_at, referenceTimeMs),
         project_type: sanitizeString(project.project_type) || null,
+        print_template: printDetail.printTemplateLabel
+            ? {
+                label: printDetail.printTemplateLabel,
+                description: printDetail.printSizeLabel,
+                print_size: {
+                    label: printDetail.printSizeLabel,
+                    description: null,
+                },
+            }
+            : null,
+        print_size: printDetail.printSizeLabel
+            ? {
+                label: printDetail.printSizeLabel,
+                description: null,
+            }
+            : null,
     }
 }
 
@@ -204,7 +285,7 @@ export async function POST(request: NextRequest) {
 
         const { data: existingProject, error: findError } = await supabaseAdmin
             .from('projects')
-            .select('id, link, max_photos, detect_subfolders, selection_enabled, download_enabled, print_enabled, password, expires_at, download_expires_at, print_expires_at, project_type')
+            .select('id, link, max_photos, detect_subfolders, selection_enabled, download_enabled, print_enabled, password, expires_at, download_expires_at, print_expires_at, print_sizes, project_type')
             .eq('user_id', settings.user_id)
             .eq('source_app', sourceApp)
             .eq('source_ref_id', sourceRefId)
@@ -252,7 +333,11 @@ export async function POST(request: NextRequest) {
                 at: syncAtIso,
             })
 
-            const projectInfo = buildProjectInfoSnapshot(existingProjectRow, syncAtMs)
+            const projectInfo = buildProjectInfoSnapshot(
+                existingProjectRow,
+                syncAtMs,
+                settings.print_templates,
+            )
             const projectLink = shouldRepairLink ? canonicalLink : existingProjectRow.link
             return NextResponse.json({
                 success: true,
@@ -369,7 +454,7 @@ export async function POST(request: NextRequest) {
                 source_ref_id: sourceRefId,
                 source_last_synced_at: syncAtIso,
             })
-            .select('id, link, max_photos, detect_subfolders, selection_enabled, download_enabled, print_enabled, password, expires_at, download_expires_at, print_expires_at, project_type')
+            .select('id, link, max_photos, detect_subfolders, selection_enabled, download_enabled, print_enabled, password, expires_at, download_expires_at, print_expires_at, print_sizes, project_type')
             .single()
 
         if (insertError) {
@@ -383,7 +468,11 @@ export async function POST(request: NextRequest) {
             at: syncAtIso,
         })
 
-        const projectInfo = buildProjectInfoSnapshot(insertedProject, syncAtMs)
+        const projectInfo = buildProjectInfoSnapshot(
+            insertedProject,
+            syncAtMs,
+            settings.print_templates,
+        )
         return NextResponse.json({
             success: true,
             action: 'created',
