@@ -198,10 +198,10 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
     const [showClearDialog, setShowClearDialog] = useState(false)
     const [showToast, setShowToast] = useState(false)
     const [toastMessage, setToastMessage] = useState("")
-    const [showRestoreDialog, setShowRestoreDialog] = useState(false)
     const [showDownloadAllDialog, setShowDownloadAllDialog] = useState(false)
     const [showDownloadClearDialog, setShowDownloadClearDialog] = useState(false)
     const [extraSelected, setExtraSelected] = useState<string[]>([])
+    const [isReviewSyncing, setIsReviewSyncing] = useState(false)
     const [, setSelectionStatus] = useState(config.selectionStatus || 'pending')
     const [, setExtraStatus] = useState(config.extraStatus || 'pending')
     const [, setPrintStatus] = useState(config.printStatus || 'pending')
@@ -247,6 +247,7 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
     const lastSyncedRef = useRef<string>('')
     const hasHydratedMainSelectionRef = useRef(false)
     const hasUserModifiedMainSelectionRef = useRef(false)
+    const skipMainSyncSerializedRef = useRef<string | null>(null)
     const lastExtraSyncedRef = useRef<string>('')
     const hasHydratedExtraSelectionsRef = useRef(false)
     const hasUserModifiedExtraSelectionsRef = useRef(false)
@@ -257,7 +258,6 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
     const reloadCooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const reloadCooldownEndsAtRef = useRef<number>(0)
     const lastReloadToastAtRef = useRef<number>(0)
-    const [pendingRestoreSelectionIds, setPendingRestoreSelectionIds] = useState<string[]>([])
 
     // Time remaining state for countdown
     const [timeRemaining, setTimeRemaining] = useState<{ days: number, hours: number, minutes: number } | null>(null)
@@ -411,6 +411,77 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
 
     // Session key for tracking if we've already checked this project in this browser session
     const sessionCheckKey = `fastpik-session-${currentProjectId}`
+    const mainSelectedNames = resolvedMainSelectedNames
+    const mainSelectedSerialized = JSON.stringify(mainSelectedNames)
+
+    const syncMainSelection = async (selectedNames: string[], options: { keepalive?: boolean } = {}) => {
+        if (!config.projectId) return false
+
+        const serialized = JSON.stringify(selectedNames)
+        if (serialized === lastSyncedRef.current) return true
+        if (serialized === skipMainSyncSerializedRef.current) {
+            skipMainSyncSerializedRef.current = null
+            return true
+        }
+
+        if (syncTimerRef.current) {
+            clearTimeout(syncTimerRef.current)
+            syncTimerRef.current = null
+        }
+
+        try {
+            const response = await fetch(`/api/projects/${config.projectId}/sync-selection`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ selectedPhotos: selectedNames }),
+                keepalive: options.keepalive,
+            })
+
+            if (!response.ok) return false
+
+            setSelectionStatus((prev) => prev === 'pending' ? 'in_progress' : prev)
+            lastSyncedRef.current = serialized
+            return true
+        } catch (err) {
+            console.error('Failed to sync selection:', err)
+            return false
+        }
+    }
+
+    const flushMainSelectionOnUnload = () => {
+        if (!config.projectId || photos.length === 0 || !hasHydratedMainSelectionRef.current) return
+        if (mainSelectedSerialized === lastSyncedRef.current) return
+        if (mainSelectedSerialized === skipMainSyncSerializedRef.current) return
+
+        if (syncTimerRef.current) {
+            clearTimeout(syncTimerRef.current)
+            syncTimerRef.current = null
+        }
+
+        const url = `/api/projects/${config.projectId}/sync-selection`
+        const body = JSON.stringify({ selectedPhotos: mainSelectedNames })
+
+        if (navigator.sendBeacon) {
+            const blob = new Blob([body], { type: 'application/json' })
+            if (navigator.sendBeacon(url, blob)) {
+                lastSyncedRef.current = mainSelectedSerialized
+                return
+            }
+        }
+
+        fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body,
+            keepalive: true,
+        })
+            .then((response) => {
+                if (response.ok) lastSyncedRef.current = mainSelectedSerialized
+            })
+            .catch((err) => {
+                console.error('Failed to flush selection before unload:', err)
+            })
+    }
 
     // Check for existing session on mount (only after hydration and only once per browser session)
     useEffect(() => {
@@ -426,38 +497,22 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
         }
     }, [currentProjectId, isHydrated, projectId, sessionCheckKey, setProjectId])
 
-    // Beforeunload warning when there are unsaved selections
     useEffect(() => {
-        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-            if (resolvedMainSelectedIds.length > 0) {
-                e.preventDefault()
-                e.returnValue = ''
-                return ''
+        const handlePageHide = () => flushMainSelectionOnUnload()
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'hidden') {
+                flushMainSelectionOnUnload()
             }
         }
 
-        window.addEventListener('beforeunload', handleBeforeUnload)
-        return () => window.removeEventListener('beforeunload', handleBeforeUnload)
-    }, [resolvedMainSelectedIds.length])
+        window.addEventListener('pagehide', handlePageHide)
+        document.addEventListener('visibilitychange', handleVisibilityChange)
 
-    // Handle restore dialog actions
-    const handleRestoreSession = () => {
-        const localSelectionToRestore = pendingRestoreSelectionIds
-        setShowRestoreDialog(false)
-        setPendingRestoreSelectionIds([])
-        setProjectId(currentProjectId)
-        hasHydratedMainSelectionRef.current = true
-        hasUserModifiedMainSelectionRef.current = true
-        setSelection(localSelectionToRestore)
-    }
-
-    const handleStartFresh = () => {
-        setShowRestoreDialog(false)
-        setPendingRestoreSelectionIds([])
-        setProjectId(currentProjectId)
-        hasHydratedMainSelectionRef.current = true
-        setSelection(serverSelectedIds)
-    }
+        return () => {
+            window.removeEventListener('pagehide', handlePageHide)
+            document.removeEventListener('visibilitychange', handleVisibilityChange)
+        }
+    }, [mainSelectedSerialized, config.projectId, photos.length])
 
     // Fetch photos - runs when authenticated OR when entering download mode (no password needed for download)
     useEffect(() => {
@@ -471,7 +526,7 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
         hasHydratedMainSelectionRef.current = false
         hasUserModifiedMainSelectionRef.current = false
         lastSyncedRef.current = ''
-        setPendingRestoreSelectionIds([])
+        skipMainSyncSerializedRef.current = null
     }, [config.projectId])
 
     useEffect(() => {
@@ -481,25 +536,23 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
     }, [config.projectId])
 
     useEffect(() => {
+        if (skipMainSyncSerializedRef.current && mainSelectedSerialized === lastSyncedRef.current) {
+            skipMainSyncSerializedRef.current = null
+        }
+    }, [mainSelectedSerialized])
+
+    useEffect(() => {
         if (photos.length === 0) return
 
         if (!hasHydratedMainSelectionRef.current) {
-            const hasSameProjectSelection = projectId === currentProjectId
-            const localSelectionIds = hasSameProjectSelection ? resolveValidPhotoIds(selected, photos) : []
-            const shouldOfferRestore = localSelectionIds.length > 0 && !areArraysEqual(localSelectionIds, serverSelectedIds)
-
             hasHydratedMainSelectionRef.current = true
-
-            if (shouldOfferRestore) {
-                setPendingRestoreSelectionIds(localSelectionIds)
-                setShowRestoreDialog(true)
-                if (!areArraysEqual(selected, serverSelectedIds)) {
-                    setSelection(serverSelectedIds)
-                }
-            } else if (!areArraysEqual(selected, serverSelectedIds)) {
+            const serverSelectedSerialized = JSON.stringify(resolvePhotoNamesFromIds(serverSelectedIds, photos))
+            lastSyncedRef.current = serverSelectedSerialized
+            if (!areArraysEqual(selected, serverSelectedIds)) {
+                skipMainSyncSerializedRef.current = JSON.stringify(resolvePhotoNamesFromIds(resolveValidPhotoIds(selected, photos), photos))
                 setSelection(serverSelectedIds)
             }
-        } else if (!showRestoreDialog) {
+        } else {
             const sanitizedSelectionIds = resolveValidPhotoIds(selected, photos)
             if (!areArraysEqual(selected, sanitizedSelectionIds)) {
                 setSelection(sanitizedSelectionIds)
@@ -539,11 +592,8 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
         }
     }, [
         photos,
-        projectId,
-        currentProjectId,
         selected,
         serverSelectedIds,
-        showRestoreDialog,
         config.extraSelectedPhotos,
         config.lockedPhotos,
         config.printSelections,
@@ -559,38 +609,21 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
         // Only sync in culling mode with a valid project ID and loaded photos
         if (viewMode !== 'culling' || activeFeature !== 'selection' || !config.projectId || photos.length === 0) return
 
-        // Build the list of selected photo names from resolved IDs only
-        const selectedNames = resolvePhotoNamesFromIds(resolvedMainSelectedIds, photos)
-
-        const serialized = JSON.stringify(selectedNames)
-
         // Skip if nothing changed since last sync
-        if (serialized === lastSyncedRef.current) return
+        if (mainSelectedSerialized === lastSyncedRef.current) return
 
         // Clear previous timer
         if (syncTimerRef.current) clearTimeout(syncTimerRef.current)
 
         // Set new debounce timer (2 seconds)
         syncTimerRef.current = setTimeout(async () => {
-            try {
-                const response = await fetch(`/api/projects/${config.projectId}/sync-selection`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ selectedPhotos: selectedNames })
-                })
-                if (response.ok) {
-                    setSelectionStatus((prev) => prev === 'pending' ? 'in_progress' : prev)
-                }
-                lastSyncedRef.current = serialized
-            } catch (err) {
-                console.error('Failed to sync selection:', err)
-            }
+            await syncMainSelection(mainSelectedNames)
         }, 2000)
 
         return () => {
             if (syncTimerRef.current) clearTimeout(syncTimerRef.current)
         }
-    }, [resolvedMainSelectedIds, viewMode, config.projectId, photos, activeFeature])
+    }, [mainSelectedSerialized, viewMode, config.projectId, photos, activeFeature])
 
     useEffect(() => {
         if (viewMode !== 'culling' || activeFeature !== 'extra' || !config.projectId || photos.length === 0) return
@@ -1611,6 +1644,21 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
         abortControllerRef.current?.abort()
     }
 
+    const handleReviewSelection = async () => {
+        if (isReviewSyncing) return
+
+        if (activeFeature === 'selection' && !isPrintMode) {
+            setIsReviewSyncing(true)
+            try {
+                await syncMainSelection(mainSelectedNames)
+            } finally {
+                setIsReviewSyncing(false)
+            }
+        }
+
+        setViewMode('review')
+    }
+
     // Get selected photo names for display
     const allPrintSelectedIds = hasPrintFeature ? Object.values(printSelections).flat() : []
     const effectiveSelected = isPrintMode ? allPrintSelectedIds : (isExtraMode ? extraSelected : resolvedMainSelectedIds)
@@ -2157,11 +2205,11 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
 
                             {/* Review Selection Button */}
                             <Button
-                                onClick={() => setViewMode('review')}
-                                disabled={!hasReviewContent}
+                                onClick={handleReviewSelection}
+                                disabled={!hasReviewContent || isReviewSyncing}
                                 className="flex-1 bg-blue-600 hover:bg-blue-700 text-white gap-2 cursor-pointer"
                             >
-                                <Eye className="h-4 w-4" />
+                                {isReviewSyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
                                 {t('reviewSelection')} ({reviewCount})
                             </Button>
                         </div>
@@ -2202,22 +2250,6 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
                 message={toastMessage}
                 type="success"
                 onClose={() => setShowToast(false)}
-            />
-
-            {/* Restore Session Dialog */}
-            <PopupDialog
-                isOpen={showRestoreDialog}
-                onClose={handleStartFresh}
-                onConfirm={handleRestoreSession}
-                title={t('restoreSession') || 'Lanjutkan Sesi?'}
-                message={
-                    currentLocale === 'id'
-                        ? `Ditemukan ${pendingRestoreSelectionIds.length} pilihan lokal di perangkat ini. Lanjutkan pilihan lokal, atau pakai data tersimpan (${serverSelectedIds.length} foto)?`
-                        : `Found ${pendingRestoreSelectionIds.length} local selections on this device. Continue with the local selection, or use the saved data (${serverSelectedIds.length} photos)?`
-                }
-                type="info"
-                confirmText={currentLocale === 'id' ? 'Lanjutkan Pilihan Lokal' : 'Continue Local Selection'}
-                cancelText={currentLocale === 'id' ? 'Pakai Data Tersimpan' : 'Use Saved Selection'}
             />
 
             {/* Download All Confirmation Dialog */}
