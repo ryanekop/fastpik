@@ -8,7 +8,7 @@ import { LanguageToggle } from "@/components/language-toggle"
 import { Button } from "@/components/ui/button"
 import Link from 'next/link'
 import Image from 'next/image'
-import { Check, Star, Zap, Crown, LogOut, Settings, LayoutDashboard, User } from "lucide-react"
+import { Check, Star, Zap, Crown, LogOut, Settings, LayoutDashboard, User, Images, Package2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import {
     Card,
@@ -265,24 +265,26 @@ export default function PricingPage() {
                             type="button"
                             onClick={() => setPricingMode("single")}
                             className={cn(
-                                "rounded-full px-4 py-2 text-sm font-medium transition-colors",
+                                "inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors",
                                 pricingMode === "single"
                                     ? "bg-background text-foreground shadow-sm"
                                     : "text-muted-foreground hover:text-foreground"
                             )}
                         >
+                            <Images className="h-4 w-4" />
                             {t("modeSingleLabel")}
                         </button>
                         <button
                             type="button"
                             onClick={() => setPricingMode("bundle")}
                             className={cn(
-                                "rounded-full px-4 py-2 text-sm font-medium transition-colors",
+                                "inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors",
                                 pricingMode === "bundle"
                                     ? "bg-primary text-primary-foreground shadow-sm"
                                     : "text-muted-foreground hover:text-foreground"
                             )}
                         >
+                            <Package2 className="h-4 w-4" />
                             {t("modeBundleLabel")}
                         </button>
                     </div>
