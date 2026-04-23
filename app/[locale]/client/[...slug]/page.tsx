@@ -27,6 +27,7 @@ type RawClientConfig = {
     downloadEnabled?: boolean
     password?: string
     lockedPhotos?: string[]
+    selectedPhotos?: string[]
     selectionStatus?: string
     extraEnabled?: boolean
     extraMaxPhotos?: number
@@ -336,6 +337,7 @@ export default async function ClientPage({ params }: { params: Promise<ClientPag
         selectionEnabled: safeConfig.selectionEnabled !== false,
         downloadEnabled: safeConfig.downloadEnabled !== false,
         lockedPhotos: toStringArray(safeConfig.lockedPhotos),
+        selectedPhotos: toStringArray(safeConfig.selectedPhotos),
         selectionStatus: typeof safeConfig.selectionStatus === "string" ? safeConfig.selectionStatus : undefined,
         extraEnabled: typeof safeConfig.extraEnabled === "boolean" ? safeConfig.extraEnabled : undefined,
         extraMaxPhotos: toOptionalNumber(safeConfig.extraMaxPhotos),

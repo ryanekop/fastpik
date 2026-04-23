@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useSelectionStore, useStoreHydration } from "@/lib/store"
 import { PhotoGrid } from "./photo-grid"
 import { PhotoLightbox } from "./photo-lightbox"
@@ -10,14 +10,13 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
 import { PopupDialog, Toast } from "@/components/ui/popup-dialog"
-import { Copy, Send, AlertCircle, Loader2, RefreshCw, ImageOff, Trash2, Lock, Eye, EyeOff, MessageCircle, Check, Download, MousePointerClick, ArrowLeft, Square, ZoomIn, Printer, ImagePlus } from "lucide-react"
+import { Copy, AlertCircle, Loader2, RefreshCw, ImageOff, Trash2, Lock, Eye, EyeOff, MessageCircle, Check, Download, MousePointerClick, ArrowLeft, Square, ZoomIn, Printer, ImagePlus } from "lucide-react"
 // jszip and file-saver are dynamically imported when needed (see handleDownloadPhotos)
 // This reduces the initial JS bundle by ~48KB
 import { cn } from "@/lib/utils"
 import { LanguageToggle } from "@/components/language-toggle"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Card, CardContent } from "@/components/ui/card"
-import { AnimatePresence, motion } from "framer-motion"
 
 interface Photo {
     id: string
@@ -52,6 +51,7 @@ interface ClientViewProps {
         hasPassword?: boolean
         projectId?: string
         lockedPhotos?: string[] // Previously selected photo filenames
+        selectedPhotos?: string[]
         selectionStatus?: string
         extraEnabled?: boolean
         extraMaxPhotos?: number
@@ -73,13 +73,82 @@ interface ClientViewProps {
     customChooseActionText?: { id: string, en: string } | null
 }
 
+const getNameWithoutExt = (name: string | undefined) => {
+    if (!name) return ''
+    return name.replace(/\.[^/.]+$/, '')
+}
+
+const dedupePreservingOrder = <T,>(items: T[]) => {
+    const seen = new Set<T>()
+    return items.filter((item) => {
+        if (seen.has(item)) return false
+        seen.add(item)
+        return true
+    })
+}
+
+const areArraysEqual = (a: string[], b: string[]) =>
+    a.length === b.length && a.every((item, index) => item === b[index])
+
+const resolvePhotoIdsFromNames = (names: string[] | undefined, photos: Photo[]) => {
+    if (!Array.isArray(names) || names.length === 0 || photos.length === 0) return []
+
+    const photoIdByName = new Map<string, string>()
+    photos.forEach((photo) => {
+        const normalizedName = getNameWithoutExt(photo.name)
+        if (normalizedName && !photoIdByName.has(normalizedName)) {
+            photoIdByName.set(normalizedName, photo.id)
+        }
+    })
+
+    return dedupePreservingOrder(
+        names
+            .map((name) => photoIdByName.get(getNameWithoutExt(name)))
+            .filter((id): id is string => Boolean(id))
+    )
+}
+
+const resolveValidPhotoIds = (ids: string[], photos: Photo[]) => {
+    if (ids.length === 0 || photos.length === 0) return []
+    const validPhotoIds = new Set(photos.map((photo) => photo.id))
+    return dedupePreservingOrder(ids.filter((id) => validPhotoIds.has(id)))
+}
+
+const resolvePhotoNamesFromIds = (ids: string[], photos: Photo[]) => {
+    if (ids.length === 0 || photos.length === 0) return []
+
+    const photoNameById = new Map<string, string>()
+    photos.forEach((photo) => {
+        photoNameById.set(photo.id, getNameWithoutExt(photo.name))
+    })
+
+    return dedupePreservingOrder(
+        ids
+            .map((id) => photoNameById.get(id))
+            .filter((name): name is string => Boolean(name))
+    )
+}
+
+const resolvePhotosFromIds = (ids: string[], photos: Photo[]) => {
+    if (ids.length === 0 || photos.length === 0) return []
+
+    const photoById = new Map<string, Photo>()
+    photos.forEach((photo) => {
+        photoById.set(photo.id, photo)
+    })
+
+    return ids
+        .map((id) => photoById.get(id))
+        .filter((photo): photo is Photo => Boolean(photo))
+}
+
 export function ClientView({ config, messageTemplates, customChooseActionText }: ClientViewProps) {
     const t = useTranslations('Client')
     const currentLocale = useLocale()
     const RELOAD_COOLDOWN_MS = 10 * 1000
     const RELOAD_TOAST_THROTTLE_MS = 2 * 1000
     const chooseActionHeading = customChooseActionText?.[currentLocale as 'id' | 'en']?.trim() || t('chooseAction')
-    const { selected, toggleSelection, clearSelection, setProjectId, projectId } = useSelectionStore()
+    const { selected, clearSelection, setSelection, setProjectId, projectId } = useSelectionStore()
     const isHydrated = useStoreHydration() // Use proper Zustand hydration detection
     const [photos, setPhotos] = useState<Photo[]>([])
     const [folders, setFolders] = useState<FolderNode[]>([])
@@ -101,9 +170,6 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
     const [downloadStatusText, setDownloadStatusText] = useState('')
     const abortControllerRef = useRef<AbortController | null>(null)
     const singleDownloadInFlightRef = useRef(false)
-
-    // Password dialog state (shown when clicking 'Pilih Foto' on password-protected albums)
-    const [showPasswordDialog, setShowPasswordDialog] = useState(false)
 
     // Generate a unique project identifier from config (defined early for use in state initializers)
     const currentProjectId = `${config.clientName}-${config.gdriveLink}`.replace(/[^a-zA-Z0-9]/g, '-').substring(0, 50)
@@ -133,11 +199,10 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
     const [showToast, setShowToast] = useState(false)
     const [toastMessage, setToastMessage] = useState("")
     const [showRestoreDialog, setShowRestoreDialog] = useState(false)
-    const [hasPendingSelection, setHasPendingSelection] = useState(false)
     const [showDownloadAllDialog, setShowDownloadAllDialog] = useState(false)
     const [showDownloadClearDialog, setShowDownloadClearDialog] = useState(false)
     const [extraSelected, setExtraSelected] = useState<string[]>([])
-    const [selectionStatus, setSelectionStatus] = useState(config.selectionStatus || 'pending')
+    const [, setSelectionStatus] = useState(config.selectionStatus || 'pending')
     const [, setExtraStatus] = useState(config.extraStatus || 'pending')
     const [, setPrintStatus] = useState(config.printStatus || 'pending')
 
@@ -155,6 +220,9 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
         config.printSizes!.forEach(s => { init[s.name] = [] })
         return init
     })
+    const serverSelectedIds = resolvePhotoIdsFromNames(config.selectedPhotos, photos)
+    const resolvedMainSelectedIds = resolveValidPhotoIds(selected, photos)
+    const resolvedMainSelectedNames = resolvePhotoNamesFromIds(resolvedMainSelectedIds, photos)
 
     // Computed: current max and selected based on project type
     const currentMaxPhotos = isPrintMode
@@ -166,7 +234,7 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
         ? (printSelections[activePrintSize] || [])
         : isExtraMode
             ? extraSelected
-            : selected
+            : resolvedMainSelectedIds
     const totalPrintSelected = hasPrintFeature
         ? Object.values(printSelections).reduce((sum, arr) => sum + arr.length, 0)
         : 0
@@ -177,6 +245,8 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
     // Selection sync state
     const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const lastSyncedRef = useRef<string>('')
+    const hasHydratedMainSelectionRef = useRef(false)
+    const hasUserModifiedMainSelectionRef = useRef(false)
     const lastExtraSyncedRef = useRef<string>('')
     const hasHydratedExtraSelectionsRef = useRef(false)
     const hasUserModifiedExtraSelectionsRef = useRef(false)
@@ -187,6 +257,7 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
     const reloadCooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const reloadCooldownEndsAtRef = useRef<number>(0)
     const lastReloadToastAtRef = useRef<number>(0)
+    const [pendingRestoreSelectionIds, setPendingRestoreSelectionIds] = useState<string[]>([])
 
     // Time remaining state for countdown
     const [timeRemaining, setTimeRemaining] = useState<{ days: number, hours: number, minutes: number } | null>(null)
@@ -345,34 +416,20 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
     useEffect(() => {
         if (!isHydrated) return
 
-        // Check if we've already done the session check in this browser tab
         const alreadyChecked = sessionStorage.getItem(sessionCheckKey)
-        if (alreadyChecked) {
-            // Already checked this session - just ensure project ID is set correctly
-            if (projectId !== currentProjectId) {
-                setProjectId(currentProjectId)
-            }
-            return
+        if (!alreadyChecked) {
+            sessionStorage.setItem(sessionCheckKey, 'true')
         }
 
-        // Mark as checked for this browser session
-        sessionStorage.setItem(sessionCheckKey, 'true')
-
-        if (projectId === currentProjectId && selected.length > 0) {
-            // Same project, has previous selection - ask to restore
-            setHasPendingSelection(true)
-            setShowRestoreDialog(true)
-        } else if (projectId !== currentProjectId) {
-            // Different project - set project and clear
+        if (projectId !== currentProjectId) {
             setProjectId(currentProjectId)
         }
-        // If same project but no selection, do nothing (keep existing state)
-    }, [isHydrated])
+    }, [currentProjectId, isHydrated, projectId, sessionCheckKey, setProjectId])
 
     // Beforeunload warning when there are unsaved selections
     useEffect(() => {
         const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-            if (selected.length > 0) {
+            if (resolvedMainSelectedIds.length > 0) {
                 e.preventDefault()
                 e.returnValue = ''
                 return ''
@@ -381,32 +438,41 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
 
         window.addEventListener('beforeunload', handleBeforeUnload)
         return () => window.removeEventListener('beforeunload', handleBeforeUnload)
-    }, [selected.length])
+    }, [resolvedMainSelectedIds.length])
 
     // Handle restore dialog actions
     const handleRestoreSession = () => {
+        const localSelectionToRestore = pendingRestoreSelectionIds
         setShowRestoreDialog(false)
-        setHasPendingSelection(false)
+        setPendingRestoreSelectionIds([])
         setProjectId(currentProjectId)
-        // Keep existing selections
+        hasHydratedMainSelectionRef.current = true
+        hasUserModifiedMainSelectionRef.current = true
+        setSelection(localSelectionToRestore)
     }
 
     const handleStartFresh = () => {
         setShowRestoreDialog(false)
-        setHasPendingSelection(false)
-        clearSelection()
+        setPendingRestoreSelectionIds([])
         setProjectId(currentProjectId)
+        hasHydratedMainSelectionRef.current = true
+        setSelection(serverSelectedIds)
     }
 
     // Fetch photos - runs when authenticated OR when entering download mode (no password needed for download)
     useEffect(() => {
-        if (!hasPendingSelection) {
-            // For culling: need authentication. For download and initial: always fetch photos
-            if (isAuthenticated || viewMode === 'download' || viewMode === 'initial') {
-                fetchPhotos({ forceRefreshIfEmpty: false })
-            }
+        // For culling: need authentication. For download and initial: always fetch photos
+        if (isAuthenticated || viewMode === 'download' || viewMode === 'initial') {
+            fetchPhotos({ forceRefreshIfEmpty: false })
         }
-    }, [isAuthenticated, hasPendingSelection, viewMode])
+    }, [isAuthenticated, viewMode])
+
+    useEffect(() => {
+        hasHydratedMainSelectionRef.current = false
+        hasUserModifiedMainSelectionRef.current = false
+        lastSyncedRef.current = ''
+        setPendingRestoreSelectionIds([])
+    }, [config.projectId])
 
     useEffect(() => {
         hasHydratedPrintSelectionsRef.current = false
@@ -417,27 +483,39 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
     useEffect(() => {
         if (photos.length === 0) return
 
-        const getNameNoExt = (name: string | undefined) => {
-            if (!name) return ''
-            return name.replace(/\.[^/.]+$/, '')
-        }
+        if (!hasHydratedMainSelectionRef.current) {
+            const hasSameProjectSelection = projectId === currentProjectId
+            const localSelectionIds = hasSameProjectSelection ? resolveValidPhotoIds(selected, photos) : []
+            const shouldOfferRestore = localSelectionIds.length > 0 && !areArraysEqual(localSelectionIds, serverSelectedIds)
 
-        const toPhotoIds = (names: string[] | undefined) => {
-            if (!Array.isArray(names) || names.length === 0) return []
-            const wanted = new Set(names.map((name) => getNameNoExt(name)))
-            return photos.filter((photo) => wanted.has(getNameNoExt(photo.name))).map((photo) => photo.id)
+            hasHydratedMainSelectionRef.current = true
+
+            if (shouldOfferRestore) {
+                setPendingRestoreSelectionIds(localSelectionIds)
+                setShowRestoreDialog(true)
+                if (!areArraysEqual(selected, serverSelectedIds)) {
+                    setSelection(serverSelectedIds)
+                }
+            } else if (!areArraysEqual(selected, serverSelectedIds)) {
+                setSelection(serverSelectedIds)
+            }
+        } else if (!showRestoreDialog) {
+            const sanitizedSelectionIds = resolveValidPhotoIds(selected, photos)
+            if (!areArraysEqual(selected, sanitizedSelectionIds)) {
+                setSelection(sanitizedSelectionIds)
+            }
         }
 
         if (hasExtraFeature && !hasHydratedExtraSelectionsRef.current && !hasUserModifiedExtraSelectionsRef.current) {
-            const lockedNames = new Set((config.lockedPhotos || []).map((name) => getNameNoExt(name)))
-            const restoredExtraIds = toPhotoIds(config.extraSelectedPhotos)
+            const lockedNames = new Set((config.lockedPhotos || []).map((name) => getNameWithoutExt(name)))
+            const restoredExtraIds = resolvePhotoIdsFromNames(config.extraSelectedPhotos, photos)
                 .filter((id) => {
                     const photo = photos.find((p) => p.id === id)
-                    return photo ? !lockedNames.has(getNameNoExt(photo.name)) : true
+                    return photo ? !lockedNames.has(getNameWithoutExt(photo.name)) : true
                 })
             hasHydratedExtraSelectionsRef.current = true
             lastExtraSyncedRef.current = JSON.stringify(restoredExtraIds
-                .map(id => getNameNoExt(photos.find(p => p.id === id)?.name))
+                .map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name))
                 .filter(name => !lockedNames.has(name))
                 .filter(Boolean))
             setExtraSelected(restoredExtraIds)
@@ -449,17 +527,31 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
                 const selectedNames = (config.printSelections || [])
                     .filter((selection) => selection.size === size.name)
                     .map((selection) => selection.photo)
-                nextSelections[size.name] = toPhotoIds(selectedNames)
+                nextSelections[size.name] = resolvePhotoIdsFromNames(selectedNames, photos)
             })
 
             hasHydratedPrintSelectionsRef.current = true
             lastPrintSyncedRef.current = JSON.stringify(Object.entries(nextSelections).map(([sizeName, ids]) => ({
                 sizeName,
-                photos: ids.map(id => getNameNoExt(photos.find(p => p.id === id)?.name)).filter(Boolean)
+                photos: ids.map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name)).filter(Boolean)
             })))
             setPrintSelections(nextSelections)
         }
-    }, [photos, config.extraSelectedPhotos, config.lockedPhotos, config.printSelections, config.printSizes, hasExtraFeature, hasPrintFeature])
+    }, [
+        photos,
+        projectId,
+        currentProjectId,
+        selected,
+        serverSelectedIds,
+        showRestoreDialog,
+        config.extraSelectedPhotos,
+        config.lockedPhotos,
+        config.printSelections,
+        config.printSizes,
+        hasExtraFeature,
+        hasPrintFeature,
+        setSelection,
+    ])
 
     // Debounced sync: auto-sync selections to server 2 seconds after last toggle
     // MUST be before early returns to maintain consistent hook order
@@ -467,15 +559,8 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
         // Only sync in culling mode with a valid project ID and loaded photos
         if (viewMode !== 'culling' || activeFeature !== 'selection' || !config.projectId || photos.length === 0) return
 
-        const getNameNoExt = (name: string | undefined) => {
-            if (!name) return ''
-            return name.replace(/\.[^/.]+$/, '')
-        }
-
-        // Build the list of selected photo names
-        const selectedNames = selected
-            .map(id => getNameNoExt(photos.find(p => p.id === id)?.name))
-            .filter(Boolean)
+        // Build the list of selected photo names from resolved IDs only
+        const selectedNames = resolvePhotoNamesFromIds(resolvedMainSelectedIds, photos)
 
         const serialized = JSON.stringify(selectedNames)
 
@@ -505,7 +590,7 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
         return () => {
             if (syncTimerRef.current) clearTimeout(syncTimerRef.current)
         }
-    }, [selected, viewMode, config.projectId, photos, activeFeature])
+    }, [resolvedMainSelectedIds, viewMode, config.projectId, photos, activeFeature])
 
     useEffect(() => {
         if (viewMode !== 'culling' || activeFeature !== 'extra' || !config.projectId || photos.length === 0) return
@@ -969,12 +1054,6 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
         )
     }
 
-    // Helper to get name without extension (must be defined before usage)
-    const getNameWithoutExt = (name: string | undefined) => {
-        if (!name) return ''
-        return name.replace(/\.[^/.]+$/, '')
-    }
-
     // Get list of locked photo names (without extension for comparison)
     const lockedPhotoNames = config.lockedPhotos?.map(name => getNameWithoutExt(name)) || []
     const shouldShowLockedPhotos = (isExtraMode || isLegacyExtraProject) && lockedPhotoNames.length > 0
@@ -1042,12 +1121,18 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
             return
         }
 
-        if (!selected.includes(id) && selected.length >= config.maxPhotos) {
+        if (!resolvedMainSelectedIds.includes(id) && resolvedMainSelectedIds.length >= config.maxPhotos) {
             setAlertMax(true)
             setTimeout(() => setAlertMax(false), 1000)
             return
         }
-        toggleSelection(id, config.maxPhotos)
+        hasHydratedMainSelectionRef.current = true
+        hasUserModifiedMainSelectionRef.current = true
+        setSelection(
+            resolvedMainSelectedIds.includes(id)
+                ? resolvedMainSelectedIds.filter((selectedId) => selectedId !== id)
+                : [...resolvedMainSelectedIds, id]
+        )
     }
 
     const handleZoom = (photo: Photo, sourcePhotos?: Photo[]) => {
@@ -1079,12 +1164,12 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
                 .filter(name => !lockedPhotoNames.includes(name || ''))
             listText = shouldShowLockedPhotos ? formatLockedAndAdditionalList(extraPhotoNames) : extraPhotoNames.join('\n')
         } else if (isLegacyExtraProject) {
-            const newPhotos = selected
+            const newPhotos = resolvedMainSelectedIds
                 .map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name))
                 .filter(name => !lockedPhotoNames.includes(name || ''))
             listText = formatLockedAndAdditionalList(newPhotos)
         } else {
-            listText = selected.map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name)).join('\n')
+            listText = resolvedMainSelectedNames.join('\n')
         }
 
         if (navigator.clipboard && window.isSecureContext) {
@@ -1148,14 +1233,14 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
             listText = shouldShowLockedPhotos ? formatLockedAndAdditionalList(extraPhotoNames) : extraPhotoNames.join('\n')
             totalCount = shouldShowLockedPhotos ? lockedPhotoNames.length + extraPhotoNames.length : extraPhotoNames.length
         } else if (isLegacyExtraProject) {
-            const newPhotos = selected
+            const newPhotos = resolvedMainSelectedIds
                 .map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name))
                 .filter(name => !lockedPhotoNames.includes(name || ''))
             listText = formatLockedAndAdditionalList(newPhotos)
             totalCount = lockedPhotoNames.length + newPhotos.length
         } else {
-            listText = selected.map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name)).join('\n')
-            totalCount = selected.length
+            listText = resolvedMainSelectedNames.join('\n')
+            totalCount = resolvedMainSelectedNames.length
         }
 
         const variables: Record<string, string> = {
@@ -1190,6 +1275,8 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
             hasUserModifiedExtraSelectionsRef.current = true
             setExtraSelected([])
         } else {
+            hasHydratedMainSelectionRef.current = true
+            hasUserModifiedMainSelectionRef.current = true
             clearSelection()
         }
         setShowClearDialog(false)
@@ -1526,14 +1613,14 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
 
     // Get selected photo names for display
     const allPrintSelectedIds = hasPrintFeature ? Object.values(printSelections).flat() : []
-    const effectiveSelected = isPrintMode ? allPrintSelectedIds : (isExtraMode ? extraSelected : selected)
+    const effectiveSelected = isPrintMode ? allPrintSelectedIds : (isExtraMode ? extraSelected : resolvedMainSelectedIds)
     const effectiveCount = effectiveSelected.length
     const reviewSelectedIds = isPrintMode
         ? allPrintSelectedIds
         : shouldShowLockedPhotos
             ? Array.from(new Set([...lockedPhotoIds, ...effectiveSelected]))
             : effectiveSelected
-    const reviewActivationCount = isPrintMode ? allPrintSelectedIds.length : (isExtraMode ? extraSelected.length : selected.length)
+    const reviewActivationCount = isPrintMode ? allPrintSelectedIds.length : (isExtraMode ? extraSelected.length : resolvedMainSelectedIds.length)
     const reviewCount = reviewActivationCount
     const hasReviewContent = reviewActivationCount > 0
     const selectedPhotoNames = effectiveSelected.slice(0, 5).map(id => getNameWithoutExt(photos.find(p => p.id === id)?.name))
@@ -1869,8 +1956,10 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
                             })}
                         </div>
                     ) : (() => {
-                        const activeSelectionIds = isExtraMode ? extraSelected : selected
-                        const selectedPhotos = photos.filter(p => activeSelectionIds.includes(p.id))
+                        const selectedPhotos = resolvePhotosFromIds(
+                            isExtraMode ? extraSelected : resolvedMainSelectedIds,
+                            photos
+                        )
                         const hasLockedPhotos = shouldShowLockedPhotos
                         const lockedSelected = hasLockedPhotos ? photos.filter(p => isPhotoLocked(p)) : []
                         const additionalSelectedPhotos = hasLockedPhotos ? selectedPhotos.filter(p => !isPhotoLocked(p)) : selectedPhotos
@@ -1953,7 +2042,7 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
                 initialIndex={lightboxIndex}
                 isOpen={lightboxOpen}
                 onClose={() => setLightboxOpen(false)}
-                selectedIds={viewMode === 'download' ? downloadSelected : (isPrintMode ? (viewMode === 'review' ? allPrintSelectedIds : currentSelected) : (viewMode === 'review' ? reviewSelectedIds : (isExtraMode ? extraSelected : selected)))}
+                selectedIds={viewMode === 'download' ? downloadSelected : (isPrintMode ? (viewMode === 'review' ? allPrintSelectedIds : currentSelected) : (viewMode === 'review' ? reviewSelectedIds : (isExtraMode ? extraSelected : resolvedMainSelectedIds)))}
                 onToggleSelect={viewMode === 'download' ? handleDownloadToggle : handleToggle}
                 maxPhotos={viewMode === 'download' ? Infinity : currentMaxPhotos}
                 lockedIds={viewMode === 'download' ? [] : lockedPhotoIds}
@@ -2121,10 +2210,14 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
                 onClose={handleStartFresh}
                 onConfirm={handleRestoreSession}
                 title={t('restoreSession') || 'Lanjutkan Sesi?'}
-                message={`${t('restoreSessionMsg') || 'Anda memiliki'} ${selected.length} ${t('photosSelected') || 'foto yang dipilih sebelumnya'}. ${t('continueOrStartFresh') || 'Lanjutkan atau mulai dari awal?'}`}
+                message={
+                    currentLocale === 'id'
+                        ? `Ditemukan ${pendingRestoreSelectionIds.length} pilihan lokal di perangkat ini. Lanjutkan pilihan lokal, atau pakai data tersimpan (${serverSelectedIds.length} foto)?`
+                        : `Found ${pendingRestoreSelectionIds.length} local selections on this device. Continue with the local selection, or use the saved data (${serverSelectedIds.length} photos)?`
+                }
                 type="info"
-                confirmText={t('continue') || 'Lanjutkan'}
-                cancelText={t('startFresh') || 'Mulai Baru'}
+                confirmText={currentLocale === 'id' ? 'Lanjutkan Pilihan Lokal' : 'Continue Local Selection'}
+                cancelText={currentLocale === 'id' ? 'Pakai Data Tersimpan' : 'Use Saved Selection'}
             />
 
             {/* Download All Confirmation Dialog */}
