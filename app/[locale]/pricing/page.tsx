@@ -140,7 +140,7 @@ export default function PricingPage() {
         },
         {
             nameKey: "plan3Months",
-            price: pricingMode === "bundle" ? "125rb" : "39rb",
+            price: pricingMode === "bundle" ? "129rb" : "39rb",
             durationKey: "per3Months",
             features: [
                 pricingMode === "bundle" ? "featureBundlePerMonth3" : "featureSave15",
@@ -153,7 +153,7 @@ export default function PricingPage() {
         },
         {
             nameKey: "plan1Year",
-            price: pricingMode === "bundle" ? "399rb" : "129rb",
+            price: pricingMode === "bundle" ? "489rb" : "149rb",
             durationKey: "perYear",
             features: [
                 pricingMode === "bundle" ? "featureBundlePerMonth12" : "featureSave50",

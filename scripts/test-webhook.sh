@@ -26,7 +26,7 @@ case $PLAN in
         PLAN_NAME="Pro Quarterly (3 Bulan)"
         ;;
     "yearly"|"12")
-        AMOUNT=129000
+        AMOUNT=149000
         PLAN_NAME="Pro Yearly (1 Tahun)"
         ;;
     "lifetime"|"∞")
