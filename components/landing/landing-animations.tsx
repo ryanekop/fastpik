@@ -39,28 +39,29 @@ export function AnimatedHero({ children }: { children: React.ReactNode }) {
 }
 
 const demoPhotos = [
-    { name: "DSC_1024.JPG", tone: "from-sky-200 via-cyan-100 to-slate-200", selected: true, selectedAt: 0.16 },
+    { name: "DSC_1024.JPG", tone: "from-sky-200 via-cyan-100 to-slate-200", selected: true, selectedAt: 0.14 },
     { name: "DSC_1031.JPG", tone: "from-amber-200 via-orange-100 to-rose-200", selected: false },
-    { name: "DSC_1042.JPG", tone: "from-emerald-200 via-teal-100 to-lime-100", selected: true, selectedAt: 0.32 },
+    { name: "DSC_1042.JPG", tone: "from-emerald-200 via-teal-100 to-lime-100", selected: true, selectedAt: 0.26 },
     { name: "DSC_1057.JPG", tone: "from-violet-200 via-fuchsia-100 to-pink-100", selected: false },
-    { name: "DSC_1068.JPG", tone: "from-rose-200 via-pink-100 to-orange-100", selected: true, selectedAt: 0.48 },
-    { name: "DSC_1080.JPG", tone: "from-indigo-200 via-blue-100 to-cyan-100", selected: true, selectedAt: 0.64 },
+    { name: "DSC_1068.JPG", tone: "from-rose-200 via-pink-100 to-orange-100", selected: true, selectedAt: 0.42 },
+    { name: "DSC_1080.JPG", tone: "from-indigo-200 via-blue-100 to-cyan-100", selected: true, selectedAt: 0.58 },
 ]
 
 const selectedPhotoNames = demoPhotos.filter((photo) => photo.selected).map((photo) => photo.name)
+const selectedDemoPhotos = demoPhotos.filter((photo) => photo.selected)
 const cursorPath = {
-    left: ["18%", "18%", "18%", "82%", "82%", "50%", "50%", "82%", "82%", "82%", "18%"],
-    top: ["45%", "45%", "45%", "45%", "45%", "75%", "75%", "75%", "75%", "75%", "45%"],
+    left: ["16.5%", "16.5%", "16.5%", "83.5%", "83.5%", "50%", "50%", "83.5%", "83.5%", "83.5%", "16.5%"],
+    top: ["21%", "21%", "21%", "21%", "21%", "72%", "72%", "72%", "72%", "72%", "21%"],
     scale: [1, 1, 0.84, 1, 0.84, 1, 0.84, 1, 0.84, 1, 1],
 }
-const cursorTimes = [0, 0.12, 0.16, 0.28, 0.32, 0.44, 0.48, 0.6, 0.64, 0.88, 1]
+const cursorTimes = [0, 0.1, 0.14, 0.22, 0.26, 0.38, 0.42, 0.54, 0.58, 0.88, 1]
 
 function selectionTimes(selectedAt = 0) {
-    return [0, Math.max(0, selectedAt - 0.04), selectedAt + 0.04, 0.82, 0.92, 1]
+    return [0, selectedAt + 0.14, selectedAt + 0.17, 0.82, 0.9, 1]
 }
 
-function clickRingTimes(selectedAt = 0) {
-    return [0, Math.max(0, selectedAt - 0.03), selectedAt, selectedAt + 0.08, selectedAt + 0.16, 1]
+function revealTimes(startAt = 0.72, endAt = 0.88) {
+    return [0, startAt, startAt + 0.04, endAt, endAt + 0.04, 1]
 }
 
 export function LandingHeroDemo() {
@@ -115,7 +116,7 @@ export function LandingHeroDemo() {
                             </motion.span>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-2.5">
+                        <div className="relative grid grid-cols-3 gap-2.5">
                             {demoPhotos.map((photo, index) => (
                                 <motion.div
                                     key={photo.name}
@@ -134,19 +135,6 @@ export function LandingHeroDemo() {
                                         <span className="truncate text-[10px] font-medium">{photo.name}</span>
                                         <Eye className="h-3 w-3 shrink-0 text-muted-foreground" />
                                     </div>
-                                    {photo.selected && !shouldReduceMotion ? (
-                                        <motion.span
-                                            animate={{
-                                                opacity: [0, 0, 1, 0.55, 0, 0],
-                                                scale: [0.7, 0.7, 0.7, 1.65, 2.15, 2.15],
-                                            }}
-                                            transition={{
-                                                ...loopTransition,
-                                                times: clickRingTimes(photo.selectedAt),
-                                            }}
-                                            className="absolute left-1/2 top-[38%] h-8 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-emerald-500/80"
-                                        />
-                                    ) : null}
                                     {photo.selected ? (
                                         <motion.div
                                             animate={{
@@ -164,17 +152,19 @@ export function LandingHeroDemo() {
                                     ) : null}
                                 </motion.div>
                             ))}
-                        </div>
 
-                        {!shouldReduceMotion ? (
-                            <motion.div
-                                animate={cursorPath}
-                                transition={{ ...loopTransition, times: cursorTimes }}
-                                className="pointer-events-none absolute z-20 -ml-1 -mt-1 text-slate-900 drop-shadow-[0_3px_5px_rgba(0,0,0,0.25)] dark:text-white"
-                            >
-                                <MousePointer2 className="h-5 w-5 fill-background stroke-[2.4]" />
-                            </motion.div>
-                        ) : null}
+                            {!shouldReduceMotion ? (
+                                <>
+                                    <motion.div
+                                        animate={cursorPath}
+                                        transition={{ ...loopTransition, times: cursorTimes }}
+                                        className="pointer-events-none absolute z-20 -ml-1 -mt-1 text-slate-900 drop-shadow-[0_3px_5px_rgba(0,0,0,0.25)] dark:text-white"
+                                    >
+                                        <MousePointer2 className="h-5 w-5 fill-background stroke-[2.4]" />
+                                    </motion.div>
+                                </>
+                            ) : null}
+                        </div>
                     </div>
 
                     <div className="grid grid-cols-[0.9fr_1.1fr] gap-3">
@@ -200,35 +190,35 @@ export function LandingHeroDemo() {
                                                 <>
                                                     <motion.span
                                                         animate={{ opacity: [1, 1, 0, 0, 0, 1] }}
-                                                        transition={{ ...loopTransition, times: [0, 0.12, 0.16, 0.82, 0.94, 1] }}
+                                                        transition={{ ...loopTransition, times: [0, 0.1, 0.14, 0.82, 0.94, 1] }}
                                                         className="absolute"
                                                     >
                                                         0/5
                                                     </motion.span>
                                                     <motion.span
                                                         animate={{ opacity: [0, 0, 1, 1, 0, 0] }}
-                                                        transition={{ ...loopTransition, times: [0, 0.14, 0.18, 0.28, 0.32, 1] }}
+                                                        transition={{ ...loopTransition, times: [0, 0.16, 0.19, 0.23, 0.26, 1] }}
                                                         className="absolute"
                                                     >
                                                         1/5
                                                     </motion.span>
                                                     <motion.span
                                                         animate={{ opacity: [0, 0, 1, 1, 0, 0] }}
-                                                        transition={{ ...loopTransition, times: [0, 0.3, 0.34, 0.44, 0.48, 1] }}
+                                                        transition={{ ...loopTransition, times: [0, 0.28, 0.31, 0.39, 0.42, 1] }}
                                                         className="absolute"
                                                     >
                                                         2/5
                                                     </motion.span>
                                                     <motion.span
                                                         animate={{ opacity: [0, 0, 1, 1, 0, 0] }}
-                                                        transition={{ ...loopTransition, times: [0, 0.46, 0.5, 0.6, 0.64, 1] }}
+                                                        transition={{ ...loopTransition, times: [0, 0.44, 0.47, 0.55, 0.58, 1] }}
                                                         className="absolute"
                                                     >
                                                         3/5
                                                     </motion.span>
                                                     <motion.span
                                                         animate={{ opacity: [0, 0, 0, 1, 1, 0] }}
-                                                        transition={{ ...loopTransition, times: [0, 0.6, 0.64, 0.68, 0.9, 1] }}
+                                                        transition={{ ...loopTransition, times: [0, 0.54, 0.58, 0.62, 0.9, 1] }}
                                                         className="absolute"
                                                     >
                                                         4/5
@@ -244,7 +234,7 @@ export function LandingHeroDemo() {
                                                     ? "80%"
                                                     : ["0%", "0%", "20%", "40%", "60%", "80%", "80%", "0%"],
                                             }}
-                                            transition={{ ...loopTransition, times: [0, 0.12, 0.16, 0.32, 0.48, 0.64, 0.9, 1] }}
+                                            transition={{ ...loopTransition, times: [0, 0.1, 0.14, 0.26, 0.42, 0.58, 0.9, 1] }}
                                             className="h-full rounded-full bg-primary"
                                         />
                                     </div>
@@ -260,7 +250,7 @@ export function LandingHeroDemo() {
                                             }}
                                             transition={{
                                                 ...loopTransition,
-                                                times: selectionTimes(demoPhotos.filter((photo) => photo.selected)[index]?.selectedAt),
+                                                times: selectionTimes(selectedDemoPhotos[index]?.selectedAt ? selectedDemoPhotos[index].selectedAt + 0.04 : 0),
                                             }}
                                             className="rounded-md border bg-muted/25 px-2.5 py-1.5 text-[11px] font-medium"
                                         >
@@ -278,10 +268,10 @@ export function LandingHeroDemo() {
                             </div>
                             <motion.div
                                 animate={{
-                                    opacity: finalOpacity ?? [0, 0, 0, 1, 1, 0],
-                                    y: finalY ?? [12, 12, 12, 0, 0, -8],
+                                    opacity: finalOpacity ?? [0, 0, 1, 1, 0, 0],
+                                    y: finalY ?? [10, 10, 0, 0, -6, -6],
                                 }}
-                                transition={{ ...loopTransition, times: [0, 0.52, 0.62, 0.72, 0.9, 1] }}
+                                transition={{ ...loopTransition, times: revealTimes(0.74, 0.88) }}
                                 className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-2.5 shadow-sm"
                             >
                                 <div className="mb-1.5 flex items-center gap-2">
@@ -299,21 +289,24 @@ export function LandingHeroDemo() {
                                     {selectedPhotoNames.join(", ")}
                                 </div>
                             </motion.div>
+
                             <motion.div
                                 animate={{
-                                    scale: shouldReduceMotion ? 1 : [1, 1, 1, 1.02, 1.02, 1],
+                                    opacity: finalOpacity ?? [0, 0, 1, 1, 0, 0],
+                                    y: finalY ?? [8, 8, 0, 0, -4, -4],
+                                    scale: shouldReduceMotion ? 1 : [1, 1, 1, 1.02, 1, 1],
                                     boxShadow: shouldReduceMotion
                                         ? "0 10px 20px rgba(16,185,129,0.2)"
                                         : [
                                             "0 0 0 rgba(16,185,129,0)",
                                             "0 0 0 rgba(16,185,129,0)",
+                                            "0 10px 26px rgba(16,185,129,0.35)",
+                                            "0 10px 26px rgba(16,185,129,0.35)",
                                             "0 0 0 rgba(16,185,129,0)",
-                                            "0 10px 26px rgba(16,185,129,0.35)",
-                                            "0 10px 26px rgba(16,185,129,0.35)",
                                             "0 0 0 rgba(16,185,129,0)",
                                         ],
                                 }}
-                                transition={{ ...loopTransition, times: [0, 0.5, 0.6, 0.72, 0.9, 1] }}
+                                transition={{ ...loopTransition, times: revealTimes(0.8, 0.88) }}
                                 className="mt-2.5 flex h-8 items-center justify-center gap-2 rounded-lg bg-emerald-600 text-xs font-semibold text-white"
                             >
                                 <Send className="h-3.5 w-3.5" />
