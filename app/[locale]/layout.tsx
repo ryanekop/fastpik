@@ -86,8 +86,17 @@ export default async function LocaleLayout({
         </NextIntlClientProvider>
         <Script
           defer
-          src="https://cloud.umami.is/script.js"
+          src="https://umami.ryanekoapp.web.id/script.js"
           data-website-id="14ffd81f-07b2-4cc0-b72b-7b8aa4e864a0"
+          strategy="afterInteractive"
+        />
+        <Script
+          defer
+          src="https://umami.ryanekoapp.web.id/recorder.js"
+          data-website-id="14ffd81f-07b2-4cc0-b72b-7b8aa4e864a0"
+          data-sample-rate="0.15"
+          data-mask-level="moderate"
+          data-max-duration="300000"
           strategy="afterInteractive"
         />
       </body>
