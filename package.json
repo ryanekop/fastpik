@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "typecheck": "tsc --noEmit",
     "start": "next start",
     "lint": "eslint",
     "migrate:avatar-storage": "node scripts/migrate-avatar-datauri-to-storage.mjs"
