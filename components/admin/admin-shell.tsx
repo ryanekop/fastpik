@@ -12,7 +12,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
-import { LogOut, Settings, User, LayoutDashboard, Crown, History, BookOpen } from "lucide-react"
+import { LogOut, Settings, User, LayoutDashboard, Crown, History, BookOpen, MessageSquarePlus } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { LanguageToggle } from "@/components/language-toggle"
 import { useTranslations, useLocale } from "next-intl"
@@ -141,6 +141,12 @@ export function AdminShell({ children, latestChangelog, showEntryPopups = false 
                     Fastpik
                 </Link>
                 <div className="ml-auto flex items-center gap-2">
+                    <Button variant="ghost" size="icon" asChild title="Feedback">
+                        <a href="/api/feedback/bridge" target="_blank" rel="noreferrer">
+                            <MessageSquarePlus className="h-4 w-4" />
+                            <span className="sr-only">Feedback</span>
+                        </a>
+                    </Button>
                     <LanguageToggle />
                     <ThemeToggle />
                     <DropdownMenu>
