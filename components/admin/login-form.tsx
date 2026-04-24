@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { useTranslations, useLocale } from "next-intl"
@@ -9,10 +9,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
-import { Loader2, Eye, EyeOff, UserPlus, Lock } from "lucide-react"
+import { Loader2, Eye, EyeOff, UserPlus, Lock, Send } from "lucide-react"
 import Link from "next/link"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { LanguageToggle } from "@/components/language-toggle"
+import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile"
 
 type LoginFormProps = {
     nextPath?: string | null
@@ -32,28 +33,60 @@ export function LoginForm({ nextPath = null }: LoginFormProps) {
     const locale = useLocale()
     const router = useRouter()
     const supabase = createClient()
+    const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim() || ""
+    const isTurnstileConfigured = Boolean(turnstileSiteKey)
 
     const [email, setEmail] = useState("")
     const [password, setPassword] = useState("")
     const [showPassword, setShowPassword] = useState(false)
     const [rememberMe, setRememberMe] = useState(false)
+    const [turnstileToken, setTurnstileToken] = useState<string | null>(null)
     const [loading, setLoading] = useState(false)
+    const [resending, setResending] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const [feedbackTone, setFeedbackTone] = useState<"error" | "success">("error")
+    const [unconfirmedEmail, setUnconfirmedEmail] = useState<string | null>(null)
+    const turnstileRef = useRef<TurnstileInstance>(null)
+
+    const resetTurnstile = () => {
+        turnstileRef.current?.reset()
+        setTurnstileToken(null)
+    }
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault()
         setLoading(true)
         setError(null)
+        setFeedbackTone("error")
+        setUnconfirmedEmail(null)
+
+        if (!isTurnstileConfigured) {
+            setError(t('captchaConfigMissing'))
+            setLoading(false)
+            return
+        }
+
+        if (!turnstileToken) {
+            setError(t('captchaRequired'))
+            setLoading(false)
+            return
+        }
 
         try {
-            const { data, error } = await supabase.auth.signInWithPassword({
+            const { error } = await supabase.auth.signInWithPassword({
                 email,
                 password,
+                options: {
+                    captchaToken: turnstileToken,
+                },
             })
 
             if (error) {
+                resetTurnstile()
+
                 if (error.message.toLowerCase().includes('email not confirmed')) {
-                    setError(t('emailNotConfirmed'))
+                    setError(t('emailNotConfirmedResend'))
+                    setUnconfirmedEmail(email.trim())
                 } else if (error.message.toLowerCase().includes('invalid login credentials')) {
                     setError(t('invalidCredentials'))
                 } else {
@@ -77,8 +110,45 @@ export function LoginForm({ nextPath = null }: LoginFormProps) {
             router.push(resolveSafeNextPath(locale, nextPath))
 
         } catch (err) {
-            setError("An unexpected error occurred")
+            resetTurnstile()
+            setError(t('genericError'))
             setLoading(false)
+        }
+    }
+
+    const handleResendVerification = async () => {
+        const targetEmail = unconfirmedEmail || email.trim()
+        if (!targetEmail) return
+
+        setResending(true)
+        setError(null)
+        setFeedbackTone("error")
+
+        try {
+            const res = await fetch('/api/auth/resend-confirmation', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-client-locale': locale,
+                },
+                body: JSON.stringify({ email: targetEmail, captchaToken: turnstileToken, locale }),
+            })
+            const data = await res.json()
+
+            if (!res.ok) {
+                setError(data.error || t('resendVerificationFailed'))
+                resetTurnstile()
+                return
+            }
+
+            setError(t('resendVerificationSent'))
+            setFeedbackTone("success")
+            setUnconfirmedEmail(null)
+        } catch {
+            setError(t('resendVerificationFailed'))
+            resetTurnstile()
+        } finally {
+            setResending(false)
         }
     }
 
@@ -105,7 +175,10 @@ export function LoginForm({ nextPath = null }: LoginFormProps) {
                             placeholder="admin@example.com"
                             required
                             value={email}
-                            onChange={(e) => setEmail(e.target.value)}
+                            onChange={(e) => {
+                                setEmail(e.target.value)
+                                setUnconfirmedEmail(null)
+                            }}
                         />
                     </div>
                     <div className="space-y-2">
@@ -146,12 +219,59 @@ export function LoginForm({ nextPath = null }: LoginFormProps) {
                     </div>
 
                     {error && (
-                        <div className="p-3 bg-destructive/15 text-destructive text-sm rounded-md">
-                            {error}
+                        <div className={`space-y-3 rounded-md p-3 text-sm ${feedbackTone === "success" ? "bg-green-500/10 text-green-700 dark:text-green-400" : "bg-destructive/15 text-destructive"}`}>
+                            <p>{error}</p>
+                            {unconfirmedEmail && (
+                                <div className="space-y-3 text-foreground">
+                                    <p className="text-xs text-muted-foreground">
+                                        {t('resendVerificationHint')}
+                                    </p>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        className="w-full gap-2 bg-background"
+                                        disabled={resending || !turnstileToken}
+                                        onClick={handleResendVerification}
+                                    >
+                                        {resending ? (
+                                            <>
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                                {t('sendingLink')}
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Send className="h-4 w-4" />
+                                                {t('resendVerification')}
+                                            </>
+                                        )}
+                                    </Button>
+                                </div>
+                            )}
                         </div>
                     )}
 
-                    <Button type="submit" className="w-full cursor-pointer hover:opacity-90 transition-opacity" disabled={loading}>
+                    <div className="w-full">
+                        {isTurnstileConfigured ? (
+                            <Turnstile
+                                ref={turnstileRef}
+                                className="w-full"
+                                siteKey={turnstileSiteKey}
+                                onSuccess={(token) => setTurnstileToken(token)}
+                                onError={() => setTurnstileToken(null)}
+                                onExpire={() => setTurnstileToken(null)}
+                                options={{
+                                    theme: 'auto',
+                                    size: 'flexible',
+                                }}
+                            />
+                        ) : (
+                            <div className="w-full rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+                                {t('captchaConfigMissing')}
+                            </div>
+                        )}
+                    </div>
+
+                    <Button type="submit" className="w-full cursor-pointer hover:opacity-90 transition-opacity" disabled={loading || !turnstileToken || !isTurnstileConfigured}>
                         {loading ? (
                             <>
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

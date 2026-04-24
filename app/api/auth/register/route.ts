@@ -3,6 +3,8 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { isDisposableEmail } from '@/lib/disposable-emails'
+import { adminAuthMessage } from '@/lib/auth-messages'
+import { resolveAuthRequestLocale } from '@/lib/auth-redirect'
 
 function getSupabaseAdmin() {
     return createClient(
@@ -10,6 +12,28 @@ function getSupabaseAdmin() {
         process.env.SUPABASE_SERVICE_ROLE_KEY!,
         { auth: { autoRefreshToken: false, persistSession: false } }
     )
+}
+
+async function findAuthUserByEmail(email: string) {
+    const admin = getSupabaseAdmin()
+    const normalizedEmail = email.trim().toLowerCase()
+    let page = 1
+
+    while (true) {
+        const { data, error } = await admin.auth.admin.listUsers({
+            page,
+            perPage: 1000,
+        })
+
+        if (error) throw error
+
+        const users = data?.users || []
+        const existingUser = users.find((user) => user.email?.toLowerCase() === normalizedEmail)
+        if (existingUser) return existingUser
+        if (users.length < 1000) return null
+
+        page += 1
+    }
 }
 
 async function verifyTurnstile(token: string, secret: string): Promise<boolean> {
@@ -32,51 +56,52 @@ async function verifyTurnstile(token: string, secret: string): Promise<boolean> 
  * The actual supabase.auth.signUp() is called client-side so PKCE works correctly.
  */
 export async function POST(request: Request) {
+    const locale = resolveAuthRequestLocale(request)
+
     try {
         const { email, turnstileToken } = await request.json()
 
         if (!email) {
-            return NextResponse.json({ error: 'Email wajib diisi' }, { status: 400 })
+            return NextResponse.json({ error: adminAuthMessage(locale, 'emailRequired') }, { status: 400 })
         }
 
         const turnstileSecret = process.env.TURNSTILE_SECRET_KEY
         if (!turnstileSecret) {
-            return NextResponse.json({ error: 'Konfigurasi CAPTCHA server belum lengkap. Hubungi admin.' }, { status: 503 })
+            return NextResponse.json({ error: adminAuthMessage(locale, 'captchaConfigMissing') }, { status: 503 })
         }
 
         // Verify Turnstile CAPTCHA server-side
         if (!turnstileToken) {
-            return NextResponse.json({ error: 'Verifikasi CAPTCHA diperlukan' }, { status: 400 })
+            return NextResponse.json({ error: adminAuthMessage(locale, 'captchaRequired') }, { status: 400 })
         }
         const turnstileValid = await verifyTurnstile(turnstileToken, turnstileSecret)
         if (!turnstileValid) {
-            return NextResponse.json({ error: 'Verifikasi CAPTCHA gagal. Silakan coba lagi.' }, { status: 400 })
+            return NextResponse.json({ error: adminAuthMessage(locale, 'captchaVerificationFailed') }, { status: 400 })
         }
 
         // Check disposable email server-side
         if (isDisposableEmail(email)) {
-            return NextResponse.json({ error: 'Email sementara tidak diperbolehkan. Gunakan email asli.' }, { status: 400 })
+            return NextResponse.json({ error: adminAuthMessage(locale, 'disposableEmailError') }, { status: 400 })
         }
 
-        // Check if email already registered using admin API
-        const admin = getSupabaseAdmin()
-        const { data: { users } } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 })
-        const existingUser = users?.find((u) => u.email?.toLowerCase() === email.toLowerCase())
+        const existingUser = await findAuthUserByEmail(email)
 
         if (existingUser) {
             if (existingUser.email_confirmed_at) {
                 // Confirmed user → block registration
-                return NextResponse.json({ error: 'Email ini sudah terdaftar. Silakan login.' }, { status: 409 })
-            } else {
-                // Unconfirmed (never verified email) → delete stale record so they can register again
-                await admin.auth.admin.deleteUser(existingUser.id)
+                return NextResponse.json({ error: adminAuthMessage(locale, 'emailAlreadyRegisteredPleaseLogin') }, { status: 409 })
             }
+
+            return NextResponse.json({
+                error: adminAuthMessage(locale, 'emailNotConfirmedResend'),
+                status: 'unconfirmed',
+            }, { status: 409 })
         }
 
         // All good — tell the client to proceed with signUp()
-        return NextResponse.json({ valid: true })
+        return NextResponse.json({ valid: true, status: 'available' })
     } catch (error) {
         console.error('[Register] Validate error:', error)
-        return NextResponse.json({ error: 'Terjadi kesalahan saat validasi' }, { status: 500 })
+        return NextResponse.json({ error: adminAuthMessage(locale, 'validationUnexpectedError') }, { status: 500 })
     }
 }

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
-import { Loader2, Eye, EyeOff, UserPlus, Mail, ArrowLeft } from "lucide-react"
+import { Loader2, Eye, EyeOff, UserPlus, Mail, ArrowLeft, Send } from "lucide-react"
 import Link from "next/link"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { LanguageToggle } from "@/components/language-toggle"
@@ -37,10 +37,17 @@ export function RegisterForm() {
     const [showPassword, setShowPassword] = useState(false)
     const [showConfirmPassword, setShowConfirmPassword] = useState(false)
     const [loading, setLoading] = useState(false)
+    const [resending, setResending] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [success, setSuccess] = useState(false)
+    const [unconfirmedEmail, setUnconfirmedEmail] = useState<string | null>(null)
     const [turnstileToken, setTurnstileToken] = useState<string | null>(null)
     const turnstileRef = useRef<TurnstileInstance>(null)
+
+    const resetTurnstile = () => {
+        turnstileRef.current?.reset()
+        setTurnstileToken(null)
+    }
 
     const handleRegister = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -88,16 +95,26 @@ export function RegisterForm() {
             // Step 1: Server validates Turnstile + disposable email
             const res = await fetch('/api/auth/register', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-client-locale': locale,
+                },
                 body: JSON.stringify({ email, turnstileToken }),
             })
 
             const data = await res.json()
 
             if (!res.ok) {
-                setError(data.error || 'Terjadi kesalahan')
-                turnstileRef.current?.reset()
-                setTurnstileToken(null)
+                if (data.status === 'unconfirmed') {
+                    setUnconfirmedEmail(email.trim())
+                    setError(data.error || t('emailNotConfirmedResend'))
+                    resetTurnstile()
+                    setLoading(false)
+                    return
+                }
+
+                setError(data.error || t('genericError'))
+                resetTurnstile()
                 setLoading(false)
                 return
             }
@@ -120,21 +137,54 @@ export function RegisterForm() {
 
             if (signUpError) {
                 if (signUpError.message.includes('already registered') || signUpError.message.includes('User already registered')) {
-                    setError('Email ini sudah terdaftar. Silakan login.')
+                    setError(t('emailAlreadyRegisteredPleaseLogin'))
                 } else {
                     setError(signUpError.message)
                 }
-                turnstileRef.current?.reset()
-                setTurnstileToken(null)
+                resetTurnstile()
                 setLoading(false)
                 return
             }
 
             setSuccess(true)
         } catch (err) {
-            setError("An unexpected error occurred")
+            setError(t('genericError'))
         } finally {
             setLoading(false)
+        }
+    }
+
+    const handleResendVerification = async () => {
+        const targetEmail = unconfirmedEmail || email.trim()
+        if (!targetEmail) return
+
+        setResending(true)
+        setError(null)
+
+        try {
+            const res = await fetch('/api/auth/resend-confirmation', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-client-locale': locale,
+                },
+                body: JSON.stringify({ email: targetEmail, captchaToken: turnstileToken, locale }),
+            })
+            const data = await res.json()
+
+            if (!res.ok) {
+                setError(data.error || t('resendVerificationFailed'))
+                resetTurnstile()
+                return
+            }
+
+            setEmail(targetEmail)
+            setSuccess(true)
+        } catch {
+            setError(t('resendVerificationFailed'))
+            resetTurnstile()
+        } finally {
+            setResending(false)
         }
     }
 
@@ -202,7 +252,10 @@ export function RegisterForm() {
                             placeholder="you@example.com"
                             required
                             value={email}
-                            onChange={(e) => setEmail(e.target.value)}
+                            onChange={(e) => {
+                                setEmail(e.target.value)
+                                setUnconfirmedEmail(null)
+                            }}
                         />
                     </div>
                     <div className="space-y-2">
@@ -269,8 +322,34 @@ export function RegisterForm() {
                     </div>
 
                     {error && (
-                        <div className="p-3 bg-destructive/15 text-destructive text-sm rounded-md">
-                            {error}
+                        <div className="space-y-3 rounded-md bg-destructive/15 p-3 text-sm text-destructive">
+                            <p>{error}</p>
+                            {unconfirmedEmail && (
+                                <div className="space-y-3 text-foreground">
+                                    <p className="text-xs text-muted-foreground">
+                                        {t('resendVerificationHint')}
+                                    </p>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        className="w-full gap-2 bg-background"
+                                        disabled={resending || !turnstileToken}
+                                        onClick={handleResendVerification}
+                                    >
+                                        {resending ? (
+                                            <>
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                                {t('sendingLink')}
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Send className="h-4 w-4" />
+                                                {t('resendVerification')}
+                                            </>
+                                        )}
+                                    </Button>
+                                </div>
+                            )}
                         </div>
                     )}
 

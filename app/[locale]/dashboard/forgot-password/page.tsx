@@ -53,6 +53,9 @@ export default function ForgotPasswordPage() {
                     <CardDescription className="text-center">
                         {t('resetPasswordDesc')}
                     </CardDescription>
+                    <p className="text-center text-xs leading-relaxed text-muted-foreground">
+                        {t('forgotExpiredHint')}
+                    </p>
                 </CardHeader>
                 <CardContent>
                     {success ? (

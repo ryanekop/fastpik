@@ -1,17 +1,39 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { Loader2 } from 'lucide-react'
+
+type ErrorAction = 'forgot-password' | 'register' | null
 
 export default function AuthCallbackPage() {
     const locale = useLocale()
+    const t = useTranslations('Admin')
     const supabase = createClient()
     const searchParams = useSearchParams()
     const [error, setError] = useState<string | null>(null)
+    const [errorAction, setErrorAction] = useState<ErrorAction>(null)
     const [debugInfo, setDebugInfo] = useState<string>('')
+
+    const getErrorAction = useCallback((message: string, authType: string): ErrorAction => {
+        const normalizedMessage = message.toLowerCase()
+        if (authType === 'signup') {
+            return 'register'
+        }
+        if (
+            authType === 'recovery' ||
+            authType === 'invite' ||
+            normalizedMessage.includes('expired') ||
+            normalizedMessage.includes('invalid token') ||
+            normalizedMessage.includes('token')
+        ) {
+            return 'forgot-password'
+        }
+
+        return null
+    }, [])
 
     useEffect(() => {
         const handleAuthCallback = async () => {
@@ -37,7 +59,9 @@ export default function AuthCallbackPage() {
 
                 // Check for error in hash
                 if (hashError) {
-                    setError(errorDescription || hashError)
+                    const message = errorDescription || hashError
+                    setError(message)
+                    setErrorAction(getErrorAction(message, authType))
                     return
                 }
 
@@ -62,6 +86,7 @@ export default function AuthCallbackPage() {
 
                     if (exchangeError) {
                         setError(exchangeError.message)
+                        setErrorAction(getErrorAction(exchangeError.message, authType))
                         return
                     }
 
@@ -82,13 +107,14 @@ export default function AuthCallbackPage() {
 
                 // Handle implicit flow (tokens in hash)
                 if (accessToken && refreshToken) {
-                    const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+                    const { error: sessionError } = await supabase.auth.setSession({
                         access_token: accessToken,
                         refresh_token: refreshToken
                     })
 
                     if (sessionError) {
                         setError(sessionError.message)
+                        setErrorAction(getErrorAction(sessionError.message, authType))
                         return
                     }
 
@@ -116,22 +142,24 @@ export default function AuthCallbackPage() {
                         window.location.href = `/${locale}/dashboard`
                     }
                 } else {
-                    setError('No authentication tokens found. Please try the link again or request a new one.')
+                    const message = t('authTokenNotFound')
+                    setError(message)
+                    setErrorAction(getErrorAction(message, authType))
                 }
             } catch (err) {
-                setError('Failed to authenticate. Please try again.')
+                setError(t('authFailed'))
             }
         }
 
         handleAuthCallback()
-    }, [locale, searchParams, supabase.auth])
+    }, [getErrorAction, locale, searchParams, supabase.auth, t])
 
     if (error) {
         return (
             <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
                 <div className="w-full max-w-sm space-y-4 text-center">
                     <div className="p-4 bg-destructive/15 text-destructive rounded-md">
-                        <p className="font-medium">Authentication Error</p>
+                        <p className="font-medium">{t('authError')}</p>
                         <p className="text-sm mt-1">{error}</p>
                         {debugInfo && <p className="text-xs mt-2 opacity-60">{debugInfo}</p>}
                     </div>
@@ -139,8 +167,24 @@ export default function AuthCallbackPage() {
                         onClick={() => window.location.href = `/${locale}/dashboard/login`}
                         className="text-primary hover:underline text-sm"
                     >
-                        Back to Login
+                        {t('backToLogin')}
                     </button>
+                    {errorAction === 'forgot-password' && (
+                        <button
+                            onClick={() => window.location.href = `/${locale}/dashboard/forgot-password`}
+                            className="block w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
+                        >
+                            {t('requestNewResetLink')}
+                        </button>
+                    )}
+                    {errorAction === 'register' && (
+                        <button
+                            onClick={() => window.location.href = `/${locale}/dashboard/register`}
+                            className="block w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
+                        >
+                            {t('requestNewVerificationLink')}
+                        </button>
+                    )}
                 </div>
             </div>
         )
@@ -150,7 +194,7 @@ export default function AuthCallbackPage() {
         <div className="flex min-h-screen items-center justify-center bg-muted/40">
             <div className="text-center space-y-4">
                 <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
-                <p className="text-muted-foreground">Authenticating...</p>
+                <p className="text-muted-foreground">{t('authenticating')}</p>
             </div>
         </div>
     )
