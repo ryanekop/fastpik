@@ -36,8 +36,11 @@ class ApiKeyRotator {
             this.requestCounts.set(key, 0)
         })
 
-        if (this.keys.length === 0) {
-            console.warn('[API Key Rotator] No keys loaded. Check environment configuration.')
+        console.log(`[API Key Rotator] Loaded ${this.keys.length} API key(s)`)
+        if (this.keys.length > 0) {
+            console.log(`[API Key Rotator] First key: ${this.keys[0].substring(0, 10)}...`)
+        } else {
+            console.warn(`[API Key Rotator] ⚠️ NO KEYS LOADED! Check .env.local`)
         }
     }
 
