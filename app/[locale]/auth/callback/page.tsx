@@ -8,6 +8,27 @@ import { Loader2 } from 'lucide-react'
 
 type ErrorAction = 'forgot-password' | 'register' | null
 
+function resolveSafeNextPath(locale: string, nextPath?: string | null) {
+    const fallback = `/${locale}/dashboard`
+    const raw = (nextPath || "").trim()
+    if (!raw) return fallback
+    if (!raw.startsWith("/") || raw.startsWith("//")) return fallback
+    if (!raw.startsWith(`/${locale}/dashboard`)) return fallback
+    return raw
+}
+
+function applyRememberMeSelection(rememberMe: boolean) {
+    if (rememberMe) {
+        sessionStorage.removeItem('fastpik_session_only')
+        localStorage.removeItem('fastpik_session_only_user')
+        localStorage.removeItem('fastpik_session_login_time')
+        return
+    }
+
+    sessionStorage.setItem('fastpik_session_only', 'true')
+    localStorage.setItem('fastpik_session_login_time', Date.now().toString())
+}
+
 export default function AuthCallbackPage() {
     const locale = useLocale()
     const t = useTranslations('Admin')
@@ -41,6 +62,7 @@ export default function AuthCallbackPage() {
                 // Check for PKCE code in URL query params (newer Supabase flow)
                 const code = searchParams.get('code')
                 const type = searchParams.get('type') || ''
+                const nextPath = resolveSafeNextPath(locale, searchParams.get('next'))
 
                 // Also check hash for legacy/implicit flow
                 const hashParams = new URLSearchParams(
@@ -51,6 +73,7 @@ export default function AuthCallbackPage() {
                 const hashType = hashParams.get('type')
                 const hashError = hashParams.get('error')
                 const errorDescription = hashParams.get('error_description')
+                const rememberMe = hashParams.get('remember_me')
 
                 // Combine type from query or hash
                 const authType = type || hashType || ''
@@ -99,6 +122,8 @@ export default function AuthCallbackPage() {
                         window.location.href = `/${locale}/dashboard`
                     } else if (authType === 'recovery' || authType === 'invite') {
                         window.location.href = `/${locale}/dashboard/reset-password`
+                    } else if (authType === 'login') {
+                        window.location.replace(nextPath)
                     } else {
                         window.location.href = `/${locale}/dashboard`
                     }
@@ -117,6 +142,9 @@ export default function AuthCallbackPage() {
                         setErrorAction(getErrorAction(sessionError.message, authType))
                         return
                     }
+                    if (authType === 'login') {
+                        applyRememberMeSelection(rememberMe !== 'false')
+                    }
 
                     // For new signups, create trial subscription
                     if (authType === 'signup') {
@@ -126,6 +154,8 @@ export default function AuthCallbackPage() {
                         window.location.href = `/${locale}/dashboard`
                     } else if (authType === 'invite' || authType === 'recovery') {
                         window.location.href = `/${locale}/dashboard/reset-password`
+                    } else if (authType === 'login') {
+                        window.location.replace(nextPath)
                     } else {
                         window.location.href = `/${locale}/dashboard`
                     }
@@ -138,6 +168,8 @@ export default function AuthCallbackPage() {
                     // If type suggests recovery, go to reset password
                     if (authType === 'recovery' || authType === 'invite') {
                         window.location.href = `/${locale}/dashboard/reset-password`
+                    } else if (authType === 'login') {
+                        window.location.replace(nextPath)
                     } else {
                         window.location.href = `/${locale}/dashboard`
                     }

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from "@/components/ui/button"
 import Link from 'next/link'
 import { createClient } from "@/lib/supabase/client"
+import { cn } from "@/lib/utils"
 import {
     Loader2, LogOut, Settings, LayoutDashboard, User, Crown,
     Menu, X, ArrowRight
@@ -324,7 +325,7 @@ export function LandingNav() {
 }
 
 // Hero CTA buttons that depend on auth state
-export function HeroCTA() {
+export function HeroCTA({ className }: { className?: string }) {
     const t = useTranslations('Index')
     const locale = useLocale()
     const supabase = createClient()
@@ -338,7 +339,7 @@ export function HeroCTA() {
     }, [supabase])
 
     return (
-        <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
+        <div className={cn("flex flex-col sm:flex-row gap-4 justify-center pt-4", className)}>
             {user ? (
                 <Button size="lg" asChild className="gap-2 cursor-pointer text-lg px-8">
                     <Link href={`/${locale}/dashboard`}>

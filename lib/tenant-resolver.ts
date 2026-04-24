@@ -33,16 +33,25 @@ const DEFAULT_TENANT: TenantConfig = {
 const tenantCache = new Map<string, { tenant: TenantConfig; expiry: number }>()
 const CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
 
+type ResolveTenantOptions = {
+    bypassCache?: boolean
+}
+
 /**
  * Resolve a hostname to a TenantConfig.
  * Uses in-memory cache to avoid DB calls on every request.
  */
-export async function resolveTenant(hostname: string): Promise<TenantConfig> {
+export async function resolveTenant(hostname: string, options: ResolveTenantOptions = {}): Promise<TenantConfig> {
     // Strip port (e.g. localhost:3000 → localhost)
-    const cleanHost = hostname.split(':')[0]
+    const cleanHost = hostname
+        .replace(/^https?:\/\//i, '')
+        .split('/')[0]
+        .split(':')[0]
+        .trim()
+        .toLowerCase()
 
     // Check cache first
-    const cached = tenantCache.get(cleanHost)
+    const cached = options.bypassCache ? null : tenantCache.get(cleanHost)
     if (cached && Date.now() < cached.expiry) {
         return cached.tenant
     }

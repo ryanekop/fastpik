@@ -348,6 +348,7 @@
         "authError": "Authentication Error",
         "authTokenNotFound": "Authentication token not found. Try clicking the link again or request a new one.",
         "authFailed": "Authentication failed. Please try again.",
+        "authHandoffExpired": "The tenant login session has expired. Please start login again from the tenant page.",
         "genericError": "An unexpected error occurred.",
         "invalidCredentials": "Incorrect email or password.",
         "copied": "Copied!",

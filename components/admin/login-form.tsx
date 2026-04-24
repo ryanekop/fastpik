@@ -17,6 +17,11 @@ import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile"
 
 type LoginFormProps = {
     nextPath?: string | null
+    handoffTarget?: {
+        origin: string
+        returnPath: string
+    } | null
+    handoffError?: boolean
 }
 
 function resolveSafeNextPath(locale: string, nextPath?: string | null) {
@@ -28,7 +33,41 @@ function resolveSafeNextPath(locale: string, nextPath?: string | null) {
     return raw
 }
 
-export function LoginForm({ nextPath = null }: LoginFormProps) {
+function applyRememberMeSelection(rememberMe: boolean) {
+    if (rememberMe) {
+        sessionStorage.removeItem('fastpik_session_only')
+        localStorage.removeItem('fastpik_session_only_user')
+        localStorage.removeItem('fastpik_session_login_time')
+        return
+    }
+
+    sessionStorage.setItem('fastpik_session_only', 'true')
+    localStorage.setItem('fastpik_session_login_time', Date.now().toString())
+}
+
+function buildHandoffCallbackUrl(args: {
+    origin: string
+    locale: string
+    returnPath: string
+    accessToken: string
+    refreshToken: string
+    rememberMe: boolean
+}) {
+    const callbackUrl = new URL(`/${args.locale}/auth/callback`, args.origin)
+    callbackUrl.searchParams.set('type', 'login')
+    callbackUrl.searchParams.set('next', args.returnPath)
+
+    const hashParams = new URLSearchParams()
+    hashParams.set('access_token', args.accessToken)
+    hashParams.set('refresh_token', args.refreshToken)
+    hashParams.set('type', 'login')
+    hashParams.set('remember_me', args.rememberMe ? 'true' : 'false')
+    callbackUrl.hash = hashParams.toString()
+
+    return callbackUrl.toString()
+}
+
+export function LoginForm({ nextPath = null, handoffTarget = null, handoffError = false }: LoginFormProps) {
     const t = useTranslations('Admin')
     const locale = useLocale()
     const router = useRouter()
@@ -43,7 +82,7 @@ export function LoginForm({ nextPath = null }: LoginFormProps) {
     const [turnstileToken, setTurnstileToken] = useState<string | null>(null)
     const [loading, setLoading] = useState(false)
     const [resending, setResending] = useState(false)
-    const [error, setError] = useState<string | null>(null)
+    const [error, setError] = useState<string | null>(handoffError ? t('authHandoffExpired') : null)
     const [feedbackTone, setFeedbackTone] = useState<"error" | "success">("error")
     const [unconfirmedEmail, setUnconfirmedEmail] = useState<string | null>(null)
     const turnstileRef = useRef<TurnstileInstance>(null)
@@ -73,7 +112,7 @@ export function LoginForm({ nextPath = null }: LoginFormProps) {
         }
 
         try {
-            const { error } = await supabase.auth.signInWithPassword({
+            const { data, error } = await supabase.auth.signInWithPassword({
                 email,
                 password,
                 options: {
@@ -97,13 +136,20 @@ export function LoginForm({ nextPath = null }: LoginFormProps) {
             }
 
             // Remember Me: if NOT checked, mark session as temporary (2 hours)
-            if (rememberMe) {
-                sessionStorage.removeItem('fastpik_session_only')
-                localStorage.removeItem('fastpik_session_only_user')
-                localStorage.removeItem('fastpik_session_login_time')
-            } else {
-                sessionStorage.setItem('fastpik_session_only', 'true')
-                localStorage.setItem('fastpik_session_login_time', Date.now().toString())
+            applyRememberMeSelection(rememberMe)
+
+            const accessToken = data.session?.access_token || ""
+            const refreshToken = data.session?.refresh_token || ""
+            if (handoffTarget && accessToken && refreshToken) {
+                window.location.href = buildHandoffCallbackUrl({
+                    origin: handoffTarget.origin,
+                    locale,
+                    returnPath: handoffTarget.returnPath,
+                    accessToken,
+                    refreshToken,
+                    rememberMe,
+                })
+                return
             }
 
             router.refresh()
