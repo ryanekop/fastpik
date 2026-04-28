@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { useTranslations, useLocale } from "next-intl"
@@ -81,6 +81,7 @@ export function LoginForm({ nextPath = null, handoffTarget = null, handoffError 
     const [rememberMe, setRememberMe] = useState(false)
     const [turnstileToken, setTurnstileToken] = useState<string | null>(null)
     const [loading, setLoading] = useState(false)
+    const [autoHandoffChecking, setAutoHandoffChecking] = useState(Boolean(handoffTarget && !handoffError))
     const [resending, setResending] = useState(false)
     const [error, setError] = useState<string | null>(handoffError ? t('authHandoffExpired') : null)
     const [feedbackTone, setFeedbackTone] = useState<"error" | "success">("error")
@@ -91,6 +92,69 @@ export function LoginForm({ nextPath = null, handoffTarget = null, handoffError 
         turnstileRef.current?.reset()
         setTurnstileToken(null)
     }
+
+    useEffect(() => {
+        if (!handoffTarget || handoffError) {
+            setAutoHandoffChecking(false)
+            return
+        }
+
+        let cancelled = false
+
+        const attemptExistingSessionHandoff = async () => {
+            setAutoHandoffChecking(true)
+
+            const {
+                data: { session },
+                error: sessionError,
+            } = await supabase.auth.getSession()
+
+            if (cancelled) return
+
+            if (sessionError || !session?.access_token || !session.refresh_token) {
+                setAutoHandoffChecking(false)
+                return
+            }
+
+            const sessionOnlyUser = localStorage.getItem('fastpik_session_only_user')
+            const sessionOnlyFlag = sessionStorage.getItem('fastpik_session_only')
+            const loginTime = parseInt(localStorage.getItem('fastpik_session_login_time') || '0', 10)
+            const twoHours = 2 * 60 * 60 * 1000
+
+            if (sessionOnlyUser === session.user.id) {
+                const expired = loginTime > 0 && Date.now() - loginTime > twoHours
+
+                if (sessionOnlyFlag !== 'true' || expired) {
+                    localStorage.removeItem('fastpik_session_only_user')
+                    localStorage.removeItem('fastpik_session_login_time')
+                    sessionStorage.removeItem('fastpik_session_only')
+                    await supabase.auth.signOut()
+
+                    if (!cancelled) {
+                        setAutoHandoffChecking(false)
+                    }
+                    return
+                }
+            }
+
+            const rememberExistingSession = sessionOnlyFlag !== 'true'
+
+            window.location.replace(buildHandoffCallbackUrl({
+                origin: handoffTarget.origin,
+                locale,
+                returnPath: handoffTarget.returnPath,
+                accessToken: session.access_token,
+                refreshToken: session.refresh_token,
+                rememberMe: rememberExistingSession,
+            }))
+        }
+
+        attemptExistingSessionHandoff()
+
+        return () => {
+            cancelled = true
+        }
+    }, [handoffError, handoffTarget, locale, supabase.auth])
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -155,7 +219,7 @@ export function LoginForm({ nextPath = null, handoffTarget = null, handoffError 
             router.refresh()
             router.push(resolveSafeNextPath(locale, nextPath))
 
-        } catch (err) {
+        } catch {
             resetTurnstile()
             setError(t('genericError'))
             setLoading(false)
@@ -196,6 +260,17 @@ export function LoginForm({ nextPath = null, handoffTarget = null, handoffError 
         } finally {
             setResending(false)
         }
+    }
+
+    if (autoHandoffChecking) {
+        return (
+            <Card className="w-full max-w-sm mx-auto shadow-lg">
+                <CardContent className="flex flex-col items-center justify-center gap-4 py-10 text-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <p className="text-sm text-muted-foreground">{t('authenticating')}</p>
+                </CardContent>
+            </Card>
+        )
     }
 
 

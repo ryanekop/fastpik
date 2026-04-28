@@ -32,7 +32,7 @@ export async function updateSession(request: NextRequest, response: NextResponse
                     return request.cookies.getAll()
                 },
                 setAll(cookiesToSet) {
-                    cookiesToSet.forEach(({ name, value, options }) =>
+                    cookiesToSet.forEach(({ name, value }) =>
                         request.cookies.set(name, value)
                     )
 
@@ -79,7 +79,9 @@ export async function updateSession(request: NextRequest, response: NextResponse
     }
 
     // If user is logged in and tries to access login page, redirect to dashboard
-    if (user && isPublicDashboardRoute && !pathname.includes('/dashboard/reset-password')) {
+    const isTenantAuthHandoff = pathname.includes('/dashboard/login') && request.nextUrl.searchParams.has('handoff')
+
+    if (user && isPublicDashboardRoute && !pathname.includes('/dashboard/reset-password') && !isTenantAuthHandoff) {
         const segments = pathname.split('/')
         const locale = segments[1] || 'id'
         const nextTarget = (request.nextUrl.searchParams.get('next') || '').trim()
