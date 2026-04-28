@@ -51,7 +51,7 @@ const formSchema = z.object({
     clientWhatsapp: z.string().min(10, { message: "Masukkan nomor WhatsApp yang valid." }),
     adminWhatsapp: z.string().min(10, { message: "Masukkan nomor WhatsApp admin yang valid." }),
     countryCode: z.string(),
-    maxPhotos: z.string().min(1, { message: "Masukkan jumlah foto." }),
+    maxPhotos: z.string(),
     password: z.string(),
     detectSubfolders: z.boolean(),
     expiryDays: z.string(),
@@ -65,6 +65,15 @@ const formSchema = z.object({
     printSizes: z.string(),
     printExpiryDays: z.string(),
     lockedPhotos: z.string(),
+}).superRefine((values, ctx) => {
+    const maxPhotosNum = parseInt(values.maxPhotos)
+    if (values.selectionEnabled && (!values.maxPhotos || !Number.isFinite(maxPhotosNum) || maxPhotosNum <= 0)) {
+        ctx.addIssue({
+            code: 'custom',
+            path: ['maxPhotos'],
+            message: "Masukkan jumlah foto.",
+        })
+    }
 })
 
 interface CreateProjectFormProps {
@@ -320,8 +329,10 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
     const clientWhatsapp = form.watch("clientWhatsapp")
     const adminWhatsapp = form.watch("adminWhatsapp")
     const maxPhotos = form.watch("maxPhotos")
+    const selectionEnabledForValidity = form.watch("selectionEnabled")
 
-    const isFormValid = clientName.length >= 2 && gdriveLink.length > 0 && clientWhatsapp.length >= 10 && adminWhatsapp.length >= 10 && maxPhotos.length > 0 && parseInt(maxPhotos) > 0
+    const hasValidMaxPhotos = !selectionEnabledForValidity || (maxPhotos.length > 0 && parseInt(maxPhotos) > 0)
+    const isFormValid = clientName.length >= 2 && gdriveLink.length > 0 && clientWhatsapp.length >= 10 && adminWhatsapp.length >= 10 && hasValidMaxPhotos
 
     const [remainingDays, setRemainingDays] = useState<number | null>(null)
 
@@ -352,7 +363,7 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
         setError(null)
         setUpgradeRequired(false)
         try {
-            const maxPhotosNum = parseInt(values.maxPhotos) || 1
+            const maxPhotosNum = values.selectionEnabled ? (parseInt(values.maxPhotos) || 1) : null
             const lockedPhotosArray = values.lockedPhotos.split('\n').map(l => l.trim()).filter(l => l.length > 0)
             const extraMaxPhotosNum = values.extraEnabled ? (parseInt(values.extraMaxPhotos) || 0) : 0
             const printSizes = values.printEnabled ? parsePrintSizes(values.printSizes) : []
@@ -516,13 +527,30 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
 
     const buildClientMessage = () => {
         if (!generatedLink || !currentProject) return ''
+        if (currentProject.selectionEnabled === false) {
+            let message = `Halo ${currentProject.clientName},\n\nLink project Anda:\n${generatedLink}`
+            if (currentProject.password) {
+                message += `\n\n🔐 Password: ${currentProject.password}`
+            }
+            if (currentProject.downloadExpiresAt) {
+                const diff = currentProject.downloadExpiresAt - Date.now()
+                if (diff > 0) {
+                    const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+                    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+                    if (days > 0) message += `\n📥 ${t('downloadValidFor')}: ${days} ${t('days')}`
+                    else if (hours > 0) message += `\n📥 ${t('downloadValidFor')}: ${hours} ${t('hours')}`
+                    else message += `\n📥 ${t('downloadValidFor')}: ${t('lessThanHour')}`
+                }
+            }
+            return message
+        }
 
         // Build variables for template
         const variables: Record<string, string> = {
             client_name: currentProject.clientName,
             link: generatedLink,
-            count: currentProject.maxPhotos.toString(),
-            max_photos: currentProject.maxPhotos.toString(),
+            count: (currentProject.maxPhotos ?? '').toString(),
+            max_photos: (currentProject.maxPhotos ?? '').toString(),
             print_sizes: (currentProject.printSizes || []).map((size) => `${size.name}×${size.quota}`).join(', ')
         }
 
@@ -565,7 +593,7 @@ export function CreateProjectForm({ onBack, onProjectCreated, editProject, onEdi
         if (compiledMessage) return compiledMessage
 
         // Fallback to hardcoded message
-        let message = tc('waClientMessage', { name: currentProject.clientName, link: generatedLink, max: currentProject.maxPhotos.toString() })
+        let message = tc('waClientMessage', { name: currentProject.clientName, link: generatedLink, max: (currentProject.maxPhotos ?? '').toString() })
         if (variables.password) {
             message += `\n\n🔐 Password: ${variables.password}`
         }

@@ -289,7 +289,9 @@ export function ImportProjectForm({ onBack, onProjectsImported, currentFolderId 
 
             const projects: Project[] = validRows.map(row => {
                 const projectId = generateShortId()
-                const maxPhotos = parseInt(row.maxPhotos) || defaults.defaultMaxPhotos
+                const maxPhotos = defaults.defaultSelectionEnabled
+                    ? (parseInt(row.maxPhotos) || defaults.defaultMaxPhotos)
+                    : null
                 const expiryDaysNum = row.expiryDays ? parseInt(row.expiryDays) : defaults.defaultExpiryDays
                 const downloadExpiryDaysNum = row.downloadExpiryDays ? parseInt(row.downloadExpiryDays) : defaults.defaultDownloadExpiryDays
                 const detectSub = row.detectSubfolders ? ['true', 'yes', '1', 'ya'].includes(row.detectSubfolders) : defaults.defaultDetectSubfolders
@@ -318,7 +320,7 @@ export function ImportProjectForm({ onBack, onProjectsImported, currentFolderId 
                     clientWhatsapp: row.clientWhatsapp || '',
                     adminWhatsapp: defaults.defaultAdminWhatsapp,
                     countryCode: defaults.defaultCountryCode,
-                    maxPhotos: isPrint ? 0 : maxPhotos,
+                    maxPhotos: defaults.defaultSelectionEnabled && !isPrint ? maxPhotos : null,
                     password: row.password || defaults.defaultPassword || undefined,
                     detectSubfolders: detectSub,
                     selectionEnabled: defaults.defaultSelectionEnabled,
@@ -506,7 +508,7 @@ export function ImportProjectForm({ onBack, onProjectsImported, currentFolderId 
                                             <td className="p-3 max-w-[200px] truncate text-muted-foreground">{row.gdriveLink || <span className="text-destructive italic">{t('importEmpty')}</span>}</td>
                                             <td className="p-3">{row.clientWhatsapp || <span className="text-muted-foreground italic">-</span>}</td>
                                             <td className="p-3">{row.password || <span className="text-muted-foreground italic">-</span>}</td>
-                                            <td className="p-3">{row.maxPhotos || <span className="text-muted-foreground italic">{defaults.defaultMaxPhotos}</span>}</td>
+                                            <td className="p-3">{row.maxPhotos || <span className="text-muted-foreground italic">{defaults.defaultSelectionEnabled ? defaults.defaultMaxPhotos : '-'}</span>}</td>
                                             <td className="p-3">{row.expiryDays || <span className="text-muted-foreground italic">{defaults.defaultExpiryDays || '∞'}</span>}</td>
                                             <td className="p-3">{row.downloadExpiryDays || <span className="text-muted-foreground italic">{defaults.defaultDownloadExpiryDays || '∞'}</span>}</td>
                                             <td className="p-3">{row.detectSubfolders || <span className="text-muted-foreground italic">{defaults.defaultDetectSubfolders ? 'yes' : 'no'}</span>}</td>

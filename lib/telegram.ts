@@ -53,7 +53,7 @@ interface ReminderProject {
     clientName: string
     clientWhatsapp?: string
     link: string
-    maxPhotos: number
+    maxPhotos: number | null
     password?: string
     selectionStatus: string
     daysLeftSelection?: number
@@ -102,8 +102,10 @@ export function formatReminderMessage(
             const sizesStr = (p.printSizes || []).map(s => `${s.name}×${s.quota}`).join(', ')
             lines.push(`🖨️ ${isEn ? 'Print' : 'Cetak'}: ${sizesStr}`)
             lines.push(`📋 Status: ${p.printStatus === 'submitted' ? '✅ Submitted' : p.printStatus === 'in_progress' ? '⏳ In Progress' : '⏳ Pending'}`)
-        } else {
+        } else if (p.maxPhotos !== null) {
             lines.push(`📸 Max ${isEn ? 'photos' : 'foto'}: ${p.maxPhotos}`)
+            lines.push(`📋 Status: ${p.selectionStatus === 'submitted' ? '✅ Submitted' : '⏳ Pending'}`)
+        } else {
             lines.push(`📋 Status: ${p.selectionStatus === 'submitted' ? '✅ Submitted' : '⏳ Pending'}`)
         }
 
@@ -151,8 +153,8 @@ export function formatReminderMessage(
             const variables: Record<string, string> = {
                 client_name: p.clientName,
                 link: p.link,
-                count: p.maxPhotos.toString(),
-                max_photos: p.maxPhotos.toString(),
+                count: (p.maxPhotos ?? '').toString(),
+                max_photos: (p.maxPhotos ?? '').toString(),
                 duration: durationText,
                 download_duration: durationText
             }
@@ -232,4 +234,3 @@ export function formatReminderMessage(
 
     return lines.join('\n')
 }
-

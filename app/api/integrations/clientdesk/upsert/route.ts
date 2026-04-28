@@ -365,9 +365,6 @@ export async function POST(request: NextRequest) {
 
         const presetSource = body.preset_source === 'clientdesk' ? 'clientdesk' : 'fastpik'
         const fromClientDesk = body.clientdesk_defaults || {}
-        const defaultMaxPhotos = presetSource === 'clientdesk'
-            ? toPositiveInt(fromClientDesk.max_photos, 10)
-            : toPositiveInt(settings.default_max_photos, 10)
         const defaultSelectionDays = presetSource === 'clientdesk'
             ? toNullableDays(fromClientDesk.selection_days)
             : toNullableDays(settings.default_expiry_days)
@@ -377,6 +374,11 @@ export async function POST(request: NextRequest) {
         const defaultSelectionEnabled = presetSource === 'clientdesk'
             ? fromClientDesk.selection_enabled !== false
             : settings.default_selection_enabled !== false
+        const defaultMaxPhotos = defaultSelectionEnabled
+            ? (presetSource === 'clientdesk'
+                ? toPositiveInt(fromClientDesk.max_photos, 10)
+                : toPositiveInt(settings.default_max_photos, 10))
+            : null
         const defaultDownloadEnabled = presetSource === 'clientdesk'
             ? fromClientDesk.download_enabled !== false
             : settings.default_download_enabled !== false

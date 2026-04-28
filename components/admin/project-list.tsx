@@ -252,8 +252,8 @@ export function ProjectList({
                 ? getExtraPhotoQuota(project).toString()
                 : mode === 'print'
                     ? (project.printSizes || []).reduce((sum: number, s: any) => sum + (Number(s.quota) || 0), 0).toString()
-                    : project.maxPhotos.toString(),
-            max_photos: project.maxPhotos.toString(),
+                    : (project.maxPhotos ?? '').toString(),
+            max_photos: (project.maxPhotos ?? '').toString(),
             print_sizes: getPrintSizesText(project),
         }
 
@@ -520,6 +520,18 @@ export function ProjectList({
         if (mode === 'print') {
             return buildPrintLinkMessage(project, variables)
         }
+        if (mode === 'client' && project.selectionEnabled === false) {
+            let message = locale === 'id'
+                ? `Halo ${project.clientName},\n\nLink project Anda:\n${dynamicLink}`
+                : `Hello ${project.clientName},\n\nYour project link:\n${dynamicLink}`
+            if (variables.password) {
+                message += `\n\n🔐 Password: ${variables.password}`
+            }
+            if (variables.download_duration) {
+                message += `\n📥 ${locale === 'id' ? 'Berlaku download' : 'Download valid for'}: ${variables.download_duration}`
+            }
+            return message
+        }
         return compileMessage(mode === 'extra' ? templates.extraLink : templates.initialLink, variables, mode === 'extra')
     }
 
@@ -545,8 +557,8 @@ export function ProjectList({
         const variables: Record<string, string> = {
             client_name: project.clientName,
             link: dynamicLink,
-            count: project.maxPhotos.toString(),
-            max_photos: project.maxPhotos.toString() // backward compatibility
+            count: (project.maxPhotos ?? '').toString(),
+            max_photos: (project.maxPhotos ?? '').toString() // backward compatibility
         }
 
         // Add password only if set
@@ -617,6 +629,19 @@ export function ProjectList({
         // Determine project category: print, extra, or original
         const isPrint = project.projectType === 'print' || !!(project.printEnabled && (project.printSizes || []).length > 0)
         const isExtra = !!project.extraEnabled || !!(project.lockedPhotos && project.lockedPhotos.length > 0)
+        if (!isPrint && !isExtra && project.selectionEnabled === false) {
+            let fallbackMessage = locale === 'id'
+                ? `Halo ${project.clientName},\n\nLink project Anda:\n${dynamicLink}`
+                : `Hello ${project.clientName},\n\nYour project link:\n${dynamicLink}`
+            if (variables.password) {
+                fallbackMessage += `\n\n🔐 Password: ${variables.password}`
+            }
+            if (variables.download_duration) {
+                fallbackMessage += `\n📥 ${locale === 'id' ? 'Berlaku download' : 'Download valid for'}: ${variables.download_duration}`
+            }
+            window.open(`https://api.whatsapp.com/send/?phone=${clientWa}&text=${encodeURIComponent(fallbackMessage)}`, '_blank')
+            return
+        }
 
         // Select template and fallback by category
         let selectedTemplate: { id: string, en: string } | null = null
@@ -771,7 +796,7 @@ export function ProjectList({
                 clientWhatsapp: printProject.clientWhatsapp || '',
                 adminWhatsapp: printProject.adminWhatsapp || (printProject as any).whatsapp || '',
                 countryCode: printProject.countryCode || 'ID',
-                maxPhotos: 0,
+                maxPhotos: null,
                 detectSubfolders: printProject.detectSubfolders,
                 createdAt: Date.now(),
                 link: newLink,
@@ -1405,12 +1430,11 @@ export function ProjectList({
                                                             )}
                                                         </div>
                                                         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                                                            <span className="flex items-center gap-1 min-w-0 max-w-full">
-                                                                {project.projectType === 'print'
-                                                                    ? `🖨️ ${(project.printSizes || []).map((s: any) => `${s.name}×${s.quota}`).join(', ')}`
-                                                                    : `📸 ${project.maxPhotos} ${t('photo')}`
-                                                                }
-                                                            </span>
+                                                            {project.projectType === 'print' ? (
+                                                                <span className="flex items-center gap-1 min-w-0 max-w-full">🖨️ {(project.printSizes || []).map((s: any) => `${s.name}×${s.quota}`).join(', ')}</span>
+                                                            ) : project.selectionEnabled !== false && project.maxPhotos !== null ? (
+                                                                <span className="flex items-center gap-1 min-w-0 max-w-full">📸 {project.maxPhotos} {t('photo')}</span>
+                                                            ) : null}
                                                             {project.extraEnabled && (
                                                                 <span className="flex items-center gap-1">📷 +{project.extraMaxPhotos || 0}</span>
                                                             )}

@@ -32,7 +32,7 @@ const projectSchema = z.object({
     clientWhatsapp: z.string().optional(),
     adminWhatsapp: z.string().optional(),
     password: z.string().optional(),
-    maxPhotos: z.string().min(1),
+    maxPhotos: z.string(),
     expiryDays: z.string().min(1),
     downloadExpiryDays: z.string().min(1),
     detectSubfolders: z.boolean().default(false),
@@ -154,7 +154,7 @@ export function BatchModeForm({ onBack, onProjectsCreated, currentFolderId }: Ba
             clientWhatsapp: "",
             adminWhatsapp: settings.defaultAdminWhatsapp || "",
             password: settings.defaultPassword || "",
-            maxPhotos: settings.defaultMaxPhotos.toString(),
+            maxPhotos: settings.defaultSelectionEnabled ? settings.defaultMaxPhotos.toString() : '',
             expiryDays: settings.defaultExpiryDays.toString(),
             downloadExpiryDays: settings.defaultDownloadExpiryDays.toString(),
             detectSubfolders: settings.defaultDetectSubfolders,
@@ -184,11 +184,13 @@ export function BatchModeForm({ onBack, onProjectsCreated, currentFolderId }: Ba
                     ? `${origin}/${loc}/client/${defaults.vendorSlug}/${projectId}`
                     : `${origin}/${loc}/client/${projectId}`
 
-                const maxPhotos = parseInt(row.maxPhotos) || 0
                 const expiryDays = parseInt(row.expiryDays) || 0
                 const downloadExpiryDays = parseInt(row.downloadExpiryDays) || 0
 
                 const isPrint = row.projectType === 'print'
+                const maxPhotos = defaults.defaultSelectionEnabled && !isPrint
+                    ? (parseInt(row.maxPhotos) || defaults.defaultMaxPhotos)
+                    : null
                 const effectivePrintEnabled = defaults.printEnabled && (isPrint || defaults.defaultPrintSelectionEnabled)
                 const printSizesSource = row.printSizes || (effectivePrintEnabled ? defaults.defaultPrintSizes : '')
                 let parsedPrintSizes: { name: string, quota: number }[] = []
@@ -295,7 +297,7 @@ export function BatchModeForm({ onBack, onProjectsCreated, currentFolderId }: Ba
                                         <th className="font-medium p-3 text-left min-w-[250px]">{t('gdriveLink')}*</th>
                                         <th className="font-medium p-3 text-left min-w-[160px]">WA Klien</th>
                                         <th className="font-medium p-3 text-left min-w-[160px]">WA Admin</th>
-                                        <th className="font-medium p-3 text-left min-w-[100px]">{t('maxPhotos')}*</th>
+                                        <th className="font-medium p-3 text-left min-w-[100px]">{t('maxPhotos')}{defaults.defaultSelectionEnabled ? '*' : ''}</th>
                                         {showAdvanced && (
                                             <>
                                                 <th className="font-medium p-3 text-left min-w-[120px]">{t('password')}</th>
@@ -390,7 +392,7 @@ export function BatchModeForm({ onBack, onProjectsCreated, currentFolderId }: Ba
                                                         render={({ field }) => (
                                                             <FormItem>
                                                                 <FormControl>
-                                                                    <Input type="number" {...field} min={1} className="bg-background" />
+                                                                    <Input type="number" {...field} min={1} className="bg-background" disabled={!defaults.defaultSelectionEnabled} placeholder={defaults.defaultSelectionEnabled ? undefined : '-'} />
                                                                 </FormControl>
                                                                 <FormMessage className="text-xs" />
                                                             </FormItem>

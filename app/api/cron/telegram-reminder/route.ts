@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
             // Fetch all projects for this user that have expiry dates
             const { data: projects, error: projError } = await supabase
                 .from('projects')
-                .select('id, client_name, client_whatsapp, link, max_photos, password, expires_at, download_expires_at, selection_status, project_type, print_expires_at, print_sizes, print_status, locked_photos, country_code')
+                .select('id, client_name, client_whatsapp, link, max_photos, password, expires_at, download_expires_at, selection_enabled, selection_status, project_type, print_expires_at, print_sizes, print_status, locked_photos, country_code')
                 .eq('user_id', user_id)
 
             if (projError) {
@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
                 clientName: string
                 clientWhatsapp?: string
                 link: string
-                maxPhotos: number
+                maxPhotos: number | null
                 password?: string
                 selectionStatus: string
                 daysLeftSelection?: number
@@ -94,7 +94,7 @@ export async function GET(request: NextRequest) {
                 const isPrint = project.project_type === 'print'
 
                 // Check selection expiry (non-print projects)
-                if (!isPrint && (reminderType === 'both' || reminderType === 'selection') && project.expires_at) {
+                if (!isPrint && project.selection_enabled !== false && (reminderType === 'both' || reminderType === 'selection') && project.expires_at) {
                     const expiryDate = new Date(project.expires_at)
                     const expiryDay = new Date(expiryDate.getFullYear(), expiryDate.getMonth(), expiryDate.getDate())
                     const diffMs = expiryDay.getTime() - today.getTime()

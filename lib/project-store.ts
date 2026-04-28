@@ -14,7 +14,7 @@ export interface Project {
     clientWhatsapp: string   // WhatsApp klien (untuk kirim link)
     adminWhatsapp: string    // WhatsApp admin (untuk terima hasil pilihan)
     countryCode: string
-    maxPhotos: number
+    maxPhotos: number | null
     password?: string        // Password Album (blocks landing page)
     detectSubfolders: boolean
     expiresAt?: number | null // Unix timestamp, undefined/null = never expires

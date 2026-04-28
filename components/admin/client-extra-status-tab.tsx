@@ -118,7 +118,7 @@ export function ClientExtraStatusTab({ projects: initialProjects, folders, onPro
 
     const getExtraMaxPhotos = (project: Project) => {
         if (project.extraEnabled) return project.extraMaxPhotos || 0
-        return Math.max(0, project.maxPhotos - (project.lockedPhotos || []).length)
+        return Math.max(0, (project.maxPhotos || 0) - (project.lockedPhotos || []).length)
     }
 
     const getExtraExpiry = (project: Project) => {

@@ -333,8 +333,8 @@ export function ClientStatusTab({ projects: initialProjects, folders, onProjects
         const variables: Record<string, string> = {
             client_name: project.clientName,
             link: dynamicLink,
-            count: project.maxPhotos.toString(),
-            max_photos: project.maxPhotos.toString()
+            count: (project.maxPhotos ?? '').toString(),
+            max_photos: (project.maxPhotos ?? '').toString()
         }
 
         if (project.password) {
@@ -417,6 +417,7 @@ export function ClientStatusTab({ projects: initialProjects, folders, onProjects
         .filter(p => {
             // Exclude print and legacy extra projects — they have their own status tabs
             if (p.projectType === 'print') return false
+            if (p.selectionEnabled === false) return false
             if (!p.extraEnabled && (p.lockedPhotos || []).length > 0) return false
             const status = getEffectiveStatus(p)
             if (filter !== 'all' && status !== filter) return false
@@ -433,7 +434,7 @@ export function ClientStatusTab({ projects: initialProjects, folders, onProjects
             return (b.selectionLastSyncedAt || 0) - (a.selectionLastSyncedAt || 0)
         })
 
-    const editProjects = projects.filter(p => p.projectType !== 'print' && (p.extraEnabled || (p.lockedPhotos || []).length === 0))
+    const editProjects = projects.filter(p => p.projectType !== 'print' && p.selectionEnabled !== false && (p.extraEnabled || (p.lockedPhotos || []).length === 0))
     const stats = {
         inProgress: editProjects.filter(p => getEffectiveStatus(p) === 'in_progress').length,
         reviewed: editProjects.filter(p => getEffectiveStatus(p) === 'reviewed').length,
@@ -529,7 +530,8 @@ export function ClientStatusTab({ projects: initialProjects, folders, onProjects
                             const status = getEffectiveStatus(project)
                             const statusCfg = STATUS_CONFIG[status]
                             const selectedCount = project.selectedPhotos?.length || 0
-                            const progressPercent = project.maxPhotos > 0 ? Math.min((selectedCount / project.maxPhotos) * 100, 100) : 0
+                            const maxPhotos = project.maxPhotos || 0
+                            const progressPercent = maxPhotos > 0 ? Math.min((selectedCount / maxPhotos) * 100, 100) : 0
                             const folderName = getFolderName(project.folderId)
                             const hasSelectedPhotos = selectedCount > 0
                             const hasFreelancers = getFreelancersSnapshot(project).length > 0
@@ -577,7 +579,7 @@ export function ClientStatusTab({ projects: initialProjects, folders, onProjects
                                                     <div className="space-y-1">
                                                         <div className="flex justify-between text-xs">
                                                             <span className="text-muted-foreground">{t('selectionProgress')}</span>
-                                                            <span className="font-medium">{selectedCount} / {project.maxPhotos}</span>
+                                                            <span className="font-medium">{selectedCount} / {maxPhotos}</span>
                                                         </div>
                                                         <Progress value={progressPercent} className="h-2" />
                                                     </div>

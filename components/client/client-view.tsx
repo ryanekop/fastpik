@@ -40,7 +40,7 @@ interface FolderNode {
 interface ClientViewProps {
     config: {
         clientName: string
-        maxPhotos: number
+        maxPhotos: number | null
         adminWhatsapp: string  // Admin WhatsApp for receiving results
         gdriveLink: string
         detectSubfolders: boolean
@@ -229,7 +229,7 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
         ? (config.printSizes!.find(s => s.name === activePrintSize)?.quota || 0)
         : isExtraMode
             ? (config.extraMaxPhotos || 0)
-            : config.maxPhotos
+            : (config.maxPhotos || 0)
     const currentSelected = isPrintMode
         ? (printSelections[activePrintSize] || [])
         : isExtraMode
@@ -1154,7 +1154,8 @@ export function ClientView({ config, messageTemplates, customChooseActionText }:
             return
         }
 
-        if (!resolvedMainSelectedIds.includes(id) && resolvedMainSelectedIds.length >= config.maxPhotos) {
+        const mainMaxPhotos = config.maxPhotos || 0
+        if (!resolvedMainSelectedIds.includes(id) && resolvedMainSelectedIds.length >= mainMaxPhotos) {
             setAlertMax(true)
             setTimeout(() => setAlertMax(false), 1000)
             return

@@ -16,7 +16,7 @@ type ClientPageParams = {
 type RawClientConfig = {
     id?: string
     clientName?: string
-    maxPhotos?: number
+    maxPhotos?: number | null
     adminWhatsapp?: string
     whatsapp?: string
     gdriveLink?: string
@@ -328,7 +328,7 @@ export default async function ClientPage({ params }: { params: Promise<ClientPag
     const projectType: "edit" | "print" = safeConfig.projectType === "print" ? "print" : "edit"
     const clientConfig = {
         clientName: typeof safeConfig.clientName === "string" ? safeConfig.clientName : "",
-        maxPhotos: typeof safeConfig.maxPhotos === "number" && Number.isFinite(safeConfig.maxPhotos) ? safeConfig.maxPhotos : 10,
+        maxPhotos: typeof safeConfig.maxPhotos === "number" && Number.isFinite(safeConfig.maxPhotos) ? safeConfig.maxPhotos : null,
         adminWhatsapp: typeof safeConfig.adminWhatsapp === "string" ? safeConfig.adminWhatsapp : "",
         gdriveLink: typeof safeConfig.gdriveLink === "string" ? safeConfig.gdriveLink : "",
         detectSubfolders: Boolean(safeConfig.detectSubfolders),

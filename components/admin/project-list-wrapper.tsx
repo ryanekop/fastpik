@@ -200,7 +200,7 @@ export function ProjectListWrapper({ initialProjects, initialFolders }: ProjectL
 
     // Count active selections (in_progress)
     const activeSelections = projects.filter(p =>
-        p.selectionStatus === 'in_progress' && p.projectType !== 'print' && (p.extraEnabled || (p.lockedPhotos || []).length === 0)
+        p.selectionEnabled !== false && p.selectionStatus === 'in_progress' && p.projectType !== 'print' && (p.extraEnabled || (p.lockedPhotos || []).length === 0)
     ).length
 
     const isLegacyExtraProject = (p: Project) => !p.extraEnabled && p.projectType !== 'print' && (p.lockedPhotos || []).length > 0
